@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "CareConnect",
+    "slug": "careconnect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.careconnect.app"
+    },
+    "android": {
+      "package": "com.careconnect.app"
+    },
+    "web": {},
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}
