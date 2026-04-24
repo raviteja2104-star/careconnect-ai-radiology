@@ -2,7 +2,7 @@ const express = require('express');
 const {
     getPatients,
     getPatientHistory,
-    getDoctorConsultations,
+    getConsultations,
     updateConsultation,
     requestScan,
     viewScanReport,
@@ -17,7 +17,7 @@ router.use(authorize('doctor'));
 
 router.get('/patients', getPatients);
 router.get('/patients/:patientId/history', getPatientHistory);
-router.get('/consultations', getDoctorConsultations);
+router.get('/consultations', getConsultations);
 router.put('/consultations/:id', updateConsultation);
 router.post('/request-scan', requestScan);
 router.get('/scans/:id', viewScanReport);
