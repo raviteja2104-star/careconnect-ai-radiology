@@ -12,7 +12,17 @@
     "android": {
       "package": "com.careconnect.app"
     },
-    "web": {},
+    "web": {
+      "bundler": "metro",
+      "template": "./web/index.html",
+      "viewport": {
+        "width": 393,
+        "initialScale": 1,
+        "maximumScale": 1
+      },
+      "backgroundColor": "#0A1628",
+      "themeColor": "#00BFA6"
+    },
     "plugins": [
       "expo-asset",
       "expo-font"

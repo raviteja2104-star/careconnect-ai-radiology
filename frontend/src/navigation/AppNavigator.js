@@ -15,6 +15,8 @@ import RadiologistDashboardScreen from '../screens/RadiologistDashboardScreen';
 import ReportEditorScreen from '../screens/ReportEditorScreen';
 import MarketplaceScreen from '../screens/MarketplaceScreen';
 import WalletScreen from '../screens/WalletScreen';
+import ScanViewerScreen from '../screens/ScanViewerScreen';
+import ReportViewerScreen from '../screens/ReportViewerScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import { COLORS } from '../utils/theme';
 
@@ -130,6 +132,8 @@ const AppNavigator = () => (
             <Stack.Screen name="Analytics" component={AnalyticsScreen} />
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
+            <Stack.Screen name="ScanViewer" component={ScanViewerScreen} />
+            <Stack.Screen name="ReportViewer" component={ReportViewerScreen} />
 
             {/* Stubs — replace with proper screens when ready */}
             <Stack.Screen name="DoctorList" component={PatientHomeScreen} />
