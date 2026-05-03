@@ -20,6 +20,7 @@ import ReportViewerScreen from '../screens/ReportViewerScreen';
 import DiagnosticCenterScreen from '../screens/DiagnosticCenterScreen';
 import WorklistScreen from '../screens/WorklistScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import TeleradiologyScreen from '../screens/TeleradiologyScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -93,8 +94,8 @@ const RadiologistTabs = () => (
         tabBarIcon: ({ color }) => {
             const icons = {
                 Worklist: 'list',
+                Teleradiology: 'radio',
                 Upload: 'cloud-upload',
-                Marketplace: 'storefront',
                 Analytics: 'bar-chart',
                 Wallet: 'wallet',
             };
@@ -102,8 +103,8 @@ const RadiologistTabs = () => (
         },
     })}>
         <Tab.Screen name="Worklist" component={WorklistScreen} />
+        <Tab.Screen name="Teleradiology" component={TeleradiologyScreen} />
         <Tab.Screen name="Upload" component={DiagnosticCenterScreen} />
-        <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
         <Tab.Screen name="Analytics" component={AnalyticsScreen} />
         <Tab.Screen name="Wallet" component={WalletScreen} />
     </Tab.Navigator>
@@ -140,6 +141,7 @@ const AppNavigator = () => (
             <Stack.Screen name="ReportViewer" component={ReportViewerScreen} />
             <Stack.Screen name="DiagnosticCenter" component={DiagnosticCenterScreen} />
             <Stack.Screen name="Worklist" component={WorklistScreen} />
+            <Stack.Screen name="Teleradiology" component={TeleradiologyScreen} />
 
             {/* Stubs — replace with proper screens when ready */}
             <Stack.Screen name="DoctorList" component={PatientHomeScreen} />
