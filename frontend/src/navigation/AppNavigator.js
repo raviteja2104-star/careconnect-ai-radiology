@@ -21,6 +21,8 @@ import DiagnosticCenterScreen from '../screens/DiagnosticCenterScreen';
 import WorklistScreen from '../screens/WorklistScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import TeleradiologyScreen from '../screens/TeleradiologyScreen';
+import VideoConsultationScreen from '../screens/VideoConsultationScreen';
+import PharmacyScreen from '../screens/PharmacyScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -142,6 +144,8 @@ const AppNavigator = () => (
             <Stack.Screen name="DiagnosticCenter" component={DiagnosticCenterScreen} />
             <Stack.Screen name="Worklist" component={WorklistScreen} />
             <Stack.Screen name="Teleradiology" component={TeleradiologyScreen} />
+            <Stack.Screen name="VideoConsultation" component={VideoConsultationScreen} />
+            <Stack.Screen name="Pharmacy" component={PharmacyScreen} />
 
             {/* Deep-link / detail screens */}
             <Stack.Screen name="ScanDetail" component={ScanViewerScreen} />

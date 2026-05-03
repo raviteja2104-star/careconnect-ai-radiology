@@ -22,6 +22,9 @@ const marketplaceRoutes = require('./routes/marketplaceRoutes');
 const teleradiologyRoutes = require('./routes/teleradiologyRoutes');
 const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const abdmRoutes = require('./routes/abdmRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -79,6 +82,9 @@ app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/teleradiology', teleradiologyRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/abdm', abdmRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // AI proxy route (forwards to Python AI service)
 app.post('/api/ai/analyze-scan', async (req, res) => {
