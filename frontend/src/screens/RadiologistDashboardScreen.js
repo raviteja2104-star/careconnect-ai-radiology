@@ -32,7 +32,14 @@ const RadiologistDashboardScreen = ({ navigation }) => {
         <View style={s.container}>
             <View style={s.header}>
                 <Text style={s.title}>Radiologist Panel</Text>
-                <TouchableOpacity style={s.iconBtn}><Ionicons name="stats-chart" size={20} color="#fff" /></TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={s.iconBtn} onPress={() => navigation.navigate('Worklist')}>
+                        <Ionicons name="list" size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.iconBtn} onPress={() => navigation.navigate('Analytics')}>
+                        <Ionicons name="stats-chart" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
             </View>
             <FlatList horizontal data={filters} keyExtractor={i => i} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, gap: 8, marginBottom: 16 }}
                 renderItem={({ item }) => (
@@ -43,7 +50,8 @@ const RadiologistDashboardScreen = ({ navigation }) => {
             />
             <FlatList data={scans} keyExtractor={i => i._id} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
                 renderItem={({ item }) => (
-                    <TouchableOpacity style={[s.card, item.priority === 'emergency' && { borderColor: COLORS.danger }]} onPress={() => navigation.navigate('ReportEditor', { scan: item })}>
+                    <TouchableOpacity style={[s.card, item.priority === 'emergency' && { borderColor: COLORS.danger }]}
+                        onPress={() => navigation.navigate('ScanViewer', { scan: item })}> 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                                 <Text style={s.scanType}>{item.scanType}</Text>

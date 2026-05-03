@@ -174,12 +174,12 @@ const DoctorDashboardScreen = ({ navigation, route }) => {
                             </View>
                             <View style={{ gap: 10 }}>
                                 {[
-                                    { icon: 'videocam', label: 'Start Consultation', color: COLORS.primary },
-                                    { icon: 'document-text', label: 'View Reports & Scans', color: COLORS.success },
-                                    { icon: 'create', label: 'Write Prescription', color: COLORS.warning },
-                                    { icon: 'people', label: 'Request Second Opinion', color: COLORS.secondary },
+                                    { icon: 'videocam', label: 'Start Consultation', color: COLORS.primary, screen: 'SymptomChecker' },
+                                    { icon: 'document-text', label: 'View Reports & Scans', color: COLORS.success, screen: 'ReportViewer' },
+                                    { icon: 'create', label: 'Write Prescription', color: COLORS.warning, screen: 'ReportEditor' },
+                                    { icon: 'people', label: 'Request Second Opinion', color: COLORS.secondary, screen: 'Marketplace' },
                                 ].map((a, i) => (
-                                    <TouchableOpacity key={i} style={dds.modAction} onPress={() => setPatientModal(null)}>
+                                    <TouchableOpacity key={i} style={dds.modAction} onPress={() => { setPatientModal(null); navigation.navigate(a.screen, { patient: patientModal }); }}>
                                         <Ionicons name={a.icon} size={18} color={a.color} />
                                         <Text style={[dds.modActionTxt, { color: a.color }]}>{a.label}</Text>
                                         <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} style={{ marginLeft: 'auto' }} />

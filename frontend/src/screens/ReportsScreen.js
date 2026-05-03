@@ -31,7 +31,7 @@ const ReportsScreen = ({ navigation }) => {
     const getRiskColor = (r) => ({ low: COLORS.success, medium: COLORS.warning, high: COLORS.danger, critical: '#D32F2F' }[r] || COLORS.textMuted);
 
     const renderScan = ({ item }) => (
-        <TouchableOpacity style={st.card} onPress={() => navigation.navigate('ScanDetail', { scan: item })}>
+        <TouchableOpacity style={st.card} onPress={() => navigation.navigate('ScanViewer', { scan: item })}>
             <View style={st.cardHeader}>
                 <View style={[st.typeBadge, { backgroundColor: item.scanType === 'CT' ? '#AB47BC20' : item.scanType === 'MRI' ? '#26A69A20' : '#42A5F520' }]}>
                     <Text style={[st.typeText, { color: item.scanType === 'CT' ? '#AB47BC' : item.scanType === 'MRI' ? '#26A69A' : '#42A5F5' }]}>{item.scanType}</Text>

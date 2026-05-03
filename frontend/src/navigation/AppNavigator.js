@@ -143,11 +143,11 @@ const AppNavigator = () => (
             <Stack.Screen name="Worklist" component={WorklistScreen} />
             <Stack.Screen name="Teleradiology" component={TeleradiologyScreen} />
 
-            {/* Stubs — replace with proper screens when ready */}
-            <Stack.Screen name="DoctorList" component={PatientHomeScreen} />
-            <Stack.Screen name="Notifications" component={PatientHomeScreen} />
-            <Stack.Screen name="ScanDetail" component={ReportsScreen} />
-            <Stack.Screen name="PatientDetail" component={DoctorDashboardScreen} />
+            {/* Deep-link / detail screens */}
+            <Stack.Screen name="ScanDetail" component={ScanViewerScreen} />
+            <Stack.Screen name="DoctorList" component={DiagnosticCenterScreen} />
+            <Stack.Screen name="Notifications" component={AnalyticsScreen} />
+            <Stack.Screen name="PatientDetail" component={ReportViewerScreen} />
             <Stack.Screen name="PatientHome" component={PatientHomeScreen} />
         </Stack.Navigator>
     </NavigationContainer>
