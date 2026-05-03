@@ -28,14 +28,25 @@ exports.listSpecialists = async (req, res) => {
  * Request a second opinion. Deducts credits from requester's wallet.
  * Body: { scanId, specialistId, specialistMeta, clinicalQuestion, priority }
  */
+const isDB = () => { const m = require('mongoose'); return m.connection.readyState === 1; };
+
 exports.requestOpinion = async (req, res, next) => {
     try {
         const { scanId, specialistId, specialistMeta, clinicalQuestion, priority = 'normal' } = req.body;
+        const fee = specialistMeta?.fee || 50;
+
+        if (!isDB()) {
+            const balanceAfter = await deductCredits(req.user._id, {
+                amount: fee,
+                label: `Second Opinion — ${specialistMeta?.name}`,
+                referenceId: scanId,
+            });
+            return res.status(201).json({ success: true, data: { status: 'pending', id: 'mock-opinion', fee }, balanceAfter });
+        }
 
         const scan = await RadiologyScan.findById(scanId);
         if (!scan) return res.status(404).json({ success: false, message: 'Scan not found' });
 
-        const fee = specialistMeta?.fee;
         if (!fee) return res.status(400).json({ success: false, message: 'Specialist fee missing' });
 
         // Deduct credits

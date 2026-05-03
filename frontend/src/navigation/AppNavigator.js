@@ -93,6 +93,7 @@ const RadiologistTabs = () => (
         tabBarIcon: ({ color }) => {
             const icons = {
                 Worklist: 'list',
+                Upload: 'cloud-upload',
                 Marketplace: 'storefront',
                 Analytics: 'bar-chart',
                 Wallet: 'wallet',
@@ -100,7 +101,8 @@ const RadiologistTabs = () => (
             return <Ionicons name={icons[route.name] || 'list'} size={22} color={color} />;
         },
     })}>
-        <Tab.Screen name="Worklist" component={RadiologistDashboardScreen} />
+        <Tab.Screen name="Worklist" component={WorklistScreen} />
+        <Tab.Screen name="Upload" component={DiagnosticCenterScreen} />
         <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
         <Tab.Screen name="Analytics" component={AnalyticsScreen} />
         <Tab.Screen name="Wallet" component={WalletScreen} />

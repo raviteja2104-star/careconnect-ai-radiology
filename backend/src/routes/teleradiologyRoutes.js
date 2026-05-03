@@ -103,7 +103,7 @@ router.put('/worklist/:id/assign', protect, authorize('admin', 'radiologist'), a
 });
 
 // ── PUT /worklist/:id/report  — submit radiologist report ────────────────────
-router.put('/worklist/:id/report', protect, authorize('radiologist'), async (req, res, next) => {
+router.put('/worklist/:id/report', protect, authorize('radiologist', 'doctor', 'admin'), async (req, res, next) => {
     try {
         const { findings, impression, recommendations, riskLevel, notes, action } = req.body;
         if (!isDB()) return res.json({ success: true, message: `Report ${action}d (demo).`, data: { status: action === 'approve' ? 'approved' : 'rejected', findings, impression } });
