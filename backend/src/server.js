@@ -48,8 +48,16 @@ app.set('io', io);
 // Connect to Database
 connectDB();
 
-// Middleware
-app.use(helmet({ crossOriginResourcePolicy: false }));
+// OHIF routes must be mounted BEFORE helmet so our custom CSP headers
+// are not overwritten by helmet's restrictive content-security-policy.
+app.use('/ohif', ohifRoutes);
+
+// Middleware — skip helmet CSP for /ohif paths (already handled above).
+// NOTE: req.path is '/' inside sub-routers, so we check req.originalUrl here.
+app.use((req, res, next) => {
+    if (req.originalUrl.startsWith('/ohif')) return next();
+    helmet({ crossOriginResourcePolicy: false })(req, res, next);
+});
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '50mb' }));
@@ -89,8 +97,7 @@ app.use('/api/abdm', abdmRoutes);
 app.use('/api/notifications', notificationRoutes);
 // DICOMweb server — OHIF compatible (QIDO-RS / WADO-RS / WADO-URI / STOW-RS)
 app.use('/api/dicomweb', dicomwebRoutes);
-// OHIF Viewer shell + config
-app.use('/ohif', ohifRoutes);
+// NOTE: /ohif is mounted before helmet — see top of file
 
 // AI proxy route (forwards to Python AI service)
 app.post('/api/ai/analyze-scan', async (req, res) => {
