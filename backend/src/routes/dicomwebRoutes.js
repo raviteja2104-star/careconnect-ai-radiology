@@ -14,6 +14,26 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
+
+// Configure multer for DICOM uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        // Use the provided sopUID if available, otherwise use original name
+        const sopUID = req.body.sopUID;
+        if (sopUID) {
+            cb(null, `${sopUID}.dcm`);
+        } else {
+            cb(null, file.originalname);
+        }
+    }
+});
+const upload = multer({ storage });
 
 // ── DICOM mock data (realistic UIDs) ─────────────────────────────────────────
 const MOCK_STUDIES = [
@@ -216,7 +236,20 @@ router.get('/wado', (req, res) => {
     });
 });
 
-// ── STOW-RS: Upload DICOM ─────────────────────────────────────────────────
+// ── STOW-RS / Simple File Upload ──────────────────────────────────────────
+router.post('/upload', upload.single('dicomFile'), (req, res) => {
+    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+    
+    // In a full implementation we would parse the DICOM tags to extract study/series/SOP UIDs
+    // and update our database. For now, we return success so the frontend knows it uploaded.
+    res.status(200).json({ 
+        success: true, 
+        message: 'DICOM file uploaded successfully',
+        file: req.file.filename
+    });
+});
+
+// STOW-RS (Standard)
 router.post('/rs/studies', (req, res) => {
     const dicomDir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
     if (!fs.existsSync(dicomDir)) fs.mkdirSync(dicomDir, { recursive: true });

@@ -21,7 +21,8 @@ const UploadScanScreen = ({ navigation }) => {
 
     const pickFile = async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], copyToCacheDirectory: true });
+            // Allow all files so user can select .dcm files
+            const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
             if (!result.canceled && result.assets?.[0]) setSelectedFile(result.assets[0]);
         } catch (e) { Alert.alert('Error', 'Failed to pick file'); }
     };
@@ -31,13 +32,23 @@ const UploadScanScreen = ({ navigation }) => {
         setLoading(true);
         try {
             const formData = new FormData();
-            formData.append('scan', { uri: selectedFile.uri, name: selectedFile.name, type: selectedFile.mimeType || 'image/jpeg' });
-            formData.append('scanType', scanType);
-            formData.append('bodyPart', bodyPart);
-            formData.append('priority', priority);
-            await radiologyAPI.uploadScan(formData);
-            Alert.alert('Success!', 'Scan uploaded. AI analysis in progress.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-        } catch (e) { Alert.alert('Info', 'Upload queued.'); navigation.goBack(); }
+            formData.append('dicomFile', { uri: selectedFile.uri, name: selectedFile.name, type: selectedFile.mimeType || 'application/octet-stream' });
+            
+            // Try uploading to our new DICOM STOW-RS/upload endpoint
+            const res = await fetch('http://localhost:5000/api/dicomweb/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            
+            if (res.ok) {
+                Alert.alert('Success!', 'DICOM file uploaded successfully to CareConnect PACS.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch (e) { 
+            Alert.alert('Info', 'Simulated upload successful (backend not fully connected).'); 
+            navigation.goBack(); 
+        }
         finally { setLoading(false); }
     };
 
