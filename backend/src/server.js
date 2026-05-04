@@ -27,6 +27,7 @@ const abdmRoutes = require('./routes/abdmRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const dicomwebRoutes = require('./routes/dicomwebRoutes');
 const ohifRoutes = require('./routes/ohifRoutes');
+const viewerRoutes = require('./routes/viewerRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,14 +49,14 @@ app.set('io', io);
 // Connect to Database
 connectDB();
 
-// OHIF routes must be mounted BEFORE helmet so our custom CSP headers
-// are not overwritten by helmet's restrictive content-security-policy.
+// Mount viewer routes BEFORE helmet to preserve custom CSP
+app.use('/viewer', viewerRoutes);
 app.use('/ohif', ohifRoutes);
 
 // Middleware — skip helmet CSP for /ohif paths (already handled above).
 // NOTE: req.path is '/' inside sub-routers, so we check req.originalUrl here.
 app.use((req, res, next) => {
-    if (req.originalUrl.startsWith('/ohif')) return next();
+    if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) return next();
     helmet({ crossOriginResourcePolicy: false })(req, res, next);
 });
 app.use(cors());

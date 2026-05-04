@@ -47,19 +47,19 @@ const WINDOWS = [
 const RC = r => ({ low: COLORS.success, medium: COLORS.warning, high: COLORS.danger, critical: '#D32F2F' }[r] || COLORS.textMuted);
 
 // ─── Web-only OHIF iframe wrapper ──────────────────────────────────────────
-const OHIFFrame = ({ studyUID, onClose }) => {
+const OHIFFrame = ({ studyUID, ai, scan }) => {
     const [loading, setLoading] = useState(true);
-    const [backendUp, setBackendUp] = useState(null);
+    const iframeRef = React.useRef(null);
 
-    useEffect(() => {
-        fetch(`${BACKEND}/api/dicomweb/health`)
-            .then(r => r.json())
-            .then(() => setBackendUp(true))
-            .catch(() => setBackendUp(false));
-    }, []);
+    const viewerUrl = `${BACKEND}/viewer${studyUID ? `?studyUID=${studyUID}` : ''}`;
 
-    // OHIF public viewer pre-configured with our DICOMweb URL params
-    const ohifUrl = `http://localhost:5000/ohif${studyUID ? `?StudyInstanceUIDs=${studyUID}` : ''}`;
+    // Send AI data to viewer via postMessage once loaded
+    const onLoad = () => {
+        setLoading(false);
+        try {
+            iframeRef.current?.contentWindow?.postMessage({ type: 'aiData', ai }, '*');
+        } catch (_) {}
+    };
 
     return (
         <View style={{ flex: 1, position: 'relative' }}>
@@ -68,34 +68,21 @@ const OHIFFrame = ({ studyUID, onClose }) => {
                     <View style={s.ohifBrand}>
                         <View style={s.ohifIcon}><Text style={{ fontSize: 22, color: '#0A1628', fontWeight: '700' }}>✚</Text></View>
                         <View>
-                            <Text style={{ color: '#00E5A0', fontWeight: '700', fontSize: 16 }}>OHIF Viewer</Text>
-                            <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>Open Health Imaging Foundation</Text>
+                            <Text style={{ color: '#00E5A0', fontWeight: '700', fontSize: 16 }}>CareConnect Radiology</Text>
+                            <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>Connecting to DICOMweb…</Text>
                         </View>
                     </View>
                     <ActivityIndicator size="large" color={COLORS.primary} />
-                    <Text style={s.loadTxt}>Connecting to DICOMweb server…</Text>
-                    {backendUp === false && (
-                        <Text style={{ color: COLORS.warning, fontSize: 12, textAlign: 'center', maxWidth: 280 }}>
-                            ⚠️ Backend offline. Start with:{'\n'}node backend/src/server.js
-                        </Text>
-                    )}
-                    {backendUp === true && (
-                        <Text style={{ color: COLORS.success, fontSize: 12 }}>✅ DICOMweb backend connected</Text>
-                    )}
                 </View>
             )}
-            {/* OHIF embedded via iframe — only works on web */}
             {Platform.OS === 'web' && (
                 <iframe
-                    src={ohifUrl}
-                    style={{
-                        width: '100%', height: '100%', border: 'none',
-                        backgroundColor: '#0A1628',
-                    }}
-                    allow="fullscreen; camera; microphone"
-                    onLoad={() => setLoading(false)}
-                    onError={() => setLoading(false)}
-                    title="OHIF DICOM Viewer"
+                    ref={iframeRef}
+                    src={viewerUrl}
+                    style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#050d1a' }}
+                    allow="fullscreen"
+                    onLoad={onLoad}
+                    title="CareConnect DICOM Viewer"
                 />
             )}
         </View>
