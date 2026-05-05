@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { generateToken } = require('../middleware/auth');
+const connectDB = require('../config/database');
 
 // ─── Demo users for when MongoDB is unavailable ──────────────────────────────
 const DEMO_USERS = [
@@ -24,6 +25,7 @@ const isDBConnected = () => {
 // @route   POST /api/auth/register
 const register = async (req, res, next) => {
     try {
+        await connectDB(); // Ensure DB is connected (critical for Vercel serverless)
         const { firstName, lastName, email, password, phone, role, ...rest } = req.body;
 
         if (!isDBConnected()) {
@@ -52,6 +54,7 @@ const register = async (req, res, next) => {
 // @route   POST /api/auth/login
 const login = async (req, res, next) => {
     try {
+        await connectDB(); // Ensure DB is connected (critical for Vercel serverless)
         const { email, password } = req.body;
 
         if (!email || !password) {
