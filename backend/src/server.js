@@ -5,11 +5,9 @@ const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const path = require('path');
-const { Server } = require('socket.io');
 
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
-const { setupWebSocket } = require('./websocket/socketHandler');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -30,21 +28,6 @@ const ohifRoutes = require('./routes/ohifRoutes');
 const viewerRoutes = require('./routes/viewerRoutes');
 
 const app = express();
-const server = http.createServer(app);
-
-// Socket.IO setup
-const io = new Server(server, {
-    cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
-    },
-});
-
-// Setup WebSocket handlers
-setupWebSocket(io);
-
-// Make io accessible to routes
-app.set('io', io);
 
 // Connect to Database
 connectDB();
@@ -54,7 +37,6 @@ app.use('/viewer', viewerRoutes);
 app.use('/ohif', ohifRoutes);
 
 // Middleware — skip helmet CSP for /ohif paths (already handled above).
-// NOTE: req.path is '/' inside sub-routers, so we check req.originalUrl here.
 app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) return next();
     helmet({ crossOriginResourcePolicy: false })(req, res, next);
@@ -74,9 +56,9 @@ app.get('/api/health', (req, res) => {
         message: 'CareConnect API is running',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
         services: {
             database: 'connected',
-            websocket: 'active',
             ai: process.env.AI_SERVICE_URL || 'http://localhost:8000',
         },
     });
@@ -96,11 +78,9 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/abdm', abdmRoutes);
 app.use('/api/notifications', notificationRoutes);
-// DICOMweb server — OHIF compatible (QIDO-RS / WADO-RS / WADO-URI / STOW-RS)
 app.use('/api/dicomweb', dicomwebRoutes);
-// NOTE: /ohif is mounted before helmet — see top of file
 
-// AI proxy route (forwards to Python AI service)
+// AI proxy route
 app.post('/api/ai/analyze-scan', async (req, res) => {
     try {
         const axios = require('axios');
@@ -127,10 +107,18 @@ app.use('*', (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+// ─── Local dev: start HTTP server with WebSocket support ────────────────────
+if (process.env.NODE_ENV !== 'production') {
+    const { Server } = require('socket.io');
+    const server = http.createServer(app);
+    const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+    const { setupWebSocket } = require('./websocket/socketHandler');
+    setupWebSocket(io);
+    app.set('io', io);
 
-server.listen(PORT, () => {
-    console.log(`
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+        console.log(`
 ╔══════════════════════════════════════════════════╗
 ║                                                  ║
 ║   🏥 CareConnect Healthcare Platform API         ║
@@ -153,6 +141,9 @@ server.listen(PORT, () => {
 ║                                                  ║
 ╚══════════════════════════════════════════════════╝
   `);
-});
+    });
+}
 
-module.exports = { app, server, io };
+// ─── Vercel serverless export ────────────────────────────────────────────────
+module.exports = app;
+
