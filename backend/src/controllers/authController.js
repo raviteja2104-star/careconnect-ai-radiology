@@ -1,6 +1,16 @@
 const User = require('../models/User');
 const { generateToken } = require('../middleware/auth');
 const connectDB = require('../config/database');
+const mongoose = require('mongoose');
+
+// Helper: wait for DB to be ready (handles Vercel serverless cold starts)
+const waitForDB = async (maxMs = 12000) => {
+    await connectDB();
+    const start = Date.now();
+    while (mongoose.connection.readyState !== 1 && Date.now() - start < maxMs) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+};
 
 // ─── Demo users for when MongoDB is unavailable ──────────────────────────────
 const DEMO_USERS = [
@@ -25,7 +35,7 @@ const isDBConnected = () => {
 // @route   POST /api/auth/register
 const register = async (req, res, next) => {
     try {
-        await connectDB(); // Ensure DB is connected (critical for Vercel serverless)
+        await waitForDB(); // Ensure DB is connected (handles Vercel cold starts)
         const { firstName, lastName, email, password, phone, role, ...rest } = req.body;
 
         if (!isDBConnected()) {
@@ -54,7 +64,7 @@ const register = async (req, res, next) => {
 // @route   POST /api/auth/login
 const login = async (req, res, next) => {
     try {
-        await connectDB(); // Ensure DB is connected (critical for Vercel serverless)
+        await waitForDB(); // Ensure DB is connected (handles Vercel cold starts)
         const { email, password } = req.body;
 
         if (!email || !password) {
