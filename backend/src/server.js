@@ -27,6 +27,10 @@ const dicomwebRoutes = require('./routes/dicomwebRoutes');
 const ohifRoutes = require('./routes/ohifRoutes');
 const viewerRoutes = require('./routes/viewerRoutes');
 
+// Initialize Event-Driven Architecture (Orchestrators)
+require('./services/EventBus');
+require('./services/AIDecisionEngine');
+require('./services/EmergencyOrchestrator');
 const app = express();
 
 // Connect to Database

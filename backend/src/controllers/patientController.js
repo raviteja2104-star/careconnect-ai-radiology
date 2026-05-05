@@ -3,6 +3,8 @@ const User = require('../models/User');
 const RadiologyScan = require('../models/RadiologyScan');
 const Notification = require('../models/Notification');
 const axios = require('axios');
+const { emitEvent } = require('../services/EventBus');
+const EVENTS = require('../config/events');
 
 const isDBConnected = () => {
     const mongoose = require('mongoose');
@@ -56,6 +58,19 @@ const checkSymptoms = async (req, res, next) => {
         } catch (aiError) {
             aiAnalysis = generateMockSymptomAnalysis(symptoms, severity);
         }
+
+        // Map urgency to a numerical risk score for the Decision Engine
+        let riskScore = 30; // low
+        if (aiAnalysis.urgencyLevel === 'medium') riskScore = 65;
+        if (aiAnalysis.urgencyLevel === 'high') riskScore = 95;
+
+        // EMIT EVENT TO ORCHESTRATOR
+        emitEvent(EVENTS.AI_SYMPTOM_EVALUATED, {
+            patientId: req.user._id,
+            symptoms,
+            riskScore,
+            aiAnalysis
+        }, { origin: 'patientController' });
 
         res.json({ success: true, message: 'Symptom analysis completed.', data: aiAnalysis });
     } catch (error) {

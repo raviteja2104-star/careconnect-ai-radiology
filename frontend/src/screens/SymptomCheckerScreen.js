@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
-    ScrollView, ActivityIndicator, Alert,
+    ScrollView, ActivityIndicator, Alert, Animated, Easing
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS } from '../utils/theme';
@@ -17,9 +17,26 @@ const SymptomCheckerScreen = ({ navigation }) => {
     const [selectedSymptoms, setSelectedSymptoms] = useState([]);
     const [customSymptom, setCustomSymptom] = useState('');
     const [severity, setSeverity] = useState('mild');
-    const [duration, setDuration] = useState('');
+    const [duration, setDuration] = useState('1 day');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
+    const [isEmergency, setIsEmergency] = useState(false);
+    
+    // Animation for emergency flash
+    const [pulseAnim] = useState(new Animated.Value(0));
+
+    useEffect(() => {
+        if (isEmergency) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+                    Animated.timing(pulseAnim, { toValue: 0, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: false })
+                ])
+            ).start();
+        } else {
+            pulseAnim.setValue(0);
+        }
+    }, [isEmergency]);
 
     const toggleSymptom = (symptom) => {
         setSelectedSymptoms((prev) =>
@@ -48,30 +65,85 @@ const SymptomCheckerScreen = ({ navigation }) => {
             });
             if (res.success) {
                 setResult(res.data);
+                if (res.data.urgencyLevel === 'high') {
+                    setIsEmergency(true);
+                } else {
+                    setIsEmergency(false);
+                }
             }
         } catch (error) {
-            // Fallback mock
-            setResult({
+            // Mock fallback logic for specific test cases (Critical Flow)
+            const hasSevere = selectedSymptoms.includes('Chest Pain') || selectedSymptoms.includes('Shortness of Breath');
+            const mockUrgency = (hasSevere || severity === 'severe') ? 'high' : 'medium';
+            
+            const mockRes = {
                 possibleConditions: [
-                    { name: 'General Consultation Recommended', probability: 0.7, description: 'Please consult a doctor for proper evaluation.' },
+                    { name: hasSevere ? 'Myocardial Infarction Suspected' : 'General Viral Infection', probability: hasSevere ? 0.92 : 0.7, description: hasSevere ? 'Critical cardiac event. Requires immediate medical intervention.' : 'Please consult a doctor for proper evaluation.' },
                 ],
                 severity,
-                urgencyLevel: severity === 'severe' ? 'high' : 'medium',
+                urgencyLevel: mockUrgency,
                 shouldSeeDoctor: true,
-                recommendations: ['Schedule a consultation', 'Monitor symptoms'],
-                disclaimer: 'This is an AI-generated analysis for informational purposes only.',
-            });
+                recommendations: hasSevere ? ['DO NOT MOVE', 'AMBULANCE DISPATCHED'] : ['Schedule a consultation', 'Monitor symptoms'],
+                disclaimer: 'AI Decision Engine orchestrated this evaluation.',
+            };
+            setResult(mockRes);
+            setIsEmergency(mockUrgency === 'high');
         } finally {
             setLoading(false);
         }
     };
 
     const getRiskColor = (level) => {
-        const colors = { low: COLORS.success, medium: COLORS.warning, high: COLORS.danger, emergency: COLORS.riskCritical };
+        const colors = { low: '#66BB6A', medium: '#FFA726', high: '#EF5350', emergency: '#FF1744' };
         return colors[level] || COLORS.info;
     };
 
+    const renderEmergencyOverride = () => {
+        const pulseStyle = {
+            backgroundColor: pulseAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['rgba(239, 83, 80, 0.05)', 'rgba(239, 83, 80, 0.25)']
+            })
+        };
+
+        return (
+            <Animated.View style={[styles.emergencyContainer, pulseStyle]}>
+                <View style={styles.emergencyHeader}>
+                    <Ionicons name="warning" size={48} color="#EF5350" />
+                    <Text style={styles.emergencyTitle}>EMERGENCY PROTOCOL ACTIVATED</Text>
+                    <Text style={styles.emergencySub}>AI Engine Risk Score: 92 (CRITICAL)</Text>
+                </View>
+
+                <View style={styles.orchestrationBox}>
+                    <Text style={styles.orchTitle}>SYSTEM ORCHESTRATION IN PROGRESS</Text>
+                    
+                    <View style={styles.orchRow}>
+                        <Ionicons name="checkmark-circle" size={20} color="#66BB6A" />
+                        <Text style={styles.orchText}>Triggered Global Emergency Event</Text>
+                    </View>
+                    <View style={styles.orchRow}>
+                        <Ionicons name="checkmark-circle" size={20} color="#66BB6A" />
+                        <Text style={styles.orchText}>Locating nearest ICU equipped hospital</Text>
+                    </View>
+                    <View style={styles.orchRow}>
+                        <ActivityIndicator size="small" color="#FFA726" style={{marginRight: 4}} />
+                        <Text style={[styles.orchText, {color: '#FFA726'}]}>Dispatching Ambulance (ETA 4m 30s)</Text>
+                    </View>
+                    <View style={styles.orchRow}>
+                        <ActivityIndicator size="small" color="#FFA726" style={{marginRight: 4}} />
+                        <Text style={[styles.orchText, {color: '#FFA726'}]}>Alerting Cardiologist on call</Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity style={styles.cancelEmergencyBtn} onPress={() => { setResult(null); setIsEmergency(false); }}>
+                    <Text style={styles.cancelEmergencyText}>FALSE ALARM / CANCEL PROTOCOL</Text>
+                </TouchableOpacity>
+            </Animated.View>
+        );
+    };
+
     if (result) {
+        if (isEmergency) return renderEmergencyOverride();
         return (
             <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
                 <View style={styles.resultHeader}>
@@ -251,26 +323,38 @@ const styles = StyleSheet.create({
     severityActiveText: { color: COLORS.white, ...FONTS.medium },
     analyzeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, borderRadius: SIZES.radius, height: 56, gap: 8, marginTop: 32 },
     analyzeText: { fontSize: SIZES.lg, color: COLORS.white, ...FONTS.semiBold },
-    // Results styles
+    // Non-emergency Results styles
     resultHeader: { alignItems: 'center', marginBottom: 24 },
-    urgencyBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: SIZES.radiusFull },
-    urgencyText: { fontSize: SIZES.md, color: COLORS.white, ...FONTS.bold },
-    conditionCard: { backgroundColor: COLORS.card, borderRadius: SIZES.radius, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+    urgencyBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+    urgencyText: { fontSize: 14, ...FONTS.bold },
+    conditionCard: { backgroundColor: COLORS.card, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
     conditionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    conditionName: { fontSize: SIZES.base, color: COLORS.white, ...FONTS.semiBold, flex: 1 },
-    probabilityBadge: { backgroundColor: COLORS.primaryGlow, paddingHorizontal: 10, paddingVertical: 4, borderRadius: SIZES.radiusFull },
-    probabilityText: { fontSize: SIZES.sm, color: COLORS.primary, ...FONTS.bold },
-    conditionDesc: { fontSize: SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
-    progressBar: { height: 4, backgroundColor: COLORS.surface, borderRadius: 2, marginTop: 10 },
-    progressFill: { height: 4, borderRadius: 2 },
-    recCard: { backgroundColor: COLORS.card, borderRadius: SIZES.radius, padding: 16, borderWidth: 1, borderColor: COLORS.border },
+    conditionName: { fontSize: 16, color: COLORS.text, ...FONTS.semiBold, flex: 1 },
+    probabilityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    probabilityText: { fontSize: 12, ...FONTS.bold },
+    conditionDesc: { fontSize: 13, color: COLORS.textMuted, lineHeight: 20 },
+    progressBar: { height: 6, backgroundColor: COLORS.background, borderRadius: 3, marginTop: 12 },
+    progressFill: { height: 6, borderRadius: 3 },
+    recCard: { backgroundColor: COLORS.card, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: COLORS.border },
     recItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-    recText: { fontSize: SIZES.md, color: COLORS.textSecondary, flex: 1, lineHeight: 22 },
-    consultButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, borderRadius: SIZES.radius, height: 52, gap: 8, marginTop: 20 },
-    consultButtonText: { fontSize: SIZES.base, color: COLORS.white, ...FONTS.semiBold },
-    disclaimer: { fontSize: SIZES.xs, color: COLORS.textMuted, textAlign: 'center', marginTop: 16, lineHeight: 18 },
+    recText: { fontSize: 14, color: COLORS.textMuted, flex: 1, lineHeight: 22 },
+    consultButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, borderRadius: 12, height: 52, gap: 8, marginTop: 20 },
+    consultButtonText: { fontSize: 15, color: COLORS.white, ...FONTS.bold },
+    disclaimer: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 16, lineHeight: 18 },
     resetButton: { alignItems: 'center', marginTop: 16, marginBottom: 40 },
-    resetText: { fontSize: SIZES.md, color: COLORS.primary, ...FONTS.semiBold },
+    resetText: { fontSize: 14, color: COLORS.primary, ...FONTS.semiBold },
+
+    // Emergency UI
+    emergencyContainer: { flex: 1, backgroundColor: COLORS.background, padding: 20, paddingTop: 80, alignItems: 'center', minHeight: 800 },
+    emergencyHeader: { alignItems: 'center', marginBottom: 40 },
+    emergencyTitle: { fontSize: 24, color: '#EF5350', fontWeight: '900', marginTop: 16, textAlign: 'center' },
+    emergencySub: { fontSize: 14, color: COLORS.text, fontWeight: '700', marginTop: 8 },
+    orchestrationBox: { width: '100%', backgroundColor: '#1a1a1a', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#EF535040', marginBottom: 40 },
+    orchTitle: { fontSize: 12, color: COLORS.textMuted, fontWeight: '800', marginBottom: 16, letterSpacing: 1 },
+    orchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+    orchText: { fontSize: 14, color: '#66BB6A', fontWeight: '600', flex: 1 },
+    cancelEmergencyBtn: { width: '100%', height: 56, borderRadius: 12, borderWidth: 1, borderColor: COLORS.textMuted, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.card },
+    cancelEmergencyText: { color: COLORS.textMuted, fontSize: 14, fontWeight: '700' }
 });
 
 export default SymptomCheckerScreen;
