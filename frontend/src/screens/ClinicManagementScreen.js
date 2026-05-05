@@ -11,7 +11,7 @@ const MOCK_CLINICS = [
     { id: 'C-02', name: 'Sunrise Health Clinic', role: 'Evening Practice', isActive: false, appointmentsToday: 4 },
 ];
 
-const ClinicManagementScreen = () => {
+const ClinicManagementScreen = ({ navigation }) => {
     const [clinics, setClinics] = useState(MOCK_CLINICS);
     const [smartBillingEnabled, setSmartBillingEnabled] = useState(true);
 
@@ -109,7 +109,7 @@ const ClinicManagementScreen = () => {
                 </View>
 
                 {/* Quick Action */}
-                <TouchableOpacity style={s.prescriptionBtn}>
+                <TouchableOpacity style={s.prescriptionBtn} onPress={() => navigation.navigate('DigitalPrescription')}>
                     <Ionicons name="create" size={20} color="#fff" />
                     <Text style={s.prescriptionBtnText}>Write Digital Prescription</Text>
                 </TouchableOpacity>
