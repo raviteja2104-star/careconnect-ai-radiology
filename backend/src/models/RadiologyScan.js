@@ -41,6 +41,7 @@ const radiologyScanSchema = new mongoose.Schema(
         pacsId: {
             type: String,
             unique: true,
+            sparse: true,  // allows multiple null values
         },
         pacsPath: String,
         dicomMetadata: {
