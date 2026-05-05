@@ -1,282 +1,192 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, FlatList,
-    TextInput, ActivityIndicator, Modal, ScrollView, Image,
+    View, Text, TouchableOpacity, StyleSheet,
+    ScrollView, SafeAreaView, Image, TextInput, FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, FONTS } from '../utils/theme';
+import { COLORS, SIZES } from '../utils/theme';
 
-const SPECIALISTS = [
-    {
-        id: '1', name: 'Dr. Sarah Wilson', specialization: 'Neuroradiology',
-        rating: 4.9, reviews: 284, fee: 45, tat: '2–4 hrs',
-        badge: 'Top Rated', languages: ['English', 'Hindi'],
-        bio: '15 years experience in neurovascular imaging and brain tumor analysis.',
-        modalities: ['CT', 'MRI'], available: true, avatar: 'SW',
-    },
-    {
-        id: '2', name: 'Dr. James Chen', specialization: 'Cardiothoracic',
-        rating: 4.8, reviews: 192, fee: 60, tat: '1–3 hrs',
-        badge: 'Emergency', languages: ['English'],
-        bio: 'Expert in cardiac CT, pulmonary embolism and thoracic trauma imaging.',
-        modalities: ['CT', 'XRAY'], available: true, avatar: 'JC',
-    },
-    {
-        id: '3', name: 'Dr. Priya Verma', specialization: 'Musculoskeletal',
-        rating: 5.0, reviews: 319, fee: 35, tat: '4–6 hrs',
-        badge: 'Certified', languages: ['English', 'Telugu', 'Tamil'],
-        bio: 'Specialises in joint, sports and trauma MRI reporting across all age groups.',
-        modalities: ['MRI', 'XRAY'], available: true, avatar: 'PV',
-    },
-    {
-        id: '4', name: 'Dr. Arjun Mehta', specialization: 'Abdominal Radiology',
-        rating: 4.7, reviews: 148, fee: 50, tat: '3–5 hrs',
-        badge: 'Certified', languages: ['English', 'Hindi', 'Gujarati'],
-        bio: 'Focussed on liver, pancreas, and oncology CT/MRI interpretation.',
-        modalities: ['CT', 'MRI'], available: false, avatar: 'AM',
-    },
-    {
-        id: '5', name: 'Dr. Aiko Tanaka', specialization: 'Paediatric Radiology',
-        rating: 4.9, reviews: 207, fee: 55, tat: '2–4 hrs',
-        badge: 'Top Rated', languages: ['English', 'Japanese'],
-        bio: 'Specialist in paediatric CT, MRI and X-ray reporting. Low-dose protocol expert.',
-        modalities: ['CT', 'MRI', 'XRAY'], available: true, avatar: 'AT',
-    },
+const CATEGORIES = [
+    { id: '1', name: '2nd Opinion', icon: 'people' },
+    { id: '2', name: 'Health Packages', icon: 'medkit' },
+    { id: '3', name: 'Specialists', icon: 'stethoscope' },
+    { id: '4', name: 'Home Care', icon: 'home' },
 ];
 
-const SPECIALTIES = ['All', 'Neuro', 'Cardio', 'MSK', 'Abdominal', 'Paediatric', 'Emergency AI'];
+const DOCTORS = [
+    { id: 'D1', name: 'Dr. Anita Desai', spec: 'Senior Cardiologist', exp: '15+ Years Exp', rating: 4.9, img: 'https://randomuser.me/api/portraits/women/44.jpg', fee: 1500 },
+    { id: 'D2', name: 'Dr. Vikram Singh', spec: 'Neurologist', exp: '12+ Years Exp', rating: 4.8, img: 'https://randomuser.me/api/portraits/men/32.jpg', fee: 1800 },
+];
 
-const getBadgeColor = (badge) => ({
-    'Top Rated': '#FFB300',
-    'Emergency': COLORS.danger,
-    'Certified': COLORS.primary,
-}[badge] || COLORS.textMuted);
+const PACKAGES = [
+    { id: 'P1', name: 'Comprehensive Full Body Checkup', tests: 64, originalPrice: 4000, price: 1999, tag: 'Bestseller' },
+    { id: 'P2', name: 'Advanced Cardiac Risk Profile', tests: 18, originalPrice: 3500, price: 1499, tag: 'Trending' },
+];
 
 const MarketplaceScreen = ({ navigation }) => {
-    const [search, setSearch] = useState('');
-    const [activeSpecialty, setActiveSpecialty] = useState('All');
-    const [selected, setSelected] = useState(null);
-    const [requesting, setRequesting] = useState(false);
-    const [walletCredits] = useState(1250);
-
-    const filtered = SPECIALISTS.filter(d =>
-        (activeSpecialty === 'All' || d.specialization.toLowerCase().includes(activeSpecialty.toLowerCase())) &&
-        (d.name.toLowerCase().includes(search.toLowerCase()) || d.specialization.toLowerCase().includes(search.toLowerCase()))
-    );
-
-    const handleRequest = async () => {
-        setRequesting(true);
-        setTimeout(() => {
-            setRequesting(false);
-            setSelected(null);
-            navigation.navigate('PatientHome');
-        }, 2000);
-    };
-
-    const renderSpecialist = ({ item }) => (
-        <TouchableOpacity style={[s.card, !item.available && s.cardDisabled]} onPress={() => item.available && setSelected(item)}>
-            <View style={s.cardTop}>
-                <View style={[s.avatar, { backgroundColor: COLORS.primaryGlow }]}>
-                    <Text style={s.avatarTxt}>{item.avatar}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                    <View style={s.nameRow}>
-                        <Text style={s.name}>{item.name}</Text>
-                        {!item.available && <View style={s.unavailBadge}><Text style={s.unavailTxt}>Offline</Text></View>}
-                    </View>
-                    <Text style={s.spec}>{item.specialization}</Text>
-                    <View style={s.badgeRow}>
-                        <View style={[s.badge, { backgroundColor: getBadgeColor(item.badge) + '20' }]}>
-                            <Text style={[s.badgeTxt, { color: getBadgeColor(item.badge) }]}>{item.badge}</Text>
-                        </View>
-                        <View style={s.ratingRow}>
-                            <Ionicons name="star" size={11} color="#FFB300" />
-                            <Text style={s.rating}>{item.rating} ({item.reviews})</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
-
-            <Text style={s.bio} numberOfLines={2}>{item.bio}</Text>
-
-            <View style={s.cardBottom}>
-                <View style={s.modalRow}>
-                    {item.modalities.map(m => (
-                        <View key={m} style={s.modBadge}><Text style={s.modTxt}>{m}</Text></View>
-                    ))}
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={s.fee}>₹{item.fee} Credits</Text>
-                    <Text style={s.tat}>{item.tat} TAT</Text>
-                </View>
-            </View>
-
-            {item.available && (
-                <TouchableOpacity style={s.reqBtn} onPress={() => setSelected(item)}>
-                    <Ionicons name="paper-plane" size={14} color="#fff" />
-                    <Text style={s.reqTxt}>Request Opinion</Text>
-                </TouchableOpacity>
-            )}
-        </TouchableOpacity>
-    );
+    const [searchQuery, setSearchQuery] = useState('');
 
     return (
-        <View style={s.container}>
-            {/* Header */}
+        <SafeAreaView style={s.container}>
             <View style={s.header}>
                 <View>
-                    <Text style={s.title}>Marketplace</Text>
-                    <Text style={s.subtitle}>Verified Radiology Specialists</Text>
+                    <Text style={s.greeting}>CareConnect Marketplace</Text>
+                    <Text style={s.sub}>Find the best care, instantly.</Text>
                 </View>
-                <View style={s.walletBadge}>
-                    <Ionicons name="wallet" size={14} color={COLORS.primary} />
-                    <Text style={s.walletTxt}>₹{walletCredits.toLocaleString()}</Text>
-                </View>
+                <TouchableOpacity style={s.cartBtn}>
+                    <Ionicons name="cart-outline" size={24} color={COLORS.text} />
+                    <View style={s.cartBadge}><Text style={s.cartBadgeText}>2</Text></View>
+                </TouchableOpacity>
             </View>
 
-            {/* Search */}
-            <View style={s.searchBar}>
-                <Ionicons name="search" size={18} color={COLORS.textMuted} />
-                <TextInput
-                    style={s.searchInput}
-                    placeholder="Search specialist or condition..."
-                    placeholderTextColor={COLORS.textMuted}
-                    value={search}
-                    onChangeText={setSearch}
-                />
-            </View>
-
-            {/* Specialty Chips */}
-            <FlatList
-                horizontal data={SPECIALTIES} keyExtractor={i => i}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 24, gap: 8, marginBottom: 16 }}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={[s.chip, activeSpecialty === item && s.chipActive]}
-                        onPress={() => setActiveSpecialty(item)}
-                    >
-                        <Text style={[s.chipTxt, activeSpecialty === item && { color: '#fff' }]}>{item}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                
+                {/* Search */}
+                <View style={s.searchContainer}>
+                    <Ionicons name="search" size={20} color={COLORS.textMuted} />
+                    <TextInput 
+                        style={s.searchInput}
+                        placeholder="Search doctors, tests, packages..."
+                        placeholderTextColor={COLORS.textMuted}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    <TouchableOpacity style={s.filterBtn}>
+                        <Ionicons name="options" size={20} color="#fff" />
                     </TouchableOpacity>
-                )}
-            />
+                </View>
 
-            <FlatList
-                data={filtered}
-                keyExtractor={i => i.id}
-                contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 120 }}
-                renderItem={renderSpecialist}
-                ListEmptyComponent={<Text style={s.empty}>No specialists found</Text>}
-            />
-
-            {/* Second Opinion Modal */}
-            <Modal visible={!!selected} transparent animationType="slide">
-                <View style={s.modalOverlay}>
-                    <View style={s.modalCard}>
-                        <TouchableOpacity style={s.modalClose} onPress={() => setSelected(null)}>
-                            <Ionicons name="close" size={22} color={COLORS.textMuted} />
-                        </TouchableOpacity>
-
-                        <View style={[s.avatar, { alignSelf: 'center', marginBottom: 12, backgroundColor: COLORS.primaryGlow }]}>
-                            <Text style={[s.avatarTxt, { fontSize: 22 }]}>{selected?.avatar}</Text>
-                        </View>
-                        <Text style={[s.name, { textAlign: 'center', fontSize: 18 }]}>{selected?.name}</Text>
-                        <Text style={[s.spec, { textAlign: 'center', marginBottom: 20 }]}>{selected?.specialization}</Text>
-
-                        <View style={s.modalInfoRow}>
-                            <View style={s.modalInfoItem}>
-                                <Ionicons name="star" size={16} color="#FFB300" />
-                                <Text style={s.modalInfoVal}>{selected?.rating}</Text>
-                                <Text style={s.modalInfoLabel}>Rating</Text>
-                            </View>
-                            <View style={s.modalInfoItem}>
-                                <Ionicons name="timer" size={16} color={COLORS.primary} />
-                                <Text style={s.modalInfoVal}>{selected?.tat}</Text>
-                                <Text style={s.modalInfoLabel}>TAT</Text>
-                            </View>
-                            <View style={s.modalInfoItem}>
-                                <Ionicons name="wallet" size={16} color={COLORS.warning} />
-                                <Text style={[s.modalInfoVal, { color: COLORS.warning }]}>₹{selected?.fee}</Text>
-                                <Text style={s.modalInfoLabel}>Credits</Text>
-                            </View>
-                        </View>
-
-                        <View style={s.creditWarning}>
-                            <Ionicons name="information-circle" size={16} color={COLORS.primary} />
-                            <Text style={s.creditTxt}>
-                                ₹{selected?.fee} credits will be deducted from your wallet (Balance: ₹{walletCredits})
-                            </Text>
-                        </View>
-
-                        <TouchableOpacity
-                            style={[s.confirmBtn, requesting && { opacity: 0.7 }]}
-                            onPress={handleRequest}
-                            disabled={requesting}
-                        >
-                            {requesting
-                                ? <ActivityIndicator color="#fff" />
-                                : <>
-                                    <Ionicons name="paper-plane" size={18} color="#fff" />
-                                    <Text style={s.confirmTxt}>Confirm & Send Case</Text>
-                                </>
-                            }
+                {/* Promo Banner */}
+                <View style={s.promoBanner}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={s.promoTitle}>Get a 2nd Opinion from Top Global Experts</Text>
+                        <Text style={s.promoSub}>Upload your scans and get an AI + Expert review within 24hrs.</Text>
+                        <TouchableOpacity style={s.promoBtn}>
+                            <Text style={s.promoBtnText}>Book Now</Text>
                         </TouchableOpacity>
                     </View>
+                    <Ionicons name="earth" size={60} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', right: -10, bottom: -10 }} />
                 </View>
-            </Modal>
-        </View>
+
+                {/* Categories */}
+                <View style={s.categoriesContainer}>
+                    {CATEGORIES.map(cat => (
+                        <TouchableOpacity key={cat.id} style={s.catBox}>
+                            <View style={s.catIconBox}>
+                                <Ionicons name={cat.icon} size={24} color={COLORS.primary} />
+                            </View>
+                            <Text style={s.catText}>{cat.name}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* Top Specialists */}
+                <View style={s.sectionHeader}>
+                    <Text style={s.sectionTitle}>Top Specialists</Text>
+                    <TouchableOpacity><Text style={s.seeAll}>See All</Text></TouchableOpacity>
+                </View>
+                
+                <FlatList 
+                    data={DOCTORS}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
+                    renderItem={({ item }) => (
+                        <View style={s.docCard}>
+                            <Image source={{ uri: item.img }} style={s.docImg} />
+                            <View style={s.docInfo}>
+                                <Text style={s.docName}>{item.name}</Text>
+                                <Text style={s.docSpec}>{item.spec}</Text>
+                                <View style={s.docRow}>
+                                    <Ionicons name="star" size={12} color="#FFA726" />
+                                    <Text style={s.docRating}>{item.rating}</Text>
+                                    <Text style={s.docExp}> • {item.exp}</Text>
+                                </View>
+                                <TouchableOpacity style={s.bookDocBtn}>
+                                    <Text style={s.bookDocText}>Consult ₹{item.fee}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+                />
+
+                {/* Health Packages */}
+                <View style={s.sectionHeader}>
+                    <Text style={s.sectionTitle}>Curated Health Packages</Text>
+                    <TouchableOpacity><Text style={s.seeAll}>See All</Text></TouchableOpacity>
+                </View>
+
+                {PACKAGES.map(pkg => (
+                    <View key={pkg.id} style={s.pkgCard}>
+                        <View style={s.pkgTag}><Text style={s.pkgTagText}>{pkg.tag}</Text></View>
+                        <Text style={s.pkgName}>{pkg.name}</Text>
+                        <Text style={s.pkgTests}>Includes {pkg.tests} parameters</Text>
+                        <View style={s.pkgRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={s.pkgPrice}>₹{pkg.price}</Text>
+                                <Text style={s.pkgOriginal}>₹{pkg.originalPrice}</Text>
+                            </View>
+                            <TouchableOpacity style={s.addBtn}>
+                                <Text style={s.addBtnText}>Add to Cart</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ))}
+
+            </ScrollView>
+        </SafeAreaView>
     );
 };
 
 const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 24, paddingTop: 60 },
-    title: { fontSize: SIZES.xxl, color: '#fff', ...FONTS.bold },
-    subtitle: { fontSize: SIZES.sm, color: COLORS.textMuted, marginTop: 2 },
-    walletBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primaryGlow, borderWidth: 1, borderColor: COLORS.primary + '40', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
-    walletTxt: { fontSize: SIZES.sm, color: COLORS.primary, ...FONTS.bold },
-    searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border, marginHorizontal: 24, marginBottom: 16, paddingHorizontal: 14, paddingVertical: 12 },
-    searchInput: { flex: 1, fontSize: SIZES.md, color: '#fff' },
-    chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
-    chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-    chipTxt: { fontSize: SIZES.sm, color: COLORS.textSecondary, ...FONTS.medium },
-    card: { backgroundColor: COLORS.card, borderRadius: SIZES.radiusLg, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border },
-    cardDisabled: { opacity: 0.5 },
-    cardTop: { flexDirection: 'row', gap: 14, marginBottom: 10 },
-    avatar: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.primary + '40' },
-    avatarTxt: { fontSize: 16, color: COLORS.primary, ...FONTS.bold },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-    name: { fontSize: SIZES.base, color: '#fff', ...FONTS.bold },
-    spec: { fontSize: SIZES.sm, color: COLORS.textSecondary, marginBottom: 6 },
-    badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    badgeTxt: { fontSize: 10, ...FONTS.bold },
-    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    rating: { fontSize: 11, color: COLORS.textMuted },
-    unavailBadge: { backgroundColor: COLORS.border, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-    unavailTxt: { fontSize: 9, color: COLORS.textMuted, ...FONTS.bold },
-    bio: { fontSize: SIZES.sm, color: COLORS.textSecondary, lineHeight: 18, marginBottom: 12 },
-    cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 },
-    modalRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-    modBadge: { backgroundColor: COLORS.primaryGlow, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-    modTxt: { fontSize: 10, color: COLORS.primary, ...FONTS.bold },
-    fee: { fontSize: SIZES.lg, color: COLORS.warning, ...FONTS.bold },
-    tat: { fontSize: 10, color: COLORS.textMuted },
-    reqBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.primary, borderRadius: SIZES.radius, paddingVertical: 12 },
-    reqTxt: { fontSize: SIZES.sm, color: '#fff', ...FONTS.bold },
-    empty: { color: COLORS.textMuted, textAlign: 'center', marginTop: 60, fontSize: SIZES.base },
-    // Modal
-    modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-    modalCard: { backgroundColor: COLORS.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 48 },
-    modalClose: { alignSelf: 'flex-end', marginBottom: 8 },
-    modalInfoRow: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: COLORS.background, borderRadius: SIZES.radius, padding: 16, marginBottom: 16 },
-    modalInfoItem: { alignItems: 'center', gap: 4 },
-    modalInfoVal: { fontSize: SIZES.md, color: '#fff', ...FONTS.bold },
-    modalInfoLabel: { fontSize: 10, color: COLORS.textMuted },
-    creditWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: COLORS.primaryGlow, borderRadius: SIZES.radius, padding: 12, marginBottom: 20 },
-    creditTxt: { flex: 1, fontSize: SIZES.sm, color: COLORS.textSecondary, lineHeight: 18 },
-    confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.primary, borderRadius: SIZES.radiusLg, paddingVertical: 16 },
-    confirmTxt: { fontSize: SIZES.base, color: '#fff', ...FONTS.bold },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 16, backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    greeting: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+    sub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+    cartBtn: { position: 'relative', padding: 8 },
+    cartBadge: { position: 'absolute', top: 0, right: 0, backgroundColor: '#EF5350', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    cartBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+
+    searchContainer: { flexDirection: 'row', alignItems: 'center', margin: 16, backgroundColor: COLORS.card, borderRadius: 12, paddingLeft: 12, borderWidth: 1, borderColor: COLORS.border },
+    searchInput: { flex: 1, height: 48, marginLeft: 8, color: COLORS.text, fontSize: 14 },
+    filterBtn: { backgroundColor: COLORS.primary, padding: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12 },
+
+    promoBanner: { marginHorizontal: 16, marginBottom: 24, padding: 20, backgroundColor: '#6C63FF', borderRadius: 16, overflow: 'hidden' },
+    promoTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 8, width: '80%' },
+    promoSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 16, width: '90%' },
+    promoBtn: { backgroundColor: '#fff', alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+    promoBtnText: { color: '#6C63FF', fontWeight: 'bold', fontSize: 13 },
+
+    categoriesContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 24 },
+    catBox: { alignItems: 'center', width: '22%' },
+    catIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+    catText: { fontSize: 11, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
+
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16, marginTop: 8 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
+    seeAll: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+
+    docCard: { width: 260, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+    docImg: { width: '100%', height: 140, backgroundColor: '#f0f0f0' },
+    docInfo: { padding: 16 },
+    docName: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
+    docSpec: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+    docRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 16 },
+    docRating: { fontSize: 12, fontWeight: 'bold', color: COLORS.text, marginLeft: 4 },
+    docExp: { fontSize: 12, color: COLORS.textMuted },
+    bookDocBtn: { width: '100%', backgroundColor: COLORS.primary + '15', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+    bookDocText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 14 },
+
+    pkgCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: COLORS.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.border },
+    pkgTag: { position: 'absolute', top: -10, left: 16, backgroundColor: '#FFA726', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+    pkgTagText: { fontSize: 10, fontWeight: 'bold', color: '#fff' },
+    pkgName: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginTop: 8 },
+    pkgTests: { fontSize: 13, color: COLORS.textMuted, marginTop: 4, marginBottom: 16 },
+    pkgRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    pkgPrice: { fontSize: 20, fontWeight: 'bold', color: COLORS.text },
+    pkgOriginal: { fontSize: 14, color: COLORS.textMuted, textDecorationLine: 'line-through', marginLeft: 8 },
+    addBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+    addBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 }
 });
 
 export default MarketplaceScreen;
