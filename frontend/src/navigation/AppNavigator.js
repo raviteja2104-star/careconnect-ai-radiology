@@ -26,6 +26,9 @@ import PharmacyScreen from '../screens/PharmacyScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import LabTechnicianScreen from '../screens/LabTechnicianScreen';
 import SmartBookingScreen from '../screens/SmartBookingScreen';
+import PharmacistDashboardScreen from '../screens/PharmacistDashboardScreen';
+import HealthProfileScreen from '../screens/HealthProfileScreen';
+import ClinicManagementScreen from '../screens/ClinicManagementScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -37,30 +40,24 @@ const Tab = createBottomTabNavigator();
 const PatientTabs = () => (
     <Tab.Navigator screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: {
-            backgroundColor: COLORS.card,
-            borderTopColor: COLORS.border,
-            height: 64,
-            paddingBottom: 10,
-            paddingTop: 4,
-        },
+        tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border, height: 64, paddingBottom: 10, paddingTop: 4 },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarIcon: ({ color, size }) => {
             const icons = {
                 Home: 'home',
-                Reports: 'document-text',
-                Marketplace: 'storefront',
-                Wallet: 'wallet',
+                Scanner: 'scan-circle',
+                Pharmacy: 'medical',
+                Profile: 'person',
             };
             return <Ionicons name={icons[route.name] || 'home'} size={22} color={color} />;
         },
     })}>
         <Tab.Screen name="Home" component={PatientHomeScreen} />
-        <Tab.Screen name="Reports" component={ReportsScreen} />
-        <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
-        <Tab.Screen name="Wallet" component={WalletScreen} />
+        <Tab.Screen name="Scanner" component={SymptomCheckerScreen} />
+        <Tab.Screen name="Pharmacy" component={PharmacyScreen} />
+        <Tab.Screen name="Profile" component={HealthProfileScreen} />
     </Tab.Navigator>
 );
 
@@ -71,18 +68,18 @@ const DoctorTabs = () => (
     <Tab.Navigator screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border, height: 64, paddingBottom: 10, paddingTop: 4 },
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: '#26A69A',
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarIcon: ({ color }) => {
-            const icons = { Dashboard: 'grid', Scans: 'scan', Analytics: 'bar-chart', Wallet: 'wallet' };
-            return <Ionicons name={icons[route.name] || 'grid'} size={22} color={color} />;
+            const icons = { Home: 'home', Clinic: 'business', Appointments: 'calendar', Profile: 'person' };
+            return <Ionicons name={icons[route.name] || 'home'} size={22} color={color} />;
         },
     })}>
-        <Tab.Screen name="Dashboard" component={DoctorDashboardScreen} />
-        <Tab.Screen name="Scans" component={ReportsScreen} />
-        <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-        <Tab.Screen name="Wallet" component={WalletScreen} />
+        <Tab.Screen name="Home" component={DoctorDashboardScreen} />
+        <Tab.Screen name="Clinic" component={ClinicManagementScreen} />
+        <Tab.Screen name="Appointments" component={DoctorDashboardScreen} />
+        <Tab.Screen name="Profile" component={DoctorDashboardScreen} />
     </Tab.Navigator>
 );
 
@@ -158,6 +155,24 @@ const LabTechTabs = () => (
     </Tab.Navigator>
 );
 
+const PharmacistTabs = () => (
+    <Tab.Navigator screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border, height: 64, paddingBottom: 10, paddingTop: 4 },
+        tabBarActiveTintColor: '#66BB6A',
+        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarIcon: ({ color }) => {
+            const icons = { Pharmacy: 'medical', Orders: 'list', Inventory: 'cube' };
+            return <Ionicons name={icons[route.name] || 'medical'} size={22} color={color} />;
+        },
+    })}>
+        <Tab.Screen name="Pharmacy" component={PharmacistDashboardScreen} />
+        <Tab.Screen name="Orders" component={PharmacistDashboardScreen} />
+        <Tab.Screen name="Inventory" component={PharmacistDashboardScreen} />
+    </Tab.Navigator>
+);
+
 // ─────────────────────────────────────────────────────────
 // Role router — picks the right tab set from login params
 // ─────────────────────────────────────────────────────────
@@ -167,6 +182,7 @@ const MainScreen = ({ route }) => {
     if (user?.role === 'radiologist') return <RadiologistTabs />;
     if (user?.role === 'admin') return <AdminTabs />;
     if (user?.role === 'lab_tech') return <LabTechTabs />;
+    if (user?.role === 'pharmacist') return <PharmacistTabs />;
     return <PatientTabs />;
 };
 

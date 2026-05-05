@@ -118,6 +118,14 @@ const DEMO_USERS = [
         experience: 3,
         hospital: 'CareConnect Diagnostic Center', department: 'MRI Suite',
     },
+    {
+        firstName: 'City', lastName: 'Pharmacy',
+        email: 'pharma@careconnect.com', password: 'password123',
+        phone: '+91-9876543040', role: 'pharmacist',
+        isActive: true, isVerified: true,
+        licenseNumber: 'PH-2022-99887',
+        hospital: 'CareConnect City Hospital',
+    },
 ];
 
 async function seed() {
@@ -223,6 +231,7 @@ async function seed() {
         console.log('   Admin:        admin@careconnect.com / admin123');
         console.log('   Lab Tech 1:   tech1@careconnect.com / password123');
         console.log('   Lab Tech 2:   tech2@careconnect.com / password123');
+        console.log('   Pharmacist:   pharma@careconnect.com / password123');
 
         await mongoose.disconnect();
         process.exit(0);

@@ -29,6 +29,7 @@ const LoginScreen = ({ navigation }) => {
         { key: 'radiologist', label: 'Radiologist', icon: 'scan' },
         { key: 'admin', label: 'Admin', icon: 'shield-checkmark' },
         { key: 'lab_tech', label: 'Lab Tech', icon: 'flask' },
+        { key: 'pharmacist', label: 'Pharmacist', icon: 'medical' },
     ];
 
     const quickLogins = {
@@ -37,6 +38,7 @@ const LoginScreen = ({ navigation }) => {
         radiologist: { email: 'dr.meera@careconnect.com', password: 'password123' },
         admin: { email: 'admin@careconnect.com', password: 'admin123' },
         lab_tech: { email: 'tech1@careconnect.com', password: 'password123' },
+        pharmacist: { email: 'pharma@careconnect.com', password: 'password123' },
     };
 
     const handleLogin = async () => {
