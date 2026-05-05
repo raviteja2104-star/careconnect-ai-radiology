@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS } from '../utils/theme';
 
-const BACKEND = 'http://localhost:5000';
+const BACKEND = __DEV__ ? 'http://localhost:5000' : 'https://careconnect-iota-five.vercel.app';
 
 const MOCK = {
     scanId: 'SCAN-2026-001', scanType: 'CT', bodyPart: 'Head',

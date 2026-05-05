@@ -7,7 +7,7 @@ const getBaseUrl = () => {
         // Android Emulator considers localhost to be its own device, so we use 10.0.2.2 to bridge to host OS.
         return Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
     }
-    return 'https://careconnect-backend.onrender.com/api'; // Production fallback
+    return 'https://careconnect-iota-five.vercel.app/api'; // Live Vercel backend
 };
 
 const API_BASE_URL = getBaseUrl();

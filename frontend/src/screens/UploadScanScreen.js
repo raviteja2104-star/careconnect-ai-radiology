@@ -35,7 +35,8 @@ const UploadScanScreen = ({ navigation }) => {
             formData.append('dicomFile', { uri: selectedFile.uri, name: selectedFile.name, type: selectedFile.mimeType || 'application/octet-stream' });
             
             // Try uploading to our new DICOM STOW-RS/upload endpoint
-            const res = await fetch('http://localhost:5000/api/dicomweb/upload', {
+            const BACKEND = __DEV__ ? 'http://localhost:5000' : 'https://careconnect-iota-five.vercel.app';
+            const res = await fetch(`${BACKEND}/api/dicomweb/upload`, {
                 method: 'POST',
                 body: formData,
             });
