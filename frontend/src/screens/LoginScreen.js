@@ -27,12 +27,16 @@ const LoginScreen = ({ navigation }) => {
         { key: 'patient', label: 'Patient', icon: 'person' },
         { key: 'doctor', label: 'Doctor', icon: 'medical' },
         { key: 'radiologist', label: 'Radiologist', icon: 'scan' },
+        { key: 'admin', label: 'Admin', icon: 'shield-checkmark' },
+        { key: 'lab_tech', label: 'Lab Tech', icon: 'flask' },
     ];
 
     const quickLogins = {
         patient: { email: 'ravi@careconnect.com', password: 'password123' },
         doctor: { email: 'dr.raj@careconnect.com', password: 'password123' },
         radiologist: { email: 'dr.meera@careconnect.com', password: 'password123' },
+        admin: { email: 'admin@careconnect.com', password: 'admin123' },
+        lab_tech: { email: 'tech1@careconnect.com', password: 'password123' },
     };
 
     const handleLogin = async () => {

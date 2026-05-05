@@ -23,6 +23,8 @@ import AnalyticsScreen from '../screens/AnalyticsScreen';
 import TeleradiologyScreen from '../screens/TeleradiologyScreen';
 import VideoConsultationScreen from '../screens/VideoConsultationScreen';
 import PharmacyScreen from '../screens/PharmacyScreen';
+import AdminDashboardScreen from '../screens/AdminDashboardScreen';
+import LabTechnicianScreen from '../screens/LabTechnicianScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -113,12 +115,57 @@ const RadiologistTabs = () => (
 );
 
 // ─────────────────────────────────────────────────────────
+// Admin bottom tab navigator
+// ─────────────────────────────────────────────────────────
+const AdminTabs = () => (
+    <Tab.Navigator screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border, height: 64, paddingBottom: 10, paddingTop: 4 },
+        tabBarActiveTintColor: '#EF5350',
+        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarIcon: ({ color }) => {
+            const icons = { Dashboard: 'shield-checkmark', Analytics: 'bar-chart', Wallet: 'wallet' };
+            return <Ionicons name={icons[route.name] || 'shield-checkmark'} size={22} color={color} />;
+        },
+    })}>
+        <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
+        <Tab.Screen name="Analytics" component={AnalyticsScreen} />
+        <Tab.Screen name="Wallet" component={WalletScreen} />
+    </Tab.Navigator>
+);
+
+// ─────────────────────────────────────────────────────────
+// Lab Technician bottom tab navigator
+// ─────────────────────────────────────────────────────────
+const LabTechTabs = () => (
+    <Tab.Navigator screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border, height: 64, paddingBottom: 10, paddingTop: 4 },
+        tabBarActiveTintColor: '#FFA726',
+        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarIcon: ({ color }) => {
+            const icons = { Queue: 'list', Equipment: 'hardware-chip', Upload: 'cloud-upload', Wallet: 'wallet' };
+            return <Ionicons name={icons[route.name] || 'list'} size={22} color={color} />;
+        },
+    })}>
+        <Tab.Screen name="Queue" component={LabTechnicianScreen} />
+        <Tab.Screen name="Equipment" component={LabTechnicianScreen} />
+        <Tab.Screen name="Upload" component={UploadScanScreen} />
+        <Tab.Screen name="Wallet" component={WalletScreen} />
+    </Tab.Navigator>
+);
+
+// ─────────────────────────────────────────────────────────
 // Role router — picks the right tab set from login params
 // ─────────────────────────────────────────────────────────
 const MainScreen = ({ route }) => {
     const user = route.params?.user;
     if (user?.role === 'doctor') return <DoctorTabs />;
     if (user?.role === 'radiologist') return <RadiologistTabs />;
+    if (user?.role === 'admin') return <AdminTabs />;
+    if (user?.role === 'lab_tech') return <LabTechTabs />;
     return <PatientTabs />;
 };
 
@@ -146,6 +193,8 @@ const AppNavigator = () => (
             <Stack.Screen name="Teleradiology" component={TeleradiologyScreen} />
             <Stack.Screen name="VideoConsultation" component={VideoConsultationScreen} />
             <Stack.Screen name="Pharmacy" component={PharmacyScreen} />
+            <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+            <Stack.Screen name="LabTechnician" component={LabTechnicianScreen} />
 
             {/* Deep-link / detail screens */}
             <Stack.Screen name="ScanDetail" component={ScanViewerScreen} />

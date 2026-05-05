@@ -100,6 +100,24 @@ const DEMO_USERS = [
         phone: '+91-9876543000', role: 'admin',
         isActive: true, isVerified: true,
     },
+    {
+        firstName: 'Arjun', lastName: 'Tech',
+        email: 'tech1@careconnect.com', password: 'password123',
+        phone: '+91-9876543030', role: 'lab_tech',
+        isActive: true, isVerified: true,
+        specialization: 'Radiology Technician', licenseNumber: 'LT-2020-11223',
+        experience: 5,
+        hospital: 'CareConnect Diagnostic Center', department: 'Radiology',
+    },
+    {
+        firstName: 'Kavya', lastName: 'Lab',
+        email: 'tech2@careconnect.com', password: 'password123',
+        phone: '+91-9876543031', role: 'lab_tech',
+        isActive: true, isVerified: true,
+        specialization: 'MRI Technician', licenseNumber: 'LT-2021-44556',
+        experience: 3,
+        hospital: 'CareConnect Diagnostic Center', department: 'MRI Suite',
+    },
 ];
 
 async function seed() {
@@ -199,10 +217,12 @@ async function seed() {
 
         console.log('\n🎉 Seeding complete!');
         console.log('\n📋 Login Credentials:');
-        console.log('   Patient:     ravi@careconnect.com / password123');
-        console.log('   Doctor:      dr.raj@careconnect.com / password123');
-        console.log('   Radiologist: dr.meera@careconnect.com / password123');
-        console.log('   Admin:       admin@careconnect.com / admin123');
+        console.log('   Patient:      ravi@careconnect.com / password123');
+        console.log('   Doctor:       dr.raj@careconnect.com / password123');
+        console.log('   Radiologist:  dr.meera@careconnect.com / password123');
+        console.log('   Admin:        admin@careconnect.com / admin123');
+        console.log('   Lab Tech 1:   tech1@careconnect.com / password123');
+        console.log('   Lab Tech 2:   tech2@careconnect.com / password123');
 
         await mongoose.disconnect();
         process.exit(0);
