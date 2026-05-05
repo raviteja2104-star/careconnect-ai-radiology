@@ -25,6 +25,7 @@ import VideoConsultationScreen from '../screens/VideoConsultationScreen';
 import PharmacyScreen from '../screens/PharmacyScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import LabTechnicianScreen from '../screens/LabTechnicianScreen';
+import SmartBookingScreen from '../screens/SmartBookingScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -146,14 +147,14 @@ const LabTechTabs = () => (
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarIcon: ({ color }) => {
-            const icons = { Queue: 'list', Equipment: 'hardware-chip', Upload: 'cloud-upload', Wallet: 'wallet' };
+            const icons = { Queue: 'list', Booking: 'calendar', Equipment: 'hardware-chip', Upload: 'cloud-upload' };
             return <Ionicons name={icons[route.name] || 'list'} size={22} color={color} />;
         },
     })}>
         <Tab.Screen name="Queue" component={LabTechnicianScreen} />
+        <Tab.Screen name="Booking" component={SmartBookingScreen} />
         <Tab.Screen name="Equipment" component={LabTechnicianScreen} />
         <Tab.Screen name="Upload" component={UploadScanScreen} />
-        <Tab.Screen name="Wallet" component={WalletScreen} />
     </Tab.Navigator>
 );
 
