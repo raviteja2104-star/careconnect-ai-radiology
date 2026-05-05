@@ -26,6 +26,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const dicomwebRoutes = require('./routes/dicomwebRoutes');
 const ohifRoutes = require('./routes/ohifRoutes');
 const viewerRoutes = require('./routes/viewerRoutes');
+const labRoutes = require('./routes/labRoutes');
 
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
@@ -83,6 +84,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/abdm', abdmRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dicomweb', dicomwebRoutes);
+app.use('/api/lab', labRoutes);
 
 // AI proxy route
 app.post('/api/ai/analyze-scan', async (req, res) => {

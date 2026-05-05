@@ -7,12 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS } from '../utils/theme';
 
-const MOCK_BOOKINGS = [
-    { id: 'BKG-001', patient: 'Rahul Verma', phone: '+91-9876543011', tests: ['Complete Blood Count', 'Lipid Profile'], amountTotal: 1500, amountPaid: 500, amountDue: 1000, date: '2026-05-06', time: '09:00 AM', status: 'confirmed', type: 'Lab Visit' },
-    { id: 'BKG-002', patient: 'Sneha Patel', phone: '+91-9876543022', tests: ['Thyroid Panel', 'HbA1c'], amountTotal: 1200, amountPaid: 1200, amountDue: 0, date: '2026-05-06', time: '10:30 AM', status: 'sample_collected', type: 'Home Collection' },
-    { id: 'BKG-003', patient: 'Amit Singh', phone: '+91-9876543033', tests: ['MRI Spine', 'Vitamin D'], amountTotal: 6500, amountPaid: 0, amountDue: 6500, date: '2026-05-07', time: '02:15 PM', status: 'pending_payment', type: 'Lab Visit' },
-    { id: 'BKG-004', patient: 'Pooja Reddy', phone: '+91-9876543044', tests: ['Liver Function Test'], amountTotal: 800, amountPaid: 800, amountDue: 0, date: '2026-05-05', time: '11:00 AM', status: 'report_ready', type: 'Home Collection' },
-];
+import { labAPI } from '../services/api';
 
 const statusColors = {
     confirmed: '#42A5F5',
@@ -24,29 +19,56 @@ const statusColors = {
 
 const SmartBookingScreen = () => {
     const [activeTab, setActiveTab] = useState('upcoming');
-    const [bookings, setBookings] = useState(MOCK_BOOKINGS);
+    const [bookings, setBookings] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showStatementModal, setShowStatementModal] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
 
+    const fetchBookings = async () => {
+        try {
+            const res = await labAPI.getBookings();
+            if (res.data) setBookings(res.data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchBookings();
+    }, []);
+
     const onRefresh = async () => {
         setRefreshing(true);
-        await new Promise(r => setTimeout(r, 1000));
+        await fetchBookings();
         setRefreshing(false);
     };
 
-    const updateStatus = (id, newStatus) => {
-        setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
-        Alert.alert('Success', `Booking status updated to ${newStatus.replace('_', ' ')}`);
+    const updateStatus = async (id, newStatus) => {
+        try {
+            const res = await labAPI.updateBooking(id, { status: newStatus });
+            if (res.data) {
+                setBookings(prev => prev.map(b => b._id === id ? res.data : b));
+                Alert.alert('Success', `Booking status updated to ${newStatus.replace('_', ' ')}`);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to update status');
+        }
     };
 
     const handlePayment = (id, amountDue) => {
         Alert.alert('Record Payment', `Record payment of ₹${amountDue}?`, [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Confirm', onPress: () => {
-                setBookings(prev => prev.map(b => b.id === id ? { ...b, amountPaid: b.amountTotal, amountDue: 0, status: 'confirmed' } : b));
-                Alert.alert('Payment Recorded', 'Payment has been successfully recorded.');
+            { text: 'Confirm', onPress: async () => {
+                try {
+                    const res = await labAPI.updateBooking(id, { amountPaid: amountDue });
+                    if (res.data) {
+                        setBookings(prev => prev.map(b => b._id === id ? res.data : b));
+                        Alert.alert('Payment Recorded', 'Payment has been successfully recorded.');
+                    }
+                } catch (error) {
+                    Alert.alert('Error', 'Failed to record payment');
+                }
             }}
         ]);
     };
@@ -63,11 +85,11 @@ const SmartBookingScreen = () => {
     const filteredBookings = bookings.filter(b => 
         (activeTab === 'all' || 
         (activeTab === 'upcoming' && ['confirmed', 'pending_payment'].includes(b.status)) ||
-        (activeTab === 'completed' && ['report_ready', 'sample_collected'].includes(b.status))) &&
-        (b.patient.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.toLowerCase().includes(searchQuery.toLowerCase()))
+        (activeTab === 'completed' && ['report_ready', 'sample_collected', 'cancelled'].includes(b.status))) &&
+        (b.patientName.toLowerCase().includes(searchQuery.toLowerCase()) || b._id.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const totalDue = bookings.reduce((sum, b) => sum + b.amountDue, 0);
+    const totalDue = bookings.reduce((sum, b) => sum + (b.amountDue || 0), 0);
     const todayAppointments = bookings.filter(b => b.date === '2026-05-06').length;
 
     return (
@@ -126,12 +148,15 @@ const SmartBookingScreen = () => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
                 showsVerticalScrollIndicator={false}
             >
+                {filteredBookings.length === 0 && !refreshing && (
+                    <Text style={{textAlign: 'center', marginTop: 40, color: COLORS.textMuted}}>No bookings found.</Text>
+                )}
                 {filteredBookings.map(bkg => (
-                    <View key={bkg.id} style={s.card}>
+                    <View key={bkg._id} style={s.card}>
                         <View style={s.cardHeader}>
                             <View>
-                                <Text style={s.cardTitle}>{bkg.patient}</Text>
-                                <Text style={s.cardSub}>{bkg.id} · {bkg.type}</Text>
+                                <Text style={s.cardTitle}>{bkg.patientName}</Text>
+                                <Text style={s.cardSub}>ID: {bkg._id.slice(-8).toUpperCase()} · {bkg.type}</Text>
                             </View>
                             <View style={[s.pill, { backgroundColor: (statusColors[bkg.status] || '#888') + '20' }]}>
                                 <Text style={[s.pillText, { color: statusColors[bkg.status] || '#888' }]}>{bkg.status.replace('_', ' ').toUpperCase()}</Text>
@@ -170,21 +195,21 @@ const SmartBookingScreen = () => {
 
                         <View style={s.actionsContainer}>
                             {bkg.amountDue > 0 ? (
-                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#FFA726' }]} onPress={() => handlePayment(bkg.id, bkg.amountDue)}>
+                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#FFA726' }]} onPress={() => handlePayment(bkg._id, bkg.amountDue)}>
                                     <Ionicons name="card" size={16} color="#fff" />
                                     <Text style={s.actionBtnText}>Collect Payment</Text>
                                 </TouchableOpacity>
                             ) : null}
 
                             {bkg.status === 'confirmed' ? (
-                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#AB47BC' }]} onPress={() => updateStatus(bkg.id, 'sample_collected')}>
+                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#AB47BC' }]} onPress={() => updateStatus(bkg._id, 'sample_collected')}>
                                     <Ionicons name="flask" size={16} color="#fff" />
                                     <Text style={s.actionBtnText}>Sample Collected</Text>
                                 </TouchableOpacity>
                             ) : null}
 
                             {bkg.status === 'sample_collected' ? (
-                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#66BB6A' }]} onPress={() => updateStatus(bkg.id, 'report_ready')}>
+                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#66BB6A' }]} onPress={() => updateStatus(bkg._id, 'report_ready')}>
                                     <Ionicons name="document-text" size={16} color="#fff" />
                                     <Text style={s.actionBtnText}>Mark Report Ready</Text>
                                 </TouchableOpacity>
@@ -192,7 +217,7 @@ const SmartBookingScreen = () => {
                         </View>
 
                         <View style={s.utilityActions}>
-                            <TouchableOpacity style={s.utilityBtn} onPress={() => sendWhatsApp(bkg.phone, 'Booking Confirmation')}>
+                            <TouchableOpacity style={s.utilityBtn} onPress={() => sendWhatsApp(bkg.patientPhone, 'Booking Confirmation')}>
                                 <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
                                 <Text style={[s.utilityBtnText, { color: '#25D366' }]}>WhatsApp Alert</Text>
                             </TouchableOpacity>
@@ -225,9 +250,9 @@ const SmartBookingScreen = () => {
                                 
                                 <View style={s.statementSection}>
                                     <Text style={s.statementLabel}>Patient Details</Text>
-                                    <Text style={s.statementValue}>{selectedBooking.patient}</Text>
-                                    <Text style={s.statementSubValue}>Phone: {selectedBooking.phone}</Text>
-                                    <Text style={s.statementSubValue}>Booking ID: {selectedBooking.id}</Text>
+                                    <Text style={s.statementValue}>{selectedBooking.patientName}</Text>
+                                    <Text style={s.statementSubValue}>Phone: {selectedBooking.patientPhone}</Text>
+                                    <Text style={s.statementSubValue}>Booking ID: {selectedBooking._id}</Text>
                                 </View>
 
                                 <View style={s.statementSection}>

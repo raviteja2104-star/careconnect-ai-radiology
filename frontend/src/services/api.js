@@ -52,6 +52,12 @@ export const authAPI = {
     updateProfile: (data) => api.put('/auth/profile', data),
 };
 
+export const labAPI = {
+    createBooking: (data) => api.post('/lab/bookings', data),
+    getBookings: () => api.get('/lab/bookings'),
+    updateBooking: (id, data) => api.put(`/lab/bookings/${id}`, data),
+};
+
 // Patient APIs
 export const patientAPI = {
     checkSymptoms: (data) => api.post('/patient/check-symptoms', data),

@@ -88,7 +88,7 @@ const PatientHomeScreen = ({ navigation, route }) => {
                             { icon: 'medical', label: 'Symptom Check', color: COLORS.secondary, screen: 'SymptomChecker' },
                             { icon: 'document-text', label: 'My Reports', color: COLORS.success, screen: 'Reports' },
                             { icon: 'people', label: '2nd Opinion', color: COLORS.warning, screen: 'Marketplace' },
-                            { icon: 'wallet', label: 'Wallet', color: '#AB47BC', screen: 'Wallet' },
+                            { icon: 'flask', label: 'Book Lab Test', color: '#42A5F5', screen: 'LabTestCatalog' },
                             { icon: 'flash', label: 'Emergency', color: COLORS.danger, screen: 'Emergency' },
                         ].map((q, i) => (
                             <TouchableOpacity key={i} style={[ph.qaCard, { borderColor: q.color + '30' }]} onPress={() => navigation.navigate(q.screen)}>

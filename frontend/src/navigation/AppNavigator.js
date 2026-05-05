@@ -29,6 +29,7 @@ import SmartBookingScreen from '../screens/SmartBookingScreen';
 import PharmacistDashboardScreen from '../screens/PharmacistDashboardScreen';
 import HealthProfileScreen from '../screens/HealthProfileScreen';
 import ClinicManagementScreen from '../screens/ClinicManagementScreen';
+import LabTestCatalogScreen from '../screens/LabTestCatalogScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -199,6 +200,7 @@ const AppNavigator = () => (
             <Stack.Screen name="SymptomChecker" component={SymptomCheckerScreen} />
             <Stack.Screen name="UploadScan" component={UploadScanScreen} />
             <Stack.Screen name="Emergency" component={EmergencyScreen} />
+            <Stack.Screen name="LabTestCatalog" component={LabTestCatalogScreen} />
             <Stack.Screen name="ReportEditor" component={ReportEditorScreen} />
             <Stack.Screen name="Analytics" component={AnalyticsScreen} />
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
