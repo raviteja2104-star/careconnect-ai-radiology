@@ -7,10 +7,9 @@
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "backend/src/server.js"
-    }
+    { "src": "/api/(.*)", "dest": "backend/src/server.js" },
+    { "src": "/ohif(.*)", "dest": "backend/src/server.js" },
+    { "src": "/viewer(.*)", "dest": "backend/src/server.js" }
   ],
   "env": {
     "NODE_ENV": "production",
