@@ -1,6 +1,34 @@
 const LabBooking = require('../models/LabBooking');
+const LabCatalogItem = require('../models/LabCatalogItem');
 const { emitEvent } = require('../services/EventBus');
 const EVENTS = require('../config/events');
+
+// @desc    Get Lab Catalog (tests and packages)
+// @route   GET /api/lab/catalog
+// @access  Private
+const getCatalog = async (req, res, next) => {
+    try {
+        let catalog = await LabCatalogItem.find({});
+        
+        // Seed if empty for MVP
+        if (catalog.length === 0) {
+            const seedData = [
+                { type: 'test', name: 'Complete Blood Count (CBC)', price: 400, originalPrice: 550, tat: '12 hrs', category: 'Fever' },
+                { type: 'test', name: 'Lipid Profile', price: 600, originalPrice: 800, tat: '24 hrs', category: 'Heart' },
+                { type: 'test', name: 'Thyroid Panel (T3, T4, TSH)', price: 800, originalPrice: 1000, tat: '24 hrs', category: 'Women' },
+                { type: 'test', name: 'HbA1c (Diabetes)', price: 500, originalPrice: 650, tat: '12 hrs', category: 'Diabetes' },
+                { type: 'package', name: 'Comprehensive Full Body Checkup', testsCount: 64, originalPrice: 4000, price: 1999, tag: 'Bestseller', image: 'https://cdn-icons-png.flaticon.com/512/2966/2966327.png', category: 'Fever' },
+                { type: 'package', name: 'Advanced Cardiac Risk Profile', testsCount: 18, originalPrice: 3500, price: 1499, tag: 'Trending', image: 'https://cdn-icons-png.flaticon.com/512/2966/2966453.png', category: 'Heart' }
+            ];
+            await LabCatalogItem.insertMany(seedData);
+            catalog = await LabCatalogItem.find({});
+        }
+
+        res.status(200).json({ success: true, data: catalog });
+    } catch (error) {
+        next(error);
+    }
+};
 
 // @desc    Create a new lab booking
 // @route   POST /api/lab/bookings
@@ -87,4 +115,4 @@ const updateBooking = async (req, res, next) => {
     }
 };
 
-module.exports = { createBooking, getBookings, updateBooking };
+module.exports = { createBooking, getBookings, updateBooking, getCatalog };

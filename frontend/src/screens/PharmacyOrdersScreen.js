@@ -5,16 +5,28 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../utils/theme';
-
-const MOCK_ORDERS = [
-    { id: 'ORD-8911', patient: 'Ravi Teja', phone: '+91-9876543010', type: 'Digital Rx', status: 'new', time: '10 mins ago', meds: ['Paracetamol 500mg', 'Amoxicillin 250mg'], doctor: 'Dr. Raj Sharma', isDelivery: true, address: 'Plot 45, Tech Park, City' },
-    { id: 'ORD-8912', patient: 'Priya Sharma', phone: '+91-9876543020', type: 'Refill Request', status: 'packing', time: '1 hour ago', meds: ['Thyroxine 50mcg'], doctor: 'Dr. Anita Desai', isDelivery: false, address: 'Self Pickup' },
-    { id: 'ORD-8913', patient: 'Amit Singh', phone: '+91-9876543033', type: 'Digital Rx', status: 'out_for_delivery', time: '2 hours ago', meds: ['Atorvastatin 10mg', 'Metformin 500mg'], doctor: 'Dr. Vikram Singh', isDelivery: true, address: 'Apt 12B, Sunrise Towers' },
-];
+import { pharmacyAPI } from '../services/api';
 
 const PharmacyOrdersScreen = () => {
     const [activeTab, setActiveTab] = useState('new');
-    const [orders, setOrders] = useState(MOCK_ORDERS);
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    React.useEffect(() => {
+        loadOrders();
+    }, []);
+
+    const loadOrders = async () => {
+        try {
+            setLoading(true);
+            const res = await pharmacyAPI.getOrders({ status: 'all' });
+            if (res.success) setOrders(res.data);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to load pharmacy orders');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const filtered = orders.filter(o => {
         if (activeTab === 'new') return o.status === 'new';
@@ -22,8 +34,13 @@ const PharmacyOrdersScreen = () => {
         return ['ready', 'out_for_delivery', 'delivered'].includes(o.status);
     });
 
-    const updateStatus = (id, newStatus) => {
-        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+    const updateStatus = async (id, newStatus) => {
+        try {
+            await pharmacyAPI.updateOrderStatus(id, newStatus);
+            setOrders(prev => prev.map(o => o._id === id ? { ...o, status: newStatus } : o));
+        } catch (error) {
+            Alert.alert('Error', 'Failed to update status');
+        }
     };
 
     return (
@@ -51,11 +68,11 @@ const PharmacyOrdersScreen = () => {
 
             <ScrollView contentContainerStyle={s.scroll}>
                 {filtered.map(order => (
-                    <View key={order.id} style={s.card}>
+                    <View key={order._id} style={s.card}>
                         <View style={s.cardHeader}>
                             <View>
-                                <Text style={s.patientName}>{order.patient}</Text>
-                                <Text style={s.orderMeta}>{order.id} • {order.time}</Text>
+                                <Text style={s.patientName}>{order.patientName}</Text>
+                                <Text style={s.orderMeta}>{order.orderId} • {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
                             </View>
                             <View style={[s.pill, order.status === 'new' && {backgroundColor: '#EF5350'}]}>
                                 <Text style={s.pillText}>{order.status.replace(/_/g, ' ').toUpperCase()}</Text>
@@ -65,16 +82,16 @@ const PharmacyOrdersScreen = () => {
                         <View style={s.rxBox}>
                             <View style={s.rxTitleRow}>
                                 <Ionicons name="document-text" size={16} color={COLORS.primary} />
-                                <Text style={s.rxTitle}>{order.type} from {order.doctor}</Text>
+                                <Text style={s.rxTitle}>{order.type || 'Digital Rx'} {order.doctorName ? `from ${order.doctorName}` : ''}</Text>
                             </View>
-                            {order.meds.map((m, i) => (
+                            {(order.medicines || []).map((m, i) => (
                                 <Text key={i} style={s.medItem}>• {m}</Text>
                             ))}
                         </View>
 
                         <View style={s.deliveryBox}>
                             <Ionicons name={order.isDelivery ? "bicycle" : "walk"} size={16} color={COLORS.textMuted} />
-                            <Text style={s.deliveryText}>{order.isDelivery ? `Deliver to: ${order.address}` : 'Self Pickup at Store'}</Text>
+                            <Text style={s.deliveryText}>{order.isDelivery ? `Deliver to: ${order.address || 'Saved Address'}` : 'Self Pickup at Store'}</Text>
                         </View>
 
                         <View style={s.actionRow}>
@@ -83,18 +100,18 @@ const PharmacyOrdersScreen = () => {
                                     <TouchableOpacity style={[s.actionBtn, { backgroundColor: COLORS.background }]} onPress={() => Alert.alert('Reject', 'Reject order?')}>
                                         <Text style={[s.actionText, { color: COLORS.text }]}>Reject</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={[s.actionBtn, { backgroundColor: COLORS.primary }]} onPress={() => updateStatus(order.id, 'packing')}>
+                                    <TouchableOpacity style={[s.actionBtn, { backgroundColor: COLORS.primary }]} onPress={() => updateStatus(order._id, 'packing')}>
                                         <Text style={[s.actionText, { color: '#fff' }]}>Accept & Pack</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
                             {order.status === 'packing' && (
-                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#FFA726' }]} onPress={() => updateStatus(order.id, order.isDelivery ? 'out_for_delivery' : 'ready')}>
+                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#FFA726' }]} onPress={() => updateStatus(order._id, order.isDelivery ? 'out_for_delivery' : 'ready')}>
                                     <Text style={[s.actionText, { color: '#fff' }]}>{order.isDelivery ? 'Assign Rider' : 'Mark Ready for Pickup'}</Text>
                                 </TouchableOpacity>
                             )}
                             {order.status === 'out_for_delivery' && (
-                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#66BB6A' }]} onPress={() => updateStatus(order.id, 'delivered')}>
+                                <TouchableOpacity style={[s.actionBtn, { backgroundColor: '#66BB6A' }]} onPress={() => updateStatus(order._id, 'delivered')}>
                                     <Text style={[s.actionText, { color: '#fff' }]}>Mark Delivered</Text>
                                 </TouchableOpacity>
                             )}

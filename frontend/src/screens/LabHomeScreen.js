@@ -5,18 +5,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../utils/theme';
+import { labAPI } from '../services/api';
 
-const TOP_TESTS = [
-    { id: 'T1', name: 'Complete Blood Count (CBC)', price: 400, original: 550, tat: '12 hrs' },
-    { id: 'T2', name: 'Lipid Profile', price: 600, original: 800, tat: '24 hrs' },
-    { id: 'T3', name: 'Thyroid Panel (T3, T4, TSH)', price: 800, original: 1000, tat: '24 hrs' },
-    { id: 'T4', name: 'HbA1c (Diabetes)', price: 500, original: 650, tat: '12 hrs' },
-];
 
-const PACKAGES = [
-    { id: 'P1', name: 'Comprehensive Full Body Checkup', tests: 64, originalPrice: 4000, price: 1999, tag: 'Bestseller', image: 'https://cdn-icons-png.flaticon.com/512/2966/2966327.png' },
-    { id: 'P2', name: 'Advanced Cardiac Risk Profile', tests: 18, originalPrice: 3500, price: 1499, tag: 'Trending', image: 'https://cdn-icons-png.flaticon.com/512/2966/2966453.png' },
-];
 
 const CATEGORIES = [
     { id: 'c1', name: 'Fever', icon: 'thermometer' },
@@ -27,6 +18,23 @@ const CATEGORIES = [
 
 const LabHomeScreen = ({ navigation }) => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [tests, setTests] = useState([]);
+    const [packages, setPackages] = useState([]);
+
+    React.useEffect(() => {
+        const fetchCatalog = async () => {
+            try {
+                const res = await labAPI.getCatalog();
+                if (res.success) {
+                    setTests(res.data.filter(item => item.type === 'test'));
+                    setPackages(res.data.filter(item => item.type === 'package'));
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchCatalog();
+    }, []);
 
     return (
         <SafeAreaView style={s.container}>
@@ -92,16 +100,17 @@ const LabHomeScreen = ({ navigation }) => {
                 </View>
                 
                 <FlatList 
-                    data={PACKAGES}
+                    data={packages}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
+                    keyExtractor={item => item._id}
                     renderItem={({ item }) => (
                         <View style={s.pkgCard}>
-                            <View style={s.pkgTag}><Text style={s.pkgTagText}>{item.tag}</Text></View>
-                            <Image source={{ uri: item.image }} style={s.pkgImg} />
+                            <View style={s.pkgTag}><Text style={s.pkgTagText}>{item.tag || 'Popular'}</Text></View>
+                            <Image source={{ uri: item.image || 'https://cdn-icons-png.flaticon.com/512/2966/2966327.png' }} style={s.pkgImg} />
                             <Text style={s.pkgName}>{item.name}</Text>
-                            <Text style={s.pkgTests}>Includes {item.tests} parameters</Text>
+                            <Text style={s.pkgTests}>Includes {item.testsCount} parameters</Text>
                             <View style={s.pkgRow}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={s.pkgPrice}>₹{item.price}</Text>
@@ -121,8 +130,8 @@ const LabHomeScreen = ({ navigation }) => {
                     <TouchableOpacity onPress={() => navigation.navigate('LabTestCatalog')}><Text style={s.seeAll}>See All</Text></TouchableOpacity>
                 </View>
 
-                {TOP_TESTS.map(test => (
-                    <View key={test.id} style={s.testCard}>
+                {tests.map(test => (
+                    <View key={test._id} style={s.testCard}>
                         <View style={{ flex: 1 }}>
                             <Text style={s.testName}>{test.name}</Text>
                             <Text style={s.testMeta}>Reports in {test.tat}</Text>
@@ -130,7 +139,7 @@ const LabHomeScreen = ({ navigation }) => {
                         <View style={{ alignItems: 'flex-end' }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={s.pkgPrice}>₹{test.price}</Text>
-                                <Text style={s.pkgOriginal}>₹{test.original}</Text>
+                                <Text style={s.pkgOriginal}>₹{test.originalPrice}</Text>
                             </View>
                             <TouchableOpacity style={s.addBtnSmall}>
                                 <Text style={s.addBtnTextSmall}>Add</Text>

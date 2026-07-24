@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 const getBaseUrl = () => {
     if (__DEV__) {
         // Android Emulator considers localhost to be its own device, so we use 10.0.2.2 to bridge to host OS.
-        return Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
+        return Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://127.0.0.1:5000/api';
     }
     return 'https://careconnect-iota-five.vercel.app/api'; // Live Vercel backend
 };
@@ -56,6 +56,16 @@ export const labAPI = {
     createBooking: (data) => api.post('/lab/bookings', data),
     getBookings: () => api.get('/lab/bookings'),
     updateBooking: (id, data) => api.put(`/lab/bookings/${id}`, data),
+    getCatalog: () => api.get('/lab/catalog'),
+};
+
+// Pharmacy APIs
+export const pharmacyAPI = {
+    getOrders: (params) => api.get('/pharmacy/orders', { params }),
+    createOrder: (data) => api.post('/pharmacy/orders', data),
+    updateOrderStatus: (id, status) => api.put(`/pharmacy/orders/${id}/status`, { status }),
+    getStockAlerts: () => api.get('/pharmacy/stock-alerts'),
+    getPrescriptions: () => api.get('/pharmacy/prescriptions'),
 };
 
 // Patient APIs
