@@ -58,5 +58,28 @@ export * from './components/Drawer/Drawer';
 export * from './components/Toast/Toast';
 export * from './components/ConfirmationDialog/ConfirmationDialog';
 
+// ─── Clinical Visualization ───────────────────────────────────────────────────
+
+// Patient Journey
+export * from './components/ClinicalTimeline/ClinicalTimeline';
+
+// Vital Charts (SVG, no external dep)
+export * from './components/VitalTrendChart/VitalTrendChart';
+
+// ICU Widgets
+export * from './components/ICUWidgets/ICUWidgets';
+
+// Clinical Scores
+export * from './components/ClinicalScores/ClinicalScores';
+
+// Lab Visualization
+export * from './components/LabVisualization/LabVisualization';
+
+// Radiology
+export * from './components/RadiologyComponents/RadiologyComponents';
+
+// Operations Dashboard
+export * from './components/OperationsDashboard/OperationsDashboard';
+
 // Design Tokens
 export * from './tokens/index';
