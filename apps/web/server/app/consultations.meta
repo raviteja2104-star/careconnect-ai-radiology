@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/consultations/layout,_N_T_/consultations/page,_N_T_/consultations"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/consultations/__PAGE__",
+    "/consultations",
+    "/_index",
+    "/_head"
+  ]
+}

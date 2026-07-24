@@ -1,0 +1,9 @@
+{
+  "extends": "@careconnect/config/tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

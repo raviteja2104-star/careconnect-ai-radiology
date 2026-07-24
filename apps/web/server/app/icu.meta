@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/icu/layout,_N_T_/icu/page,_N_T_/icu"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/icu/__PAGE__",
+    "/icu",
+    "/_index",
+    "/_head"
+  ]
+}

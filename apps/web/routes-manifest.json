@@ -1,0 +1,189 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/adt",
+      "regex": "^/adt(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/adt(?:/)?$"
+    },
+    {
+      "page": "/appointments",
+      "regex": "^/appointments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/appointments(?:/)?$"
+    },
+    {
+      "page": "/bed-management",
+      "regex": "^/bed\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/bed\\-management(?:/)?$"
+    },
+    {
+      "page": "/consultations",
+      "regex": "^/consultations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/consultations(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/emergency",
+      "regex": "^/emergency(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/emergency(?:/)?$"
+    },
+    {
+      "page": "/emr",
+      "regex": "^/emr(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/emr(?:/)?$"
+    },
+    {
+      "page": "/ems",
+      "regex": "^/ems(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ems(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/icu",
+      "regex": "^/icu(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/icu(?:/)?$"
+    },
+    {
+      "page": "/lab-orders",
+      "regex": "^/lab\\-orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/lab\\-orders(?:/)?$"
+    },
+    {
+      "page": "/messages",
+      "regex": "^/messages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/messages(?:/)?$"
+    },
+    {
+      "page": "/nurse-station",
+      "regex": "^/nurse\\-station(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/nurse\\-station(?:/)?$"
+    },
+    {
+      "page": "/ot",
+      "regex": "^/ot(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ot(?:/)?$"
+    },
+    {
+      "page": "/patient",
+      "regex": "^/patient(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/patient(?:/)?$"
+    },
+    {
+      "page": "/patients",
+      "regex": "^/patients(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/patients(?:/)?$"
+    },
+    {
+      "page": "/pharmacy",
+      "regex": "^/pharmacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pharmacy(?:/)?$"
+    },
+    {
+      "page": "/prescriptions",
+      "regex": "^/prescriptions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/prescriptions(?:/)?$"
+    },
+    {
+      "page": "/reports",
+      "regex": "^/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reports(?:/)?$"
+    },
+    {
+      "page": "/settings",
+      "regex": "^/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}
