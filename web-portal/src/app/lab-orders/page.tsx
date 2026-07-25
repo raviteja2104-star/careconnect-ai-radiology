@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import {
   FlaskConical, Plus, Search, AlertTriangle, CheckCircle, Clock,
-  ChevronDown, Download, TrendingUp, TrendingDown, RefreshCw
+  ChevronDown, Download, TrendingUp, TrendingDown, RefreshCw, X, FileText
 } from 'lucide-react';
 
 type OrderStatus  = 'Pending' | 'Specimen Collected' | 'In Process' | 'Partial' | 'Final' | 'Verified';
@@ -26,7 +26,7 @@ interface LabOrder {
   specimenType: string;
 }
 
-const LAB_ORDERS: LabOrder[] = [
+const INITIAL_LAB_ORDERS: LabOrder[] = [
   {
     id: 'lo1', mrn: 'MRN-2024-07241', patientName: 'Rohit Sharma', patientAge: 32, patientGender: 'M',
     panelName: 'Cardiac Markers (STAT)', orderedBy: 'Dr. Priya Mehta', department: 'Cardiology',
@@ -73,6 +73,20 @@ const LAB_ORDERS: LabOrder[] = [
   },
 ];
 
+const AVAILABLE_PANELS = [
+  'Cardiac Markers (STAT) [Troponin I, CK-MB, BNP]',
+  'Complete Blood Count (CBC) with Differential',
+  'Comprehensive Metabolic Panel (CMP)',
+  'HbA1c + Glycaemic Control Panel',
+  'Lipid Profile (Fasted)',
+  'Liver Function Tests (LFT)',
+  'Renal Function Panel (KFT)',
+  'Thyroid Profile (T3, T4, TSH)',
+  'Coagulation Screen (PT/INR, aPTT)',
+  'Arterial Blood Gas (ABG)',
+  'Sepsis Panel (Blood Culture + Procalcitonin)',
+];
+
 const RESULT_CFG = {
   normal:         { label: 'N',  textColor: 'text-green-700 dark:text-green-400', bg: '' },
   low:            { label: 'L',  textColor: 'text-blue-700 dark:text-blue-400',   bg: '' },
@@ -96,19 +110,22 @@ const PRIORITY_CFG: Record<Priority, string> = {
   Routine: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
 };
 
-const SUMMARY_STATS = [
-  { label: 'Total Orders', value: LAB_ORDERS.length, bg: 'bg-indigo-50 dark:bg-indigo-900/20', color: 'text-indigo-600' },
-  { label: 'Critical Values', value: LAB_ORDERS.flatMap(o => o.results).filter(r => r.status.startsWith('critical')).length, bg: 'bg-red-50 dark:bg-red-900/20', color: 'text-red-600' },
-  { label: 'Pending / In Process', value: LAB_ORDERS.filter(o => ['Pending','Specimen Collected','In Process'].includes(o.status)).length, bg: 'bg-amber-50 dark:bg-amber-900/20', color: 'text-amber-600' },
-  { label: 'Final / Verified', value: LAB_ORDERS.filter(o => ['Final','Verified'].includes(o.status)).length, bg: 'bg-green-50 dark:bg-green-900/20', color: 'text-green-600' },
-];
-
 export default function LabOrdersPage() {
+  const [orders, setOrders] = useState<LabOrder[]>(INITIAL_LAB_ORDERS);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | OrderStatus>('All');
-  const [expandedId, setExpandedId] = useState<string | null>(LAB_ORDERS[0].id);
+  const [expandedId, setExpandedId] = useState<string | null>(INITIAL_LAB_ORDERS[0].id);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const filtered = LAB_ORDERS.filter(o => {
+  // New order form state
+  const [patientName, setPatientName] = useState('Rohit Sharma');
+  const [mrn, setMrn] = useState('MRN-2024-07241');
+  const [selectedPanel, setSelectedPanel] = useState(AVAILABLE_PANELS[0]);
+  const [priority, setPriority] = useState<Priority>('Urgent');
+  const [specimenType, setSpecimenType] = useState('Serum');
+  const [clinicalNotes, setClinicalNotes] = useState('');
+
+  const filtered = orders.filter(o => {
     const matchSearch = [o.patientName, o.panelName, o.mrn, o.orderedBy].some(f =>
       f.toLowerCase().includes(search.toLowerCase())
     );
@@ -116,9 +133,40 @@ export default function LabOrdersPage() {
     return matchSearch && matchStatus;
   });
 
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newOrder: LabOrder = {
+      id: `lo${Date.now()}`,
+      mrn,
+      patientName,
+      patientAge: 42,
+      patientGender: 'M',
+      panelName: selectedPanel.split(' [')[0],
+      orderedBy: 'Dr. Raj Sharma',
+      department: 'Cardiology',
+      orderedAt: 'Just now',
+      status: 'Pending',
+      priority,
+      specimenType,
+      results: []
+    };
+    setOrders([newOrder, ...orders]);
+    setExpandedId(newOrder.id);
+    setIsModalOpen(false);
+  };
+
+  const summaryStats = [
+    { label: 'Total Orders', value: orders.length, bg: 'bg-indigo-50 dark:bg-indigo-900/20', color: 'text-indigo-600' },
+    { label: 'Critical Values', value: orders.flatMap(o => o.results).filter(r => r.status.startsWith('critical')).length, bg: 'bg-red-50 dark:bg-red-900/20', color: 'text-red-600' },
+    { label: 'Pending / In Process', value: orders.filter(o => ['Pending','Specimen Collected','In Process'].includes(o.status)).length, bg: 'bg-amber-50 dark:bg-amber-900/20', color: 'text-amber-600' },
+    { label: 'Final / Verified', value: orders.filter(o => ['Final','Verified'].includes(o.status)).length, bg: 'bg-green-50 dark:bg-green-900/20', color: 'text-green-600' },
+  ];
+
   return (
     <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto">
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto relative">
+
+        {/* ── Header ── */}
         <div className="px-8 pt-7 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
             <div>
@@ -126,14 +174,18 @@ export default function LabOrdersPage() {
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Laboratory investigations and results</p>
             </div>
             <div className="flex gap-3">
-              <button className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-indigo-500/25 active:scale-95 cursor-pointer"
+              >
                 <Plus className="w-4 h-4" /> Order Labs
               </button>
             </div>
           </div>
 
+          {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            {SUMMARY_STATS.map(s => (
+            {summaryStats.map(s => (
               <div key={s.label} className={`${s.bg} rounded-xl p-4`}>
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p>
@@ -149,6 +201,7 @@ export default function LabOrdersPage() {
           </div>
         </div>
 
+        {/* ── Orders Accordion List ── */}
         <div className="px-8 pb-8 flex-1 space-y-3">
           {filtered.map(order => {
             const sc = STATUS_CFG[order.status];
@@ -213,10 +266,114 @@ export default function LabOrdersPage() {
                     </table>
                   </div>
                 )}
+                {isExpanded && order.results.length === 0 && (
+                  <div className="p-6 text-center text-slate-400 text-sm border-t border-slate-100 dark:border-slate-800">
+                    <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin text-amber-500" />
+                    Specimen processing in laboratory. Results pending verification.
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        {/* ── CREATE LAB ORDER MODAL ── */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">Create New Lab Order</h3>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateOrder} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Patient</label>
+                  <input
+                    type="text"
+                    value={`${patientName} (${mrn})`}
+                    onChange={e => setPatientName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Investigation Panel</label>
+                  <select
+                    value={selectedPanel}
+                    onChange={e => setSelectedPanel(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {AVAILABLE_PANELS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Priority</label>
+                    <select
+                      value={priority}
+                      onChange={e => setPriority(e.target.value as Priority)}
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="Routine">Routine</option>
+                      <option value="Urgent">Urgent</option>
+                      <option value="STAT">STAT (Immediate)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Specimen Type</label>
+                    <select
+                      value={specimenType}
+                      onChange={e => setSpecimenType(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="Serum">Serum</option>
+                      <option value="EDTA Whole Blood">EDTA Whole Blood</option>
+                      <option value="Urine">Urine</option>
+                      <option value="CSF">CSF</option>
+                      <option value="Swab / Culture">Swab / Culture</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Clinical Indication / Notes</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Enter reason for investigation or relevant symptoms..."
+                    value={clinicalNotes}
+                    onChange={e => setClinicalNotes(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md transition-colors flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Submit Lab Order
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </div>
     </DashboardLayout>
   );

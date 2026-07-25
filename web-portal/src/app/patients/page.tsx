@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Search, Plus, Filter, ChevronRight, Users, UserCheck,
   UserX, Clock, MoreVertical, Phone, Mail, Calendar,
-  Activity, AlertTriangle, Heart, Pill, FlaskConical, Download
+  Activity, AlertTriangle, Heart, Pill, FlaskConical, Download, X, CheckCircle
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -21,8 +21,8 @@ interface Patient {
   allergies: string[]; ward?: string; doctor: string; initials: string;
 }
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-const PATIENTS: Patient[] = [
+// ─── Initial Data ─────────────────────────────────────────────────────────────
+const INITIAL_PATIENTS: Patient[] = [
   { id: '1', mrn: 'MRN-2024-08742', name: 'Ravi Kumar Sharma', age: 54, gender: 'Male', dob: '1970-03-15', phone: '+91 98765 43210', email: 'ravi.sharma@email.com', bloodGroup: 'B+', status: 'Admitted', lastVisit: '24 Jul 2026', diagnosis: 'Acute Myocardial Infarction (STEMI)', allergies: ['Penicillin', 'Aspirin'], ward: 'ICU Bed 2', doctor: 'Dr. Priya Mehta', initials: 'RK' },
   { id: '2', mrn: 'MRN-2024-09133', name: 'Ananya Krishnamurthy', age: 67, gender: 'Female', dob: '1957-11-22', phone: '+91 87654 32109', bloodGroup: 'O+', status: 'Critical', lastVisit: '23 Jul 2026', diagnosis: 'Septic Shock — Post-operative', allergies: ['Sulfa'], ward: 'ICU Bed 7', doctor: 'Dr. Rajesh Iyer', initials: 'AK' },
   { id: '3', mrn: 'MRN-2024-07391', name: 'Mohan Das', age: 32, gender: 'Male', dob: '1994-06-08', phone: '+91 76543 21098', email: 'mohan.das@email.com', bloodGroup: 'A+', status: 'Active', lastVisit: '20 Jul 2026', diagnosis: 'Type 2 Diabetes Mellitus', allergies: [], doctor: 'Dr. Suresh Gupta', initials: 'MD' },
@@ -33,7 +33,6 @@ const PATIENTS: Patient[] = [
   { id: '8', mrn: 'MRN-2024-02445', name: 'Priya Patel', age: 39, gender: 'Female', dob: '1985-08-12', phone: '+91 21098 76543', email: 'priya.patel@email.com', bloodGroup: 'O+', status: 'Active', lastVisit: '19 Jul 2026', diagnosis: 'Gestational Diabetes', allergies: ['Penicillin'], doctor: 'Dr. Suresh Gupta', initials: 'PP' },
 ];
 
-// ─── Status Config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<PatientStatus, { bg: string; text: string; dot: string }> = {
   Active:     { bg: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-700 dark:text-green-400',   dot: 'bg-green-500' },
   Admitted:   { bg: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-700 dark:text-blue-400',     dot: 'bg-blue-500' },
@@ -60,32 +59,65 @@ const AVATAR_COLORS = [
   'from-sky-400 to-blue-500',
 ];
 
-// ─── Stats ─────────────────────────────────────────────────────────────────────
-const SUMMARY_STATS = [
-  { label: 'Total Patients', value: '2,841', icon: Users, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/30' },
-  { label: 'Admitted Today', value: '48', icon: UserCheck, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30' },
-  { label: 'Critical Cases', value: '7', icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30' },
-  { label: 'Discharged Today', value: '23', icon: UserX, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30' },
-];
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PatientsPage() {
+  const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | PatientStatus>('All');
   const [view, setView] = useState<'table' | 'cards'>('table');
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+
+  // Form State
+  const [name, setName] = useState('');
+  const [age, setAge] = useState<number>(30);
+  const [gender, setGender] = useState<Gender>('Male');
+  const [bloodGroup, setBloodGroup] = useState<BloodGroup>('O+');
+  const [phone, setPhone] = useState('+91 98000 12345');
+  const [diagnosis, setDiagnosis] = useState('');
 
   const filtered = useMemo(() =>
-    PATIENTS.filter(p => {
+    patients.filter(p => {
       const matchSearch = [p.name, p.mrn, p.diagnosis, p.doctor].some(f =>
         f.toLowerCase().includes(search.toLowerCase())
       );
       const matchStatus = statusFilter === 'All' || p.status === statusFilter;
       return matchSearch && matchStatus;
-    }), [search, statusFilter]);
+    }), [patients, search, statusFilter]);
+
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'NP';
+    const newPatient: Patient = {
+      id: `${Date.now()}`,
+      mrn: `MRN-2024-0${Math.floor(1000 + Math.random() * 9000)}`,
+      name,
+      age,
+      gender,
+      dob: '1994-01-01',
+      phone,
+      bloodGroup,
+      status: 'Active',
+      lastVisit: 'Today',
+      diagnosis: diagnosis || 'General Health Examination',
+      allergies: [],
+      doctor: 'Dr. Priya Mehta',
+      initials
+    };
+    setPatients([newPatient, ...patients]);
+    setIsRegisterModalOpen(false);
+    setName('');
+    setDiagnosis('');
+  };
+
+  const summaryStats = [
+    { label: 'Total Patients', value: patients.length, icon: Users, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/30' },
+    { label: 'Admitted Today', value: patients.filter(p => p.status === 'Admitted').length, icon: UserCheck, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30' },
+    { label: 'Critical Cases', value: patients.filter(p => p.status === 'Critical').length, icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30' },
+    { label: 'Discharged Today', value: patients.filter(p => p.status === 'Discharged').length, icon: UserX, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30' },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto">
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto relative">
 
         {/* ── Header ── */}
         <div className="px-8 pt-7 pb-5">
@@ -95,10 +127,10 @@ export default function PatientsPage() {
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage and view patient records</p>
             </div>
             <div className="flex gap-3">
-              <button className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-                <Download className="w-4 h-4" /> Export
-              </button>
-              <button className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
+              <button
+                onClick={() => setIsRegisterModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-indigo-500/25 active:scale-95 cursor-pointer"
+              >
                 <Plus className="w-4 h-4" /> Register Patient
               </button>
             </div>
@@ -106,7 +138,7 @@ export default function PatientsPage() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {SUMMARY_STATS.map(s => {
+            {summaryStats.map(s => {
               const Icon = s.icon;
               return (
                 <div key={s.label} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
@@ -143,7 +175,7 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* ── Patient Table ── */}
+        {/* ── Patient Table / Cards ── */}
         <div className="px-8 pb-8 flex-1">
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
@@ -242,6 +274,109 @@ export default function PatientsPage() {
             )}
           </div>
         </div>
+
+        {/* ── REGISTER PATIENT MODAL ── */}
+        {isRegisterModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">Register New Patient</h3>
+                </div>
+                <button onClick={() => setIsRegisterModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleRegisterSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Patient full name"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Age</label>
+                    <input
+                      type="number"
+                      value={age}
+                      onChange={e => setAge(Number(e.target.value))}
+                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Gender</label>
+                    <select
+                      value={gender}
+                      onChange={e => setGender(e.target.value as Gender)}
+                      className="w-full px-2 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Blood</label>
+                    <select
+                      value={bloodGroup}
+                      onChange={e => setBloodGroup(e.target.value as BloodGroup)}
+                      className="w-full px-2 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
+                    >
+                      {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Initial Diagnosis / Reason</label>
+                  <input
+                    type="text"
+                    placeholder="Chief complaint or diagnosis"
+                    value={diagnosis}
+                    onChange={e => setDiagnosis(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsRegisterModalOpen(false)}
+                    className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md transition-colors flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Save Patient
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </div>
     </DashboardLayout>
   );
