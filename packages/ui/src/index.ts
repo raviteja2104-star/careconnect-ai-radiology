@@ -81,5 +81,8 @@ export * from './components/RadiologyComponents/RadiologyComponents';
 // Operations Dashboard
 export * from './components/OperationsDashboard/OperationsDashboard';
 
+// Theme Engine
+export * from './components/ThemeProvider/ThemeProvider';
+
 // Design Tokens
 export * from './tokens/index';
