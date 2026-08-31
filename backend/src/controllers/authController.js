@@ -9,7 +9,10 @@ const otpStore = new Map();
 
 // Helper: wait for DB to be ready (handles Vercel serverless cold starts)
 const waitForDB = async (maxMs = 12000) => {
-    await connectDB();
+    const conn = await connectDB();
+    // connectDB returns null when Mongo is down (single-flight + cooldown):
+    // skip the poll loop so handlers hit their demo fallback immediately.
+    if (!conn) return;
     const start = Date.now();
     while (mongoose.connection.readyState !== 1 && Date.now() - start < maxMs) {
         await new Promise(resolve => setTimeout(resolve, 200));

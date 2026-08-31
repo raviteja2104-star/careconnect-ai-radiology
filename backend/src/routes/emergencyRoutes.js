@@ -14,6 +14,6 @@ router.use(protect);
 router.post('/sos', authorize('patient'), triggerSOS);
 router.get('/history', authorize('patient'), getEmergencyHistory);
 router.get('/:id', getEmergencyStatus);
-router.put('/:id/status', authorize('admin', 'doctor'), updateEmergencyStatus);
+router.put('/:id/status', authorize('admin', 'doctor', 'emergency'), updateEmergencyStatus);
 
 module.exports = router;

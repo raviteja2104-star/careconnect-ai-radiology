@@ -1,31 +1,16 @@
 const express = require('express');
-const {
-    checkSymptoms,
-    bookConsultation,
-    getConsultations,
-    getReports,
-    getDoctors,
-    getNotifications,
-    markNotificationRead,
-} = require('../controllers/patientController');
-const { protect, authorize } = require('../middleware/auth');
-const { uploadScan: uploadMiddleware } = require('../middleware/upload');
-const { uploadScan } = require('../controllers/radiologyController');
-
 const router = express.Router();
+const { 
+  getPatientWallet
+} = require('../controllers/patientController');
+const { protect } = require('../middleware/auth');
+const audit = require('../middleware/audit');
 
+// Authenticated read — wallet balances are patient financial data.
+// protect moved to router-level (behaviorally identical: it guarded the only
+// route) so the audit middleware can run after it, matching the other routers.
 router.use(protect);
-router.use(authorize('patient'));
-
-router.post('/check-symptoms', checkSymptoms);
-router.post('/consultation', bookConsultation);
-router.get('/consultations', getConsultations);
-router.get('/reports', getReports);
-router.get('/doctors', getDoctors);
-router.get('/notifications', getNotifications);
-router.put('/notifications/:id/read', markNotificationRead);
-
-// Patient scan upload
-router.post('/upload-scan', uploadMiddleware.single('scan'), uploadScan);
+router.use(audit('Patient'));
+router.route('/:patientId/wallet').get(getPatientWallet);
 
 module.exports = router;

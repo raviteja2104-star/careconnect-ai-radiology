@@ -1,262 +1,334 @@
 'use client';
 
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { 
-  Users, Clock, AlertTriangle, Activity, Pill, 
-  Syringe, Droplet, ClipboardList, CheckCircle, 
-  ScanBarcode, Filter, Search, HeartPulse, Thermometer,
-  ArrowRight, Info
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import {
+  Users, Clock, AlertTriangle, Activity, Pill,
+  Droplet, ClipboardList, ScanBarcode, HeartPulse,
+  Sparkles, ArrowUpRight,
 } from 'lucide-react';
+import {
+  PageHeader, Button, Badge, StatCard, StatGrid,
+  Card, CardHeader, CardTitle, CardContent,
+  Tabs, TabsList, TabsTrigger, TabsContent,
+  DataTable, type Column, EmptyState, ProgressRing,
+} from '@/components/ui';
+
+type Patient = {
+  bed: string; name: string; age: number; gender: string; diagnosis: string;
+  status: string; risk: string; ews: number; nextMed: string; nextVital: string; ivRunning: boolean;
+};
+
+type EmarTask = {
+  patient: string; bed: string; drug: string; dose: string; route: string; time: string; status: string;
+};
+
+const TAB_LABELS: Record<string, string> = {
+  'dashboard': 'Dashboard',
+  'patient list': 'Patient List',
+  'eMAR': 'eMAR (Meds)',
+  'vitals & IO': 'Vitals & IO',
+  'tasks': 'Tasks',
+  'handover': 'Handover',
+};
 
 export default function NurseStation() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [copilotAcknowledged, setCopilotAcknowledged] = useState(false);
 
   // Mock Data
   const stats = [
-    { label: "Assigned Patients", value: '8', icon: <Users className="w-5 h-5" />, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
-    { label: 'Critical / High Risk', value: '2', icon: <AlertTriangle className="w-5 h-5" />, color: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' },
-    { label: 'Meds Due (Next 2h)', value: '14', icon: <Pill className="w-5 h-5" />, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' },
-    { label: 'Vitals Due', value: '6', icon: <Activity className="w-5 h-5" />, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
+    { label: 'Assigned Patients', value: '8', icon: Users, tone: 'brand' as const },
+    { label: 'Critical / High Risk', value: '2', icon: AlertTriangle, tone: 'rose' as const },
+    { label: 'Meds Due (Next 2h)', value: '14', icon: Pill, tone: 'violet' as const },
+    { label: 'Vitals Due', value: '6', icon: Activity, tone: 'amber' as const },
   ];
 
-  const patients = [
+  const patients: Patient[] = [
     { bed: 'W4-B12', name: 'Rohit Sharma', age: 32, gender: 'M', diagnosis: 'Acute Appendicitis', status: 'Post-Op', risk: 'Medium', ews: 3, nextMed: '14:00', nextVital: '15:00', ivRunning: true },
     { bed: 'W4-B14', name: 'Sunita Rao', age: 65, gender: 'F', diagnosis: 'COPD Exacerbation', status: 'Oxygen Therapy', risk: 'High', ews: 6, nextMed: '13:30 (Overdue)', nextVital: '14:00', ivRunning: true },
     { bed: 'W4-B15', name: 'Amit Singh', age: 45, gender: 'M', diagnosis: 'Dengue Fever', status: 'Stable', risk: 'Low', ews: 1, nextMed: '18:00', nextVital: '18:00', ivRunning: false },
     { bed: 'W4-B18', name: 'Priya Patel', age: 28, gender: 'F', diagnosis: 'Gastroenteritis', status: 'Observation', risk: 'Low', ews: 0, nextMed: '16:00', nextVital: '16:00', ivRunning: true },
   ];
 
-  const emarTasks = [
+  const emarTasks: EmarTask[] = [
     { patient: 'Sunita Rao', bed: 'W4-B14', drug: 'Salbutamol Nebulizer', dose: '2.5mg', route: 'Inhalation', time: '13:30', status: 'Overdue' },
     { patient: 'Rohit Sharma', bed: 'W4-B12', drug: 'Ceftriaxone', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
     { patient: 'Rohit Sharma', bed: 'W4-B12', drug: 'Paracetamol', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
   ];
 
+  const patientColumns: Column<Patient>[] = [
+    {
+      key: 'bed', header: 'Bed', sortable: true,
+      cell: (p) => <span className="font-bold text-foreground">{p.bed}</span>,
+    },
+    {
+      key: 'name', header: 'Patient', sortable: true,
+      cell: (p) => (
+        <div>
+          <p className="font-semibold text-foreground">{p.name}</p>
+          <p className="text-xs text-muted-foreground">{p.age}y • {p.gender}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'diagnosis', header: 'Diagnosis & Status',
+      cell: (p) => (
+        <div>
+          <p className="font-medium text-foreground">{p.diagnosis}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{p.status}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'ews', header: 'NEWS2', sortable: true, accessor: (p) => p.ews, align: 'center',
+      cell: (p) => (
+        <Badge tone={p.ews >= 5 ? 'danger' : p.ews >= 3 ? 'warning' : 'success'} dot pulse={p.ews >= 5}>
+          {p.ews}
+        </Badge>
+      ),
+    },
+    {
+      key: 'ivRunning', header: 'Infusions', accessor: (p) => (p.ivRunning ? 'Running' : '-'),
+      cell: (p) => p.ivRunning ? (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-info">
+          <Droplet className="h-4 w-4" aria-hidden /> Running
+        </span>
+      ) : (
+        <span className="text-xs text-subtle-foreground">—</span>
+      ),
+    },
+    {
+      key: 'nextMed', header: 'Next Task',
+      cell: (p) => (
+        <div className="flex flex-col gap-1">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Pill className="h-3 w-3" aria-hidden /> {p.nextMed}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Activity className="h-3 w-3" aria-hidden /> {p.nextVital}
+          </span>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        
-        {/* Header & Tabs */}
-        <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-10 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Activity className="w-6 h-6 text-rose-500" /> Nurse Station
-              </h1>
-              <p className="text-sm text-slate-500">Ward 4 (General Medical) • Shift: 08:00 - 16:00 • Nurse: Sarah K.</p>
-            </div>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm hover:opacity-90 transition-opacity">
-                <ScanBarcode className="w-4 h-4" /> Scan Patient / Med
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex space-x-1">
-            {['dashboard', 'patient list', 'eMAR', 'vitals & IO', 'tasks', 'handover'].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg capitalize transition-colors ${activeTab === tab ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              >
-                {tab === 'eMAR' ? 'eMAR (Meds)' : tab}
-              </button>
+    <div className="space-y-6">
+      <PageHeader
+        title="Nurse Station"
+        description="Ward 4 (General Medical) • Shift: 08:00 - 16:00 • Nurse: Sarah K."
+        crumbs={[{ label: 'Clinical' }, { label: 'Nurse Station' }]}
+        actions={
+          <Button disabled title="Coming soon">
+            <ScanBarcode className="h-4 w-4" aria-hidden /> Scan Patient / Med
+          </Button>
+        }
+      />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-auto max-w-full flex-wrap justify-start overflow-x-auto no-scrollbar">
+          {Object.keys(TAB_LABELS).map((tab) => (
+            <TabsTrigger key={tab} value={tab}>
+              {TAB_LABELS[tab]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="dashboard" className="mt-6 space-y-6">
+          <StatGrid>
+            {stats.map((stat, idx) => (
+              <StatCard
+                key={stat.label}
+                label={stat.label}
+                value={stat.value}
+                icon={stat.icon}
+                tone={stat.tone}
+                delay={idx * 0.05}
+              />
             ))}
-          </div>
-        </div>
+          </StatGrid>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          
-          {activeTab === 'dashboard' && (
-             <div className="space-y-6">
-                
-                {/* KPI Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {stats.map((stat, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${stat.color}`}>
-                        {stat.icon}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {/* Early Warning Scores (EWS) Alerts */}
+            <div className="space-y-6 xl:col-span-1">
+              <Card>
+                <CardHeader className="flex-row items-center justify-between space-y-0">
+                  <CardTitle className="flex items-center gap-2">
+                    <HeartPulse className="h-5 w-5 text-danger" aria-hidden /> NEWS2 Alerts
+                  </CardTitle>
+                  <Badge tone="danger" dot pulse>1 Critical</Badge>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="rounded-2xl border border-danger/30 bg-danger-soft p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <ProgressRing value={88} size={56} strokeWidth={5} tone="danger">
+                          <span className="text-xs font-bold">88%</span>
+                        </ProgressRing>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">W4-B14 • Sunita Rao</p>
+                          <p className="text-xs font-semibold text-danger">NEWS2 Score: 6</p>
+                          <p className="mt-1 text-xs text-muted-foreground">SpO2 dropped to 88% on room air. RR 24.</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
-                      </div>
+                      <Button variant="danger" size="sm" onClick={() => router.push('/messages')}>Escalate</Button>
                     </div>
-                  ))}
-                </div>
+                  </motion.div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                   
-                   {/* Early Warning Scores (EWS) Alerts */}
-                   <div className="xl:col-span-1 space-y-6">
-                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-red-50/50 dark:bg-red-900/10 flex items-center justify-between">
-                           <div className="flex items-center gap-2">
-                             <HeartPulse className="w-5 h-5 text-red-600 dark:text-red-400" />
-                             <h3 className="font-bold text-slate-900 dark:text-slate-100">NEWS2 Alerts</h3>
-                           </div>
-                           <span className="px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded-full animate-pulse">1 Critical</span>
-                        </div>
-                        <div className="p-4">
-                           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg mb-3">
-                             <div className="flex justify-between items-start mb-1">
-                               <div>
-                                 <span className="text-xs font-bold text-red-700 dark:text-red-400 block">W4-B14 • Sunita Rao</span>
-                                 <span className="text-[10px] text-red-500 font-semibold">NEWS2 Score: 6</span>
-                               </div>
-                               <button className="text-xs font-semibold text-red-700 dark:text-red-400 bg-white dark:bg-slate-900 px-2 py-1 rounded shadow-sm hover:underline border border-red-200 dark:border-red-800">Escalate</button>
-                             </div>
-                             <p className="text-xs text-slate-700 dark:text-slate-300 mt-2">SpO2 dropped to 88% on room air. RR 24.</p>
-                           </div>
-                           
-                           <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg">
-                             <div className="flex justify-between items-start mb-1">
-                               <div>
-                                 <span className="text-xs font-bold text-amber-700 dark:text-amber-400 block">W4-B12 • Rohit Sharma</span>
-                                 <span className="text-[10px] text-amber-500 font-semibold">NEWS2 Score: 3</span>
-                               </div>
-                               <button className="text-xs font-semibold text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-900 px-2 py-1 rounded shadow-sm hover:underline border border-amber-200 dark:border-amber-800">Review</button>
-                             </div>
-                             <p className="text-xs text-slate-700 dark:text-slate-300 mt-2">Temp 38.2°C, HR 102.</p>
-                           </div>
-                        </div>
-                     </div>
-                     
-                     {/* AI Assistant */}
-                      <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl shadow-md p-6 text-white relative overflow-hidden">
-                         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl translate-x-10 -translate-y-10"></div>
-                         <div className="relative z-10">
-                           <div className="flex items-center gap-2 mb-4">
-                             <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm"><Activity className="w-4 h-4" /></div>
-                             <h3 className="font-bold text-sm tracking-wide">AI Nursing Copilot</h3>
-                           </div>
-                           <p className="text-sm text-rose-100 mb-4 leading-relaxed">
-                             <strong>Reminder:</strong> Blood cultures for W4-B12 (Rohit) need to be drawn before starting IV Ceftriaxone at 14:00.
-                           </p>
-                           <button className="w-full py-2 bg-white text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-lg transition-colors shadow-sm">
-                             Acknowledge
-                           </button>
-                         </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.05 }}
+                    className="rounded-2xl border border-warning/30 bg-warning-soft p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">W4-B12 • Rohit Sharma</p>
+                        <p className="text-xs font-semibold text-warning">NEWS2 Score: 3</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Temp 38.2°C, HR 102.</p>
                       </div>
-                   </div>
+                      <Button variant="outline" size="sm" onClick={() => router.push('/emr')}>Review</Button>
+                    </div>
+                  </motion.div>
+                </CardContent>
+              </Card>
 
-                   {/* Pending Meds (eMAR Preview) */}
-                   <div className="xl:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                         <h3 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                           <Pill className="w-4 h-4 text-slate-400" /> Pending eMAR (Next 2 Hours)
-                         </h3>
-                         <button onClick={() => setActiveTab('eMAR')} className="text-sm font-semibold text-rose-600 dark:text-rose-400">View Full eMAR</button>
-                      </div>
-                      <table className="w-full text-left border-collapse">
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {emarTasks.map((task, i) => (
-                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                              <td className="p-4 w-1/4">
-                                <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{task.bed}</p>
-                                <p className="text-xs text-slate-500">{task.patient}</p>
-                              </td>
-                              <td className="p-4 w-1/3">
-                                <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">{task.drug}</p>
-                                <p className="text-xs text-slate-500">{task.dose} • {task.route}</p>
-                              </td>
-                              <td className="p-4">
-                                <span className={`px-2 py-1 text-[10px] font-bold rounded flex items-center gap-1 w-max ${task.status === 'Overdue' ? 'bg-red-100 text-red-700 dark:bg-red-900/30' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30'}`}>
-                                  <Clock className="w-3 h-3" /> {task.time} ({task.status})
-                                </span>
-                              </td>
-                              <td className="p-4 text-right">
-                                <button className="px-4 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-lg shadow-sm hover:opacity-90 flex items-center gap-1 ml-auto">
-                                  <ScanBarcode className="w-3 h-3" /> Scan
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                   </div>
-
-                </div>
-             </div>
-          )}
-
-          {activeTab === 'patient list' && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-md">My Patients (8)</button>
-                  <button className="px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium rounded-md">Critical (2)</button>
-                  <button className="px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium rounded-md">All Ward 4</button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="text" placeholder="Search by name or bed..." className="pl-9 pr-4 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" />
+              {/* AI Assistant */}
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+                className="gradient-brand relative overflow-hidden rounded-3xl p-6 text-primary-foreground shadow-float"
+              >
+                <div className="absolute right-0 top-0 h-40 w-40 -translate-y-10 translate-x-10 rounded-full bg-white/10 blur-3xl" aria-hidden />
+                <div className="relative z-10">
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="rounded-lg bg-white/20 p-1.5 backdrop-blur-sm">
+                      <Sparkles className="h-4 w-4" aria-hidden />
+                    </span>
+                    <h3 className="text-sm font-bold tracking-wide">AI Nursing Copilot</h3>
                   </div>
-                  <button className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
-                    <Filter className="w-4 h-4" />
-                  </button>
+                  <p className="mb-4 text-sm leading-relaxed opacity-90">
+                    <strong>Reminder:</strong> Blood cultures for W4-B12 (Rohit) need to be drawn before starting IV Ceftriaxone at 14:00.
+                  </p>
+                  <Button
+                    variant="glass"
+                    size="sm"
+                    className="w-full"
+                    disabled={copilotAcknowledged}
+                    onClick={() => setCopilotAcknowledged(true)}
+                  >
+                    {copilotAcknowledged ? 'Acknowledged' : 'Acknowledge'}
+                  </Button>
                 </div>
-              </div>
-              
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                      <th className="px-6 py-4 font-semibold">Bed</th>
-                      <th className="px-6 py-4 font-semibold">Patient</th>
-                      <th className="px-6 py-4 font-semibold">Diagnosis & Status</th>
-                      <th className="px-6 py-4 font-semibold">NEWS2</th>
-                      <th className="px-6 py-4 font-semibold">Infusions</th>
-                      <th className="px-6 py-4 font-semibold">Next Task</th>
-                      <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {patients.map((p, i) => (
-                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-slate-100">{p.bed}</td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{p.name}</p>
-                          <p className="text-xs text-slate-500">{p.age}y • {p.gender}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{p.diagnosis}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{p.status}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-1 text-xs font-bold rounded-md ${p.ews >= 5 ? 'bg-red-100 text-red-700' : p.ews >= 3 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                            {p.ews}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {p.ivRunning ? (
-                            <span className="flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400"><Droplet className="w-4 h-4"/> Running</span>
-                          ) : (
-                            <span className="text-xs text-slate-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1">
-                             <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-400"><Pill className="w-3 h-3"/> {p.nextMed}</span>
-                             <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-400"><Activity className="w-3 h-3"/> {p.nextVital}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button className="px-4 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-lg shadow-sm hover:opacity-90">Open Chart</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              </motion.div>
             </div>
-          )}
-          
-        </div>
-      </div>
-    </DashboardLayout>
+
+            {/* Pending Meds (eMAR Preview) */}
+            <Card className="xl:col-span-2 self-start">
+              <CardHeader className="flex-row items-center justify-between space-y-0">
+                <CardTitle className="flex items-center gap-2">
+                  <Pill className="h-4 w-4 text-muted-foreground" aria-hidden /> Pending eMAR (Next 2 Hours)
+                </CardTitle>
+                <Button variant="link" size="sm" onClick={() => setActiveTab('eMAR')}>
+                  View Full eMAR <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ul className="divide-y divide-border">
+                  {emarTasks.map((task, i) => (
+                    <motion.li
+                      key={`${task.bed}-${task.drug}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.05 }}
+                      className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
+                    >
+                      <div className="w-32 min-w-0">
+                        <p className="text-sm font-bold text-foreground">{task.bed}</p>
+                        <p className="text-xs text-muted-foreground">{task.patient}</p>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-foreground">{task.drug}</p>
+                        <p className="text-xs text-muted-foreground">{task.dose} • {task.route}</p>
+                      </div>
+                      <Badge tone={task.status === 'Overdue' ? 'danger' : 'warning'}>
+                        <Clock className="h-3 w-3" aria-hidden /> {task.time} ({task.status})
+                      </Badge>
+                      <Button size="sm" variant="secondary" disabled title="Coming soon">
+                        <ScanBarcode className="h-3.5 w-3.5" aria-hidden /> Scan
+                      </Button>
+                    </motion.li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="patient list" className="mt-6">
+          <DataTable<Patient>
+            columns={patientColumns}
+            data={patients}
+            rowKey={(p) => p.bed}
+            searchPlaceholder="Search by name or bed..."
+            exportName="ward4-patients"
+            emptyTitle="No patients assigned"
+            emptyDescription="Patients assigned to this ward will appear here."
+            toolbar={
+              <div className="flex items-center gap-2">
+                <Badge tone="brand">My Patients (8)</Badge>
+                <Badge tone="outline">Critical (2)</Badge>
+                <Badge tone="outline">All Ward 4</Badge>
+              </div>
+            }
+            rowActions={() => (
+              <Button size="sm" variant="secondary" onClick={() => router.push('/emr')}>Open Chart</Button>
+            )}
+          />
+        </TabsContent>
+
+        <TabsContent value="eMAR" className="mt-6">
+          <EmptyState
+            icon={Pill}
+            title="eMAR workspace coming soon"
+            description="The full electronic medication administration record is being prepared. Use the dashboard preview for now."
+            action={{ label: 'Back to Dashboard', onClick: () => setActiveTab('dashboard') }}
+          />
+        </TabsContent>
+        <TabsContent value="vitals & IO" className="mt-6">
+          <EmptyState
+            icon={Activity}
+            title="Vitals & IO charting coming soon"
+            description="Bedside vitals capture and intake/output charting will live here."
+            action={{ label: 'Back to Dashboard', onClick: () => setActiveTab('dashboard') }}
+          />
+        </TabsContent>
+        <TabsContent value="tasks" className="mt-6">
+          <EmptyState
+            icon={ClipboardList}
+            title="No tasks to show"
+            description="Nursing tasks assigned to this shift will appear here."
+            action={{ label: 'Back to Dashboard', onClick: () => setActiveTab('dashboard') }}
+          />
+        </TabsContent>
+        <TabsContent value="handover" className="mt-6">
+          <EmptyState
+            icon={Users}
+            title="Shift handover coming soon"
+            description="Structured SBAR handover notes for the next shift will live here."
+            action={{ label: 'Back to Dashboard', onClick: () => setActiveTab('dashboard') }}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

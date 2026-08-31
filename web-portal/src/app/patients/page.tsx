@@ -1,13 +1,16 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import {
-  Search, Plus, Filter, ChevronRight, Users, UserCheck,
-  UserX, Clock, MoreVertical, Phone, Mail, Calendar,
-  Activity, AlertTriangle, Heart, Pill, FlaskConical, Download, X, CheckCircle
+  Search, Plus, ChevronRight, Users, UserCheck, UserX,
+  AlertTriangle, CheckCircle, LayoutGrid, Rows3, Droplet, FileText,
 } from 'lucide-react';
+import {
+  PageHeader, StatCard, StatGrid, Button, Badge, Input, Select, Label,
+  Avatar, DataTable, type Column, Dialog, Card,
+} from '@/components/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Gender = 'Male' | 'Female' | 'Other';
@@ -33,31 +36,37 @@ const INITIAL_PATIENTS: Patient[] = [
   { id: '8', mrn: 'MRN-2024-02445', name: 'Priya Patel', age: 39, gender: 'Female', dob: '1985-08-12', phone: '+91 21098 76543', email: 'priya.patel@email.com', bloodGroup: 'O+', status: 'Active', lastVisit: '19 Jul 2026', diagnosis: 'Gestational Diabetes', allergies: ['Penicillin'], doctor: 'Dr. Suresh Gupta', initials: 'PP' },
 ];
 
-const STATUS_CONFIG: Record<PatientStatus, { bg: string; text: string; dot: string }> = {
-  Active:     { bg: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-700 dark:text-green-400',   dot: 'bg-green-500' },
-  Admitted:   { bg: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-700 dark:text-blue-400',     dot: 'bg-blue-500' },
-  Discharged: { bg: 'bg-slate-100 dark:bg-slate-800',     text: 'text-slate-600 dark:text-slate-400',   dot: 'bg-slate-400' },
-  Critical:   { bg: 'bg-red-50 dark:bg-red-900/20',       text: 'text-red-700 dark:text-red-400',       dot: 'bg-red-500 animate-pulse' },
+const STATUS_TONE: Record<PatientStatus, { tone: 'success' | 'info' | 'neutral' | 'danger'; pulse?: boolean }> = {
+  Active:     { tone: 'success' },
+  Admitted:   { tone: 'info' },
+  Discharged: { tone: 'neutral' },
+  Critical:   { tone: 'danger', pulse: true },
 };
 
+/* Soft accent tints for blood-group badges (allowed for badges per design system). */
 const BLOOD_GROUP_COLOR: Record<BloodGroup, string> = {
-  'O+':  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  'O-':  'bg-red-200 text-red-800 dark:bg-red-900/50 dark:text-red-300',
-  'A+':  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  'A-':  'bg-blue-200 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
-  'B+':  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'B-':  'bg-green-200 text-green-800 dark:bg-green-900/50 dark:text-green-300',
-  'AB+': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  'AB-': 'bg-purple-200 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
+  'O+':  'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400',
+  'O-':  'bg-red-100 text-red-800 dark:bg-red-500/25 dark:text-red-300',
+  'A+':  'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400',
+  'A-':  'bg-blue-100 text-blue-800 dark:bg-blue-500/25 dark:text-blue-300',
+  'B+':  'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
+  'B-':  'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-300',
+  'AB+': 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400',
+  'AB-': 'bg-violet-100 text-violet-800 dark:bg-violet-500/25 dark:text-violet-300',
 };
 
-const AVATAR_COLORS = [
-  'from-indigo-400 to-purple-500',
-  'from-rose-400 to-pink-500',
-  'from-emerald-400 to-teal-500',
-  'from-amber-400 to-orange-500',
-  'from-sky-400 to-blue-500',
-];
+function StatusBadge({ status }: { status: PatientStatus }) {
+  const cfg = STATUS_TONE[status];
+  return <Badge tone={cfg.tone} dot pulse={cfg.pulse}>{status}</Badge>;
+}
+
+function BloodBadge({ group }: { group: BloodGroup }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-bold ${BLOOD_GROUP_COLOR[group]}`}>
+      <Droplet className="h-3 w-3" aria-hidden /> {group}
+    </span>
+  );
+}
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
@@ -108,276 +117,309 @@ export default function PatientsPage() {
     setDiagnosis('');
   };
 
-  const summaryStats = [
-    { label: 'Total Patients', value: patients.length, icon: Users, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/30' },
-    { label: 'Admitted Today', value: patients.filter(p => p.status === 'Admitted').length, icon: UserCheck, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30' },
-    { label: 'Critical Cases', value: patients.filter(p => p.status === 'Critical').length, icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30' },
-    { label: 'Discharged Today', value: patients.filter(p => p.status === 'Discharged').length, icon: UserX, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30' },
-  ];
-
-  return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto relative">
-
-        {/* ── Header ── */}
-        <div className="px-8 pt-7 pb-5">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Patients</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage and view patient records</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setIsRegisterModalOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-indigo-500/25 active:scale-95 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Register Patient
-              </button>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {summaryStats.map(s => {
-              const Icon = s.icon;
-              return (
-                <div key={s.label} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.bg}`}>
-                    <Icon className={`w-5 h-5 ${s.color}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{s.label}</p>
-                    <p className="text-xl font-bold text-slate-900 dark:text-white">{s.value}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Search + Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search by name, MRN, diagnosis, or doctor..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-              />
-            </div>
-            <div className="flex gap-2">
-              {(['All', 'Active', 'Admitted', 'Critical', 'Discharged'] as const).map(f => (
-                <button key={f} onClick={() => setStatusFilter(f)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${statusFilter === f ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Patient Table / Cards ── */}
-        <div className="px-8 pb-8 flex-1">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <span className="text-sm text-slate-500">{filtered.length} patients</span>
-              <div className="flex gap-1">
-                {(['table', 'cards'] as const).map(v => (
-                  <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${view === v ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                    {v === 'table' ? '≡ Table' : '⊞ Cards'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {view === 'table' ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-xs uppercase tracking-wider text-slate-500">
-                      {['Patient', 'MRN', 'Age/Gender', 'Blood', 'Status', 'Ward / Doctor', 'Last Visit', 'Diagnosis', 'Action'].map(h => (
-                        <th key={h} className="px-5 py-3.5 text-left font-semibold whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filtered.map((p, i) => {
-                      const sc = STATUS_CONFIG[p.status];
-                      return (
-                        <tr key={p.id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-800/40 transition-colors group">
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                                {p.initials}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-slate-900 dark:text-white">{p.name}</p>
-                                {p.allergies.length > 0 && (
-                                  <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {p.allergies.join(', ')}</p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 font-mono text-xs text-slate-500">{p.mrn}</td>
-                          <td className="px-5 py-4 text-slate-600 dark:text-slate-400 whitespace-nowrap">{p.age}y · {p.gender[0]}</td>
-                          <td className="px-5 py-4">
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${BLOOD_GROUP_COLOR[p.bloodGroup]}`}>{p.bloodGroup}</span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${sc.bg} ${sc.text}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />{p.status}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="text-sm text-slate-700 dark:text-slate-300">{p.ward ?? '—'}</p>
-                            <p className="text-xs text-slate-500">{p.doctor}</p>
-                          </td>
-                          <td className="px-5 py-4 text-slate-500 dark:text-slate-400 whitespace-nowrap text-xs">{p.lastVisit}</td>
-                          <td className="px-5 py-4 max-w-[200px]">
-                            <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{p.diagnosis}</p>
-                          </td>
-                          <td className="px-5 py-4">
-                            <Link href="/emr" className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap">View Chart</Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filtered.map((p, i) => {
-                  const sc = STATUS_CONFIG[p.status];
-                  return (
-                    <div key={p.id} className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all cursor-pointer group">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold`}>
-                          {p.initials}
-                        </div>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />{p.status}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-slate-900 dark:text-white text-sm">{p.name}</h4>
-                      <p className="text-xs text-slate-500 mb-2">{p.mrn} · {p.age}y · {p.gender}</p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate mb-3">{p.diagnosis}</p>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${BLOOD_GROUP_COLOR[p.bloodGroup]}`}>{p.bloodGroup}</span>
-                        <Link href="/emr" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-1">
-                          Chart <ChevronRight className="w-3 h-3" />
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+  const columns: Column<Patient>[] = [
+    {
+      key: 'name',
+      header: 'Patient',
+      sortable: true,
+      accessor: p => p.name,
+      cell: p => (
+        <div className="flex items-center gap-3">
+          <Avatar name={p.name} size="sm" />
+          <div className="min-w-0">
+            <p className="font-semibold text-foreground">{p.name}</p>
+            {p.allergies.length > 0 && (
+              <p className="flex items-center gap-1 text-xs text-danger">
+                <AlertTriangle className="h-3 w-3" aria-hidden /> {p.allergies.join(', ')}
+              </p>
             )}
           </div>
         </div>
+      ),
+    },
+    {
+      key: 'mrn',
+      header: 'MRN',
+      sortable: true,
+      accessor: p => p.mrn,
+      cell: p => <span className="font-mono text-xs text-muted-foreground">{p.mrn}</span>,
+    },
+    {
+      key: 'age',
+      header: 'Age / Gender',
+      sortable: true,
+      accessor: p => p.age,
+      cell: p => <span className="whitespace-nowrap text-muted-foreground">{p.age}y · {p.gender[0]}</span>,
+    },
+    {
+      key: 'bloodGroup',
+      header: 'Blood',
+      accessor: p => p.bloodGroup,
+      cell: p => <BloodBadge group={p.bloodGroup} />,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      accessor: p => p.status,
+      cell: p => <StatusBadge status={p.status} />,
+    },
+    {
+      key: 'ward',
+      header: 'Ward / Doctor',
+      accessor: p => `${p.ward ?? ''} ${p.doctor}`,
+      cell: p => (
+        <div>
+          <p className="text-sm text-foreground">{p.ward ?? '—'}</p>
+          <p className="text-xs text-muted-foreground">{p.doctor}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'lastVisit',
+      header: 'Last Visit',
+      accessor: p => p.lastVisit,
+      cell: p => <span className="whitespace-nowrap text-xs text-muted-foreground">{p.lastVisit}</span>,
+    },
+    {
+      key: 'diagnosis',
+      header: 'Diagnosis',
+      accessor: p => p.diagnosis,
+      cell: p => <p className="max-w-[200px] truncate text-sm text-foreground">{p.diagnosis}</p>,
+    },
+  ];
 
-        {/* ── REGISTER PATIENT MODAL ── */}
-        {isRegisterModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">Register New Patient</h3>
-                </div>
-                <button onClick={() => setIsRegisterModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+  const summaryStats = [
+    { label: 'Total Patients', value: patients.length, icon: Users, tone: 'brand' as const, sub: 'All registered records' },
+    { label: 'Admitted Today', value: patients.filter(p => p.status === 'Admitted').length, icon: UserCheck, tone: 'teal' as const, sub: 'Currently in-patient' },
+    { label: 'Critical Cases', value: patients.filter(p => p.status === 'Critical').length, icon: AlertTriangle, tone: 'rose' as const, sub: 'Needs close monitoring' },
+    { label: 'Discharged Today', value: patients.filter(p => p.status === 'Discharged').length, icon: UserX, tone: 'emerald' as const, sub: 'Completed care episodes' },
+  ];
 
-              <form onSubmit={handleRegisterSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Patient full name"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Patients"
+        description="Manage and view patient records"
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Patients' }]}
+        actions={
+          <Button onClick={() => setIsRegisterModalOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Register Patient
+          </Button>
+        }
+      />
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Age</label>
-                    <input
-                      type="number"
-                      value={age}
-                      onChange={e => setAge(Number(e.target.value))}
-                      className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Gender</label>
-                    <select
-                      value={gender}
-                      onChange={e => setGender(e.target.value as Gender)}
-                      className="w-full px-2 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Blood</label>
-                    <select
-                      value={bloodGroup}
-                      onChange={e => setBloodGroup(e.target.value as BloodGroup)}
-                      className="w-full px-2 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
-                    >
-                      {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-                </div>
+      {/* KPI row */}
+      <StatGrid>
+        {summaryStats.map((s, i) => (
+          <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
+        ))}
+      </StatGrid>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Phone Number</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
-                  />
-                </div>
+      {/* Search + status filters + view toggle */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col gap-3 lg:flex-row lg:items-center"
+      >
+        <div className="flex-1">
+          <Input
+            icon={<Search />}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name, MRN, diagnosis, or doctor..."
+            aria-label="Search patients"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(['All', 'Active', 'Admitted', 'Critical', 'Discharged'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              aria-pressed={statusFilter === f}
+              className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                statusFilter === f
+                  ? 'bg-primary text-primary-foreground shadow-soft'
+                  : 'border border-border bg-card text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+          <div className="ml-1 flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+            <button
+              onClick={() => setView('table')}
+              aria-label="Table view"
+              aria-pressed={view === 'table'}
+              className={`rounded-lg p-1.5 transition-colors ${view === 'table' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+            >
+              <Rows3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setView('cards')}
+              aria-label="Card view"
+              aria-pressed={view === 'cards'}
+              className={`rounded-lg p-1.5 transition-colors ${view === 'cards' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </motion.div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Initial Diagnosis / Reason</label>
-                  <input
-                    type="text"
-                    placeholder="Chief complaint or diagnosis"
-                    value={diagnosis}
-                    onChange={e => setDiagnosis(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white"
-                  />
+      {/* Patient table / cards */}
+      {view === 'table' ? (
+        <DataTable<Patient>
+          columns={columns}
+          data={filtered}
+          rowKey={p => p.id}
+          searchable={false}
+          exportName="patients"
+          emptyTitle="No patients found"
+          emptyDescription="Try adjusting your search or status filter, or register a new patient."
+          toolbar={<span className="text-sm text-muted-foreground tabular-nums">{filtered.length} patients</span>}
+          rowActions={p => (
+            <Link
+              key={p.id}
+              href="/emr"
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <FileText className="h-3 w-3" aria-hidden /> View Chart
+            </Link>
+          )}
+        />
+      ) : filtered.length === 0 ? (
+        <Card className="p-6">
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Users className="h-7 w-7" aria-hidden />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">No patients found</h3>
+            <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">Try adjusting your search or status filter, or register a new patient.</p>
+            <Button className="mt-5" size="sm" onClick={() => setIsRegisterModalOpen(true)}>Register Patient</Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((p, i) => (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Card variant="interactive" className="h-full p-4">
+                <div className="mb-3 flex items-start justify-between">
+                  <Avatar name={p.name} size="md" />
+                  <StatusBadge status={p.status} />
                 </div>
+                <h4 className="text-sm font-semibold text-foreground">{p.name}</h4>
+                <p className="mb-2 text-xs text-muted-foreground">{p.mrn} · {p.age}y · {p.gender}</p>
+                <p className="mb-3 truncate text-xs text-muted-foreground">{p.diagnosis}</p>
+                {p.allergies.length > 0 && (
+                  <p className="mb-3 flex items-center gap-1 text-xs text-danger">
+                    <AlertTriangle className="h-3 w-3" aria-hidden /> {p.allergies.join(', ')}
+                  </p>
+                )}
+                <div className="flex items-center justify-between border-t border-border pt-3">
+                  <BloodBadge group={p.bloodGroup} />
+                  <Link href="/emr" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                    Chart <ChevronRight className="h-3 w-3" aria-hidden />
+                  </Link>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsRegisterModalOpen(false)}
-                    className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md transition-colors flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Save Patient
-                  </button>
-                </div>
-              </form>
+      {/* Register patient dialog */}
+      <Dialog
+        open={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        title="Register New Patient"
+        description="Create a new patient record in the directory"
+        size="md"
+      >
+        <form onSubmit={handleRegisterSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="patient-name">Full Name</Label>
+            <Input
+              id="patient-name"
+              type="text"
+              required
+              placeholder="Patient full name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="patient-age">Age</Label>
+              <Input
+                id="patient-age"
+                type="number"
+                value={age}
+                onChange={e => setAge(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="patient-gender">Gender</Label>
+              <Select
+                id="patient-gender"
+                value={gender}
+                onChange={e => setGender(e.target.value as Gender)}
+              >
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="patient-blood">Blood</Label>
+              <Select
+                id="patient-blood"
+                value={bloodGroup}
+                onChange={e => setBloodGroup(e.target.value as BloodGroup)}
+              >
+                {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(b => <option key={b} value={b}>{b}</option>)}
+              </Select>
             </div>
           </div>
-        )}
 
-      </div>
-    </DashboardLayout>
+          <div>
+            <Label htmlFor="patient-phone">Phone Number</Label>
+            <Input
+              id="patient-phone"
+              type="text"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="patient-diagnosis">Initial Diagnosis / Reason</Label>
+            <Input
+              id="patient-diagnosis"
+              type="text"
+              placeholder="Chief complaint or diagnosis"
+              value={diagnosis}
+              onChange={e => setDiagnosis(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <Button type="button" variant="ghost" onClick={() => setIsRegisterModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              <CheckCircle className="h-4 w-4" aria-hidden /> Save Patient
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+    </div>
   );
 }

@@ -1,253 +1,303 @@
 'use client';
 
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { 
-  Ambulance, MapPin, PhoneCall, AlertTriangle, 
-  Activity, Clock, Radio, Truck, FileText, CheckCircle, Navigation, Users
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import {
+  Ambulance, MapPin, PhoneCall, AlertTriangle,
+  Activity, Clock, Radio, Truck, FileText, Navigation, Map, Sparkles, Siren,
 } from 'lucide-react';
+import {
+  PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
+  CardContent, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button,
+  DataTable, type Column, EmptyState,
+} from '@/components/ui';
+
+type Incident = {
+  id: string; priority: string; complaint: string; location: string;
+  unit: string; status: string; eta: string; time: string;
+};
+
+function PriorityBadge({ priority }: { priority: string }) {
+  switch (priority) {
+    case 'Code 3': return <Badge tone="danger" pulse>{priority}</Badge>;
+    case 'Code 2': return <Badge tone="warning">{priority}</Badge>;
+    case 'Code 1': return <Badge tone="info">{priority}</Badge>;
+    default: return <Badge tone="neutral">{priority}</Badge>;
+  }
+}
+
+const MODULE_TABS = ['dispatch center', 'fleet tracking', 'epcr handovers', 'inter-facility', 'maintenance'];
 
 export default function EMSDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('dispatch center');
 
   // KPI Stats
   const stats = [
-    { label: "Active Incidents", value: '8', icon: <AlertTriangle className="w-5 h-5 text-red-500" />, color: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' },
-    { label: 'Units En Route', value: '4', icon: <Truck className="w-5 h-5 text-blue-500" />, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
-    { label: 'Avg Response', value: '8m 42s', icon: <Clock className="w-5 h-5 text-indigo-500" />, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' },
-    { label: 'Available ALS', value: '2 / 5', icon: <Activity className="w-5 h-5 text-green-500" />, color: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+    { label: 'Active Incidents', value: '8', icon: AlertTriangle, tone: 'rose' as const, sub: 'Across the metro region' },
+    { label: 'Units En Route', value: '4', icon: Truck, tone: 'brand' as const, sub: 'Lights & sirens active' },
+    { label: 'Avg Response', value: '8m 42s', icon: Clock, tone: 'violet' as const, sub: 'Call to on-scene' },
+    { label: 'Available ALS', value: '2 / 5', icon: Activity, tone: 'emerald' as const, sub: 'Advanced life support units' },
   ];
 
-  const dispatchQueue = [
+  const dispatchQueue: Incident[] = [
     { id: 'INC-9912', priority: 'Code 3', complaint: 'Cardiac Arrest', location: '124 MG Road, Indiranagar', unit: 'ALS-04', status: 'On Scene', eta: '-', time: '14:22' },
     { id: 'INC-9913', priority: 'Code 2', complaint: 'MVA, Severe Trauma', location: 'Ring Road Junction', unit: 'ALS-01', status: 'En Route', eta: '4m', time: '14:35' },
     { id: 'INC-9914', priority: 'Code 2', complaint: 'Suspected Stroke', location: 'Block B, Koramangala', unit: 'BLS-08', status: 'Transporting', eta: '12m (To ED)', time: '14:10' },
     { id: 'INC-9915', priority: 'Code 1', complaint: 'Fall, Hip Pain', location: 'Sunrise Apts, HSR', unit: 'Pending', status: 'Awaiting Dispatch', eta: '-', time: '14:40' },
   ];
 
-  const getPriorityColor = (priority: string) => {
-    switch(priority) {
-      case 'Code 3': return 'bg-red-600 text-white animate-pulse';
-      case 'Code 2': return 'bg-amber-500 text-white';
-      case 'Code 1': return 'bg-blue-500 text-white';
-      default: return 'bg-slate-200 text-slate-800';
-    }
-  };
-
-  return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        
-        {/* Header & Tabs */}
-        <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-10 flex flex-col gap-4 shadow-sm">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Ambulance className="w-6 h-6 text-red-600 dark:text-red-500" /> Ambulance & EMS Command
-              </h1>
-              <p className="text-sm text-slate-500">Computer-Aided Dispatch & Pre-Hospital Care</p>
-            </div>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors">
-                <PhoneCall className="w-4 h-4" /> New Emergency Call
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex space-x-1 overflow-x-auto hide-scrollbar pb-1">
-            {['dispatch center', 'fleet tracking', 'epcr handovers', 'inter-facility', 'maintenance'].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg capitalize whitespace-nowrap transition-colors ${activeTab === tab ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              >
-                {tab}
-              </button>
-            ))}
+  const incidentColumns: Column<Incident>[] = [
+    {
+      key: 'id', header: 'Incident', sortable: true,
+      accessor: (row) => `${row.id} ${row.priority}`,
+      cell: (row) => (
+        <div className="space-y-1">
+          <PriorityBadge priority={row.priority} />
+          <span className="block font-mono text-xs text-muted-foreground">{row.id} • {row.time}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'location', header: 'Location',
+      cell: (row) => (
+        <div className="flex items-start gap-1.5 text-sm font-medium text-foreground">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-subtle-foreground" aria-hidden />
+          <span>{row.location}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'complaint', header: 'Complaint', sortable: true,
+      cell: (row) => <span className="text-sm font-semibold text-foreground">{row.complaint}</span>,
+    },
+    {
+      key: 'unit', header: 'Unit / ETA',
+      accessor: (row) => `${row.unit} ${row.eta}`,
+      cell: (row) => (
+        <div>
+          <div className="text-sm font-bold text-primary">{row.unit}</div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" aria-hidden /> {row.eta}
           </div>
         </div>
+      ),
+    },
+    {
+      key: 'status', header: 'Status',
+      cell: (row) => (
+        <Badge tone={row.status === 'Awaiting Dispatch' ? 'warning' : 'neutral'}>{row.status}</Badge>
+      ),
+    },
+  ];
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          
-          {activeTab === 'dispatch center' && (
-             <div className="space-y-6">
-                
-                {/* KPI Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {stats.map((stat, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${stat.color}`}>
-                        {stat.icon}
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
-                      </div>
-                    </div>
-                  ))}
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-2.5">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-danger-soft text-danger">
+              <Ambulance className="h-5 w-5" aria-hidden />
+            </span>
+            Ambulance &amp; EMS Command
+          </span>
+        }
+        description="Computer-Aided Dispatch & Pre-Hospital Care"
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'EMS' }]}
+        actions={
+          <Button variant="danger" disabled title="Coming soon">
+            <PhoneCall className="h-4 w-4" aria-hidden /> New Emergency Call
+          </Button>
+        }
+      />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-auto max-w-full flex-wrap overflow-x-auto no-scrollbar">
+          {MODULE_TABS.map((tab) => (
+            <TabsTrigger key={tab} value={tab} className="capitalize">
+              {tab}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="dispatch center" className="mt-6 space-y-6">
+          <StatGrid>
+            {stats.map((stat, idx) => (
+              <StatCard
+                key={stat.label}
+                label={stat.label}
+                value={stat.value}
+                sub={stat.sub}
+                icon={stat.icon}
+                tone={stat.tone}
+                delay={idx * 0.05}
+              />
+            ))}
+          </StatGrid>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {/* Dispatch Grid */}
+            <Card className="xl:col-span-2">
+              <CardHeader className="flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Radio className="h-5 w-5 text-danger" aria-hidden /> Active Incidents
+                  </CardTitle>
+                  <CardDescription>Live dispatch queue, newest calls first.</CardDescription>
                 </div>
+                <Button variant="ghost" size="sm" onClick={() => setActiveTab('fleet tracking')}>
+                  <Map className="h-4 w-4" aria-hidden /> View Map
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <DataTable<Incident>
+                  columns={incidentColumns}
+                  data={dispatchQueue}
+                  rowKey={(row) => row.id}
+                  searchPlaceholder="Search incident, location, unit…"
+                  exportName="ems-dispatch-queue"
+                  emptyTitle="No active incidents"
+                  emptyDescription="New emergency calls will appear here as they are logged."
+                  rowActions={() => <Button variant="outline" size="sm" disabled title="Coming soon">Manage</Button>}
+                />
+              </CardContent>
+            </Card>
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                   {/* Dispatch Grid */}
-                   <div className="xl:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-                     <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                       <h2 className="text-lg font-bold flex items-center gap-2"><Radio className="w-5 h-5 text-red-600" /> Active Incidents</h2>
-                       <button className="text-sm font-semibold text-red-600 dark:text-red-400">View Map</button>
-                     </div>
-                     
-                     <div className="flex-1 overflow-x-auto">
-                       <table className="w-full text-left border-collapse min-w-[700px]">
-                         <thead>
-                           <tr className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                             <th className="px-4 py-3 font-semibold">Incident</th>
-                             <th className="px-4 py-3 font-semibold">Location</th>
-                             <th className="px-4 py-3 font-semibold">Complaint</th>
-                             <th className="px-4 py-3 font-semibold">Unit / ETA</th>
-                             <th className="px-4 py-3 font-semibold">Status</th>
-                             <th className="px-4 py-3 font-semibold text-right">Actions</th>
-                           </tr>
-                         </thead>
-                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                           {dispatchQueue.map((inc, i) => (
-                             <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                               <td className="px-4 py-3">
-                                 <div className="flex items-center gap-2">
-                                   <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${getPriorityColor(inc.priority)}`}>{inc.priority}</span>
-                                 </div>
-                                 <span className="text-xs font-mono text-slate-500 mt-1 block">{inc.id} • {inc.time}</span>
-                               </td>
-                               <td className="px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300">
-                                 <div className="flex items-start gap-1">
-                                   <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                                   <span>{inc.location}</span>
-                                 </div>
-                               </td>
-                               <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100 text-sm">
-                                 {inc.complaint}
-                               </td>
-                               <td className="px-4 py-3 text-sm">
-                                 <div className="font-bold text-indigo-600 dark:text-indigo-400">{inc.unit}</div>
-                                 <div className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3"/> {inc.eta}</div>
-                               </td>
-                               <td className="px-4 py-3">
-                                 <span className={`px-2 py-1 text-xs font-bold rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300`}>
-                                   {inc.status}
-                                 </span>
-                               </td>
-                               <td className="px-4 py-3 text-right">
-                                 <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded shadow-sm hover:bg-slate-50">Manage</button>
-                               </td>
-                             </tr>
-                           ))}
-                         </tbody>
-                       </table>
-                     </div>
-                   </div>
+            {/* AI Dispatcher Panel */}
+            <Card variant="glass" className="h-full">
+              <CardHeader className="flex-row items-center gap-2 space-y-0">
+                <span className="relative flex h-2 w-2" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                </span>
+                <CardTitle className="flex items-center gap-1.5 text-sm">
+                  <Sparkles className="h-4 w-4 text-primary" aria-hidden /> AI Dispatcher
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: 0.1 }}
+                  className="rounded-2xl border border-primary/20 bg-info-soft p-4"
+                >
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-info">Recommendation</p>
+                  <p className="mb-3 text-sm text-foreground">
+                    For INC-9915 (Fall, Hip Pain), dispatch <strong>BLS-02</strong>. Unit is currently 1.2km away at Fuel Station.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1" disabled title="Coming soon">Assign BLS-02</Button>
+                    <Button size="sm" variant="outline" className="flex-1" disabled title="Coming soon">Review</Button>
+                  </div>
+                </motion.div>
 
-                   {/* AI Dispatcher Panel */}
-                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-                     <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-2">
-                       <span className="flex h-2 w-2 relative">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                       </span>
-                       <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">AI Dispatcher</h2>
-                     </div>
-                     <div className="p-4 space-y-4">
-                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg">
-                           <p className="text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase tracking-wider mb-2">Recommendation</p>
-                           <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">For INC-9915 (Fall, Hip Pain), dispatch <strong>BLS-02</strong>. Unit is currently 1.2km away at Fuel Station.</p>
-                           <div className="flex gap-2">
-                             <button className="flex-1 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded shadow-sm">Assign BLS-02</button>
-                             <button className="flex-1 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded shadow-sm">Review</button>
-                           </div>
-                        </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: 0.18 }}
+                  className="rounded-2xl border border-danger/20 bg-danger-soft p-4"
+                >
+                  <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger">
+                    <Siren className="h-3.5 w-3.5" aria-hidden /> Hospital Reroute Alert
+                  </p>
+                  <p className="mb-3 text-sm text-foreground">
+                    City Hospital ED is currently at capacity. Reroute INC-9914 (Stroke) to Central Stroke Center (ETA +4m).
+                  </p>
+                  <Button size="sm" variant="danger" className="w-full" disabled title="Coming soon">Notify Crew &amp; Reroute</Button>
+                </motion.div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg">
-                           <p className="text-xs font-bold text-red-800 dark:text-red-300 uppercase tracking-wider mb-2">Hospital Reroute Alert</p>
-                           <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">City Hospital ED is currently at capacity. Reroute INC-9914 (Stroke) to Central Stroke Center (ETA +4m).</p>
-                           <button className="w-full py-1.5 bg-red-600 text-white text-xs font-bold rounded shadow-sm">Notify Crew & Reroute</button>
-                        </div>
-                     </div>
-                   </div>
+        <TabsContent value="epcr handovers" className="mt-6 space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-info-soft p-4"
+          >
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+              <FileText className="h-6 w-6" aria-hidden />
+            </span>
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Electronic Patient Care Records (ePCR)</h3>
+              <p className="text-sm text-muted-foreground">Inbound patient telemetery and digital handovers to the Emergency Department.</p>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Inbound ePCR Alert */}
+            <Card>
+              <CardHeader className="flex-row items-start justify-between space-y-0 border-b border-border pb-4">
+                <div>
+                  <div className="mb-1 flex items-center gap-2">
+                    <Badge tone="warning">Inbound</Badge>
+                    <CardTitle className="text-lg">Suspected Stroke • ETA: 12m</CardTitle>
+                  </div>
+                  <CardDescription>Unit: BLS-08 • Paramedic: John D.</CardDescription>
                 </div>
-             </div>
-          )}
-
-          {activeTab === 'epcr handovers' && (
-             <div className="space-y-6">
-                <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100">Electronic Patient Care Records (ePCR)</h3>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">Inbound patient telemetery and digital handovers to the Emergency Department.</p>
-                    </div>
+                <Button size="sm" onClick={() => router.push('/emergency')}>Alert Stroke Team</Button>
+              </CardHeader>
+              <CardContent className="space-y-5 pt-5">
+                <div>
+                  <h5 className="mb-2 text-xs font-bold uppercase tracking-wider text-subtle-foreground">
+                    Vitals (Last updated 2m ago)
+                  </h5>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    {[
+                      { label: 'HR', value: '88', alert: false },
+                      { label: 'BP', value: '160/95', alert: true },
+                      { label: 'SpO2', value: '97%', alert: false },
+                      { label: 'GCS', value: '13', alert: false },
+                    ].map((vital) => (
+                      <div
+                        key={vital.label}
+                        className={`rounded-xl border p-2.5 ${
+                          vital.alert ? 'border-danger/30 bg-danger-soft' : 'border-border bg-muted'
+                        }`}
+                      >
+                        <div className={`text-[10px] font-semibold uppercase ${vital.alert ? 'text-danger' : 'text-muted-foreground'}`}>
+                          {vital.label}
+                        </div>
+                        <div className={`text-sm font-bold tabular-nums ${vital.alert ? 'text-danger' : 'text-foreground'}`}>
+                          {vital.value}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                   {/* Inbound ePCR Alert */}
-                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                     <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-                       <div>
-                         <div className="flex items-center gap-2 mb-1">
-                           <span className="px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded uppercase">Inbound</span>
-                           <h4 className="font-bold text-lg">Suspected Stroke • ETA: 12m</h4>
-                         </div>
-                         <p className="text-sm text-slate-500">Unit: BLS-08 • Paramedic: John D.</p>
-                       </div>
-                       <button className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded shadow-sm">Alert Stroke Team</button>
-                     </div>
-                     
-                     <div className="space-y-4">
-                       <div>
-                         <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Vitals (Last updated 2m ago)</h5>
-                         <div className="grid grid-cols-4 gap-2 text-center">
-                           <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded border border-slate-100 dark:border-slate-700">
-                             <div className="text-[10px] text-slate-500">HR</div>
-                             <div className="font-bold text-slate-900 dark:text-slate-100">88</div>
-                           </div>
-                           <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded border border-red-100 dark:border-red-900/30">
-                             <div className="text-[10px] text-red-500 font-bold">BP</div>
-                             <div className="font-bold text-red-600">160/95</div>
-                           </div>
-                           <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded border border-slate-100 dark:border-slate-700">
-                             <div className="text-[10px] text-slate-500">SpO2</div>
-                             <div className="font-bold text-slate-900 dark:text-slate-100">97%</div>
-                           </div>
-                           <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded border border-slate-100 dark:border-slate-700">
-                             <div className="text-[10px] text-slate-500">GCS</div>
-                             <div className="font-bold text-slate-900 dark:text-slate-100">13</div>
-                           </div>
-                         </div>
-                       </div>
-
-                       <div>
-                         <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pre-Hospital Interventions</h5>
-                         <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
-                           <li>O2 administered via nasal cannula (2L/min)</li>
-                           <li>IV access established (18G Left AC)</li>
-                           <li>Blood glucose: 110 mg/dL</li>
-                         </ul>
-                       </div>
-                     </div>
-                   </div>
+                <div>
+                  <h5 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-subtle-foreground">
+                    Pre-Hospital Interventions
+                  </h5>
+                  <ul className="list-inside list-disc space-y-1 text-sm text-foreground">
+                    <li>O2 administered via nasal cannula (2L/min)</li>
+                    <li>IV access established (18G Left AC)</li>
+                    <li>Blood glucose: 110 mg/dL</li>
+                  </ul>
                 </div>
-             </div>
-          )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-          {activeTab !== 'dispatch center' && activeTab !== 'epcr handovers' && (
-             <div className="flex flex-col items-center justify-center h-full text-center pb-20">
-               <Navigation className="w-16 h-16 text-slate-300 dark:text-slate-700 mb-4" />
-               <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2 capitalize">{activeTab}</h3>
-               <p className="text-slate-500 max-w-md">The {activeTab} view requires active GIS and fleet tracking integrations.</p>
-             </div>
-          )}
-          
-        </div>
-      </div>
-    </DashboardLayout>
+        {['fleet tracking', 'inter-facility', 'maintenance'].map((tab) => (
+          <TabsContent key={tab} value={tab} className="mt-6">
+            <Card>
+              <CardContent className="py-10">
+                <EmptyState
+                  icon={Navigation}
+                  title={tab.replace(/\b\w/g, (c) => c.toUpperCase())}
+                  description={`The ${tab} view requires active GIS and fleet tracking integrations.`}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
   );
 }

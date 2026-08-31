@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FlaskConical, Plus, Search, AlertTriangle, CheckCircle, Clock,
-  ChevronDown, Download, TrendingUp, TrendingDown, RefreshCw, X, FileText
+  ChevronDown, TrendingUp, TrendingDown,
 } from 'lucide-react';
+import {
+  PageHeader, StatCard, StatGrid, Button, Badge, Input, Select, Textarea,
+  Label, Dialog, EmptyState, Skeleton,
+} from '@/components/ui';
 
 type OrderStatus  = 'Pending' | 'Specimen Collected' | 'In Process' | 'Partial' | 'Final' | 'Verified';
 type Priority     = 'Routine' | 'Urgent' | 'STAT';
@@ -87,27 +91,27 @@ const AVAILABLE_PANELS = [
   'Sepsis Panel (Blood Culture + Procalcitonin)',
 ];
 
-const RESULT_CFG = {
-  normal:         { label: 'N',  textColor: 'text-green-700 dark:text-green-400', bg: '' },
-  low:            { label: 'L',  textColor: 'text-blue-700 dark:text-blue-400',   bg: '' },
-  high:           { label: 'H',  textColor: 'text-amber-700 dark:text-amber-400', bg: '' },
-  'critical-low': { label: 'LL', textColor: 'text-red-700 dark:text-red-400',     bg: 'bg-red-50 dark:bg-red-900/10' },
-  'critical-high':{ label: 'HH', textColor: 'text-red-700 dark:text-red-400',     bg: 'bg-red-50 dark:bg-red-900/10' },
+const RESULT_CFG: Record<LabResult['status'], { label: string; textColor: string; rowBg: string }> = {
+  normal:          { label: 'N',  textColor: 'text-success', rowBg: '' },
+  low:             { label: 'L',  textColor: 'text-info',    rowBg: '' },
+  high:            { label: 'H',  textColor: 'text-warning', rowBg: '' },
+  'critical-low':  { label: 'LL', textColor: 'text-danger',  rowBg: 'bg-danger-soft/40' },
+  'critical-high': { label: 'HH', textColor: 'text-danger',  rowBg: 'bg-danger-soft/40' },
 };
 
-const STATUS_CFG: Record<OrderStatus, { bg: string; text: string; dot: string }> = {
-  'Pending':            { bg: 'bg-slate-100 dark:bg-slate-800',     text: 'text-slate-600 dark:text-slate-400',   dot: 'bg-slate-400' },
-  'Specimen Collected': { bg: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-700 dark:text-blue-400',     dot: 'bg-blue-500' },
-  'In Process':         { bg: 'bg-amber-50 dark:bg-amber-900/20',   text: 'text-amber-700 dark:text-amber-400',   dot: 'bg-amber-500 animate-pulse' },
-  'Partial':            { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400', dot: 'bg-orange-500' },
-  'Final':              { bg: 'bg-green-50 dark:bg-green-900/20',   text: 'text-green-700 dark:text-green-400',   dot: 'bg-green-500' },
-  'Verified':           { bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-700 dark:text-indigo-400', dot: 'bg-indigo-500' },
+const STATUS_TONE: Record<OrderStatus, { tone: 'neutral' | 'info' | 'warning' | 'success' | 'brand'; pulse?: boolean }> = {
+  'Pending':            { tone: 'neutral' },
+  'Specimen Collected': { tone: 'info' },
+  'In Process':         { tone: 'warning', pulse: true },
+  'Partial':            { tone: 'warning' },
+  'Final':              { tone: 'success' },
+  'Verified':           { tone: 'brand' },
 };
 
-const PRIORITY_CFG: Record<Priority, string> = {
-  STAT:    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  Urgent:  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  Routine: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+const PRIORITY_TONE: Record<Priority, 'danger' | 'warning' | 'neutral'> = {
+  STAT: 'danger',
+  Urgent: 'warning',
+  Routine: 'neutral',
 };
 
 export default function LabOrdersPage() {
@@ -156,225 +160,270 @@ export default function LabOrdersPage() {
   };
 
   const summaryStats = [
-    { label: 'Total Orders', value: orders.length, bg: 'bg-indigo-50 dark:bg-indigo-900/20', color: 'text-indigo-600' },
-    { label: 'Critical Values', value: orders.flatMap(o => o.results).filter(r => r.status.startsWith('critical')).length, bg: 'bg-red-50 dark:bg-red-900/20', color: 'text-red-600' },
-    { label: 'Pending / In Process', value: orders.filter(o => ['Pending','Specimen Collected','In Process'].includes(o.status)).length, bg: 'bg-amber-50 dark:bg-amber-900/20', color: 'text-amber-600' },
-    { label: 'Final / Verified', value: orders.filter(o => ['Final','Verified'].includes(o.status)).length, bg: 'bg-green-50 dark:bg-green-900/20', color: 'text-green-600' },
+    { label: 'Total Orders', value: orders.length, icon: FlaskConical, tone: 'brand' as const, sub: 'Across all departments' },
+    { label: 'Critical Values', value: orders.flatMap(o => o.results).filter(r => r.status.startsWith('critical')).length, icon: AlertTriangle, tone: 'rose' as const, sub: 'Require immediate review' },
+    { label: 'Pending / In Process', value: orders.filter(o => ['Pending','Specimen Collected','In Process'].includes(o.status)).length, icon: Clock, tone: 'amber' as const, sub: 'Awaiting lab results' },
+    { label: 'Final / Verified', value: orders.filter(o => ['Final','Verified'].includes(o.status)).length, icon: CheckCircle, tone: 'emerald' as const, sub: 'Reports available' },
   ];
 
   return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto relative">
+    <div className="space-y-6">
+      <PageHeader
+        title="Lab Orders"
+        description="Laboratory investigations and results"
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Lab Orders' }]}
+        actions={
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Order Labs
+          </Button>
+        }
+      />
 
-        {/* ── Header ── */}
-        <div className="px-8 pt-7 pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lab Orders</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Laboratory investigations and results</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-indigo-500/25 active:scale-95 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Order Labs
-              </button>
-            </div>
-          </div>
+      <StatGrid>
+        {summaryStats.map((s, i) => (
+          <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
+        ))}
+      </StatGrid>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            {summaryStats.map(s => (
-              <div key={s.label} className={`${s.bg} rounded-xl p-4`}>
-                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search panel, patient, or doctor..." className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" />
-            </div>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col gap-3 lg:flex-row lg:items-center"
+      >
+        <div className="flex-1">
+          <Input
+            icon={<Search />}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search panel, patient, or doctor..."
+            aria-label="Search lab orders"
+          />
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(['All', 'Pending', 'In Process', 'Final', 'Verified'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              aria-pressed={statusFilter === f}
+              className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                statusFilter === f
+                  ? 'bg-primary text-primary-foreground shadow-soft'
+                  : 'border border-border bg-card text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </motion.div>
 
-        {/* ── Orders Accordion List ── */}
-        <div className="px-8 pb-8 flex-1 space-y-3">
-          {filtered.map(order => {
-            const sc = STATUS_CFG[order.status];
+      {/* Orders accordion list */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={FlaskConical}
+          title="No lab orders found"
+          description="Try adjusting your search or filters, or create a new lab order."
+          action={{ label: 'Order Labs', onClick: () => setIsModalOpen(true) }}
+        />
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((order, idx) => {
+            const sc = STATUS_TONE[order.status];
             const isCrit = order.results.some(r => r.status.startsWith('critical'));
             const isExpanded = expandedId === order.id;
 
             return (
-              <div key={order.id} className={`bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden transition-all ${isCrit ? 'border-red-300 dark:border-red-800' : 'border-slate-200 dark:border-slate-800'}`}>
-                <button onClick={() => setExpandedId(isExpanded ? null : order.id)} className="w-full px-5 py-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <div className="flex-1 text-left min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold text-slate-900 dark:text-white text-sm">{order.panelName}</span>
-                      {isCrit && <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800 flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5" /> CRITICAL</span>}
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${PRIORITY_CFG[order.priority]}`}>{order.priority}</span>
+              <motion.div
+                key={order.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: Math.min(idx * 0.05, 0.25), ease: [0.22, 1, 0.36, 1] }}
+                className={`overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow hover:shadow-float ${
+                  isCrit ? 'border-danger/40' : 'border-border'
+                }`}
+              >
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                  aria-expanded={isExpanded}
+                  className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/40"
+                >
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <FlaskConical className="h-5 w-5" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-foreground">{order.panelName}</span>
+                      {isCrit && (
+                        <Badge tone="danger" className="gap-1">
+                          <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> CRITICAL
+                        </Badge>
+                      )}
+                      <Badge tone={PRIORITY_TONE[order.priority]}>{order.priority}</Badge>
                     </div>
-                    <p className="text-xs text-slate-500">
+                    <p className="truncate text-xs text-muted-foreground">
                       {order.patientName} · {order.mrn} · {order.specimenType} · Ordered: {order.orderedAt}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${sc.bg} ${sc.text}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />{order.status}
-                    </span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Badge tone={sc.tone} dot pulse={sc.pulse}>{order.status}</Badge>
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      aria-hidden
+                    />
                   </div>
                 </button>
 
-                {isExpanded && order.results.length > 0 && (
-                  <div className="border-t border-slate-100 dark:border-slate-800">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-900/50 text-xs text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-                          {['Test', 'LOINC', 'Value', 'Reference Range', 'Delta', 'Flag'].map(h => (
-                            <th key={h} className="px-5 py-3 text-left font-semibold">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {order.results.map((r, i) => {
-                          const rc = RESULT_CFG[r.status];
-                          return (
-                            <tr key={i} className={`${rc.bg} transition-colors`}>
-                              <td className="px-5 py-3 font-medium text-slate-800 dark:text-white">{r.test}</td>
-                              <td className="px-5 py-3 text-xs font-mono text-slate-400">{r.loincCode ?? '—'}</td>
-                              <td className={`px-5 py-3 font-bold font-mono ${rc.textColor}`}>
-                                {r.value} <span className="text-xs font-normal opacity-70">{r.unit}</span>
-                              </td>
-                              <td className="px-5 py-3 text-xs text-slate-400">{r.referenceRange ?? '—'}</td>
-                              <td className="px-5 py-3">
-                                {r.delta !== undefined ? (
-                                  <span className={`text-xs font-medium flex items-center gap-1 ${r.delta > 0 ? 'text-red-500' : r.delta < 0 ? 'text-blue-500' : 'text-slate-400'}`}>
-                                    {r.delta > 0 ? <TrendingUp className="w-3 h-3" /> : r.delta < 0 ? <TrendingDown className="w-3 h-3" /> : null}
-                                    {r.delta > 0 ? '+' : ''}{r.delta}
-                                  </span>
-                                ) : <span className="text-slate-300">—</span>}
-                              </td>
-                              <td className={`px-5 py-3 font-bold text-xs ${rc.textColor}`}>{rc.label}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {isExpanded && order.results.length === 0 && (
-                  <div className="p-6 text-center text-slate-400 text-sm border-t border-slate-100 dark:border-slate-800">
-                    <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin text-amber-500" />
-                    Specimen processing in laboratory. Results pending verification.
-                  </div>
-                )}
-              </div>
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      {order.results.length > 0 ? (
+                        <div className="overflow-x-auto scrollbar-thin border-t border-border">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border bg-muted/60 text-xs uppercase tracking-wider text-muted-foreground">
+                                {['Test', 'LOINC', 'Value', 'Reference Range', 'Delta', 'Flag'].map(h => (
+                                  <th key={h} scope="col" className="px-5 py-3 text-left font-semibold whitespace-nowrap">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {order.results.map((r, i) => {
+                                const rc = RESULT_CFG[r.status];
+                                return (
+                                  <tr key={i} className={`${rc.rowBg} transition-colors`}>
+                                    <td className="px-5 py-3 font-medium text-foreground">{r.test}</td>
+                                    <td className="px-5 py-3 font-mono text-xs text-subtle-foreground">{r.loincCode ?? '—'}</td>
+                                    <td className={`px-5 py-3 font-mono font-bold tabular-nums ${rc.textColor}`}>
+                                      {r.value} <span className="text-xs font-normal opacity-70">{r.unit}</span>
+                                    </td>
+                                    <td className="px-5 py-3 text-xs text-muted-foreground">{r.referenceRange ?? '—'}</td>
+                                    <td className="px-5 py-3">
+                                      {r.delta !== undefined ? (
+                                        <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${
+                                          r.delta > 0 ? 'text-danger' : r.delta < 0 ? 'text-info' : 'text-muted-foreground'
+                                        }`}>
+                                          {r.delta > 0 ? <TrendingUp className="h-3 w-3" aria-hidden /> : r.delta < 0 ? <TrendingDown className="h-3 w-3" aria-hidden /> : null}
+                                          {r.delta > 0 ? '+' : ''}{r.delta}
+                                        </span>
+                                      ) : <span className="text-subtle-foreground">—</span>}
+                                    </td>
+                                    <td className={`px-5 py-3 text-xs font-bold ${rc.textColor}`}>{rc.label}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="border-t border-border px-6 py-5" aria-busy>
+                          <div className="space-y-2.5">
+                            <Skeleton className="h-3 w-3/4" />
+                            <Skeleton className="h-3 w-2/3" />
+                            <Skeleton className="h-3 w-1/2" />
+                          </div>
+                          <p className="mt-4 text-center text-sm text-muted-foreground">
+                            Specimen processing in laboratory. Results pending verification.
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             );
           })}
         </div>
+      )}
 
-        {/* ── CREATE LAB ORDER MODAL ── */}
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-                <div className="flex items-center gap-2">
-                  <FlaskConical className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">Create New Lab Order</h3>
-                </div>
-                <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {/* Create lab order dialog */}
+      <Dialog
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Create New Lab Order"
+        description="Order laboratory investigations for a patient"
+        size="lg"
+      >
+        <form onSubmit={handleCreateOrder} className="space-y-4">
+          <div>
+            <Label htmlFor="lab-patient">Patient</Label>
+            <Input
+              id="lab-patient"
+              type="text"
+              value={`${patientName} (${mrn})`}
+              onChange={e => setPatientName(e.target.value)}
+              className="bg-muted"
+            />
+          </div>
 
-              <form onSubmit={handleCreateOrder} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Patient</label>
-                  <input
-                    type="text"
-                    value={`${patientName} (${mrn})`}
-                    onChange={e => setPatientName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white"
-                  />
-                </div>
+          <div>
+            <Label htmlFor="lab-panel">Investigation Panel</Label>
+            <Select
+              id="lab-panel"
+              value={selectedPanel}
+              onChange={e => setSelectedPanel(e.target.value)}
+            >
+              {AVAILABLE_PANELS.map(p => <option key={p} value={p}>{p}</option>)}
+            </Select>
+          </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Investigation Panel</label>
-                  <select
-                    value={selectedPanel}
-                    onChange={e => setSelectedPanel(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
-                  >
-                    {AVAILABLE_PANELS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="lab-priority">Priority</Label>
+              <Select
+                id="lab-priority"
+                value={priority}
+                onChange={e => setPriority(e.target.value as Priority)}
+              >
+                <option value="Routine">Routine</option>
+                <option value="Urgent">Urgent</option>
+                <option value="STAT">STAT (Immediate)</option>
+              </Select>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Priority</label>
-                    <select
-                      value={priority}
-                      onChange={e => setPriority(e.target.value as Priority)}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="Routine">Routine</option>
-                      <option value="Urgent">Urgent</option>
-                      <option value="STAT">STAT (Immediate)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Specimen Type</label>
-                    <select
-                      value={specimenType}
-                      onChange={e => setSpecimenType(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium dark:text-white focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="Serum">Serum</option>
-                      <option value="EDTA Whole Blood">EDTA Whole Blood</option>
-                      <option value="Urine">Urine</option>
-                      <option value="CSF">CSF</option>
-                      <option value="Swab / Culture">Swab / Culture</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Clinical Indication / Notes</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Enter reason for investigation or relevant symptoms..."
-                    value={clinicalNotes}
-                    onChange={e => setClinicalNotes(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md transition-colors flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Submit Lab Order
-                  </button>
-                </div>
-              </form>
+            <div>
+              <Label htmlFor="lab-specimen">Specimen Type</Label>
+              <Select
+                id="lab-specimen"
+                value={specimenType}
+                onChange={e => setSpecimenType(e.target.value)}
+              >
+                <option value="Serum">Serum</option>
+                <option value="EDTA Whole Blood">EDTA Whole Blood</option>
+                <option value="Urine">Urine</option>
+                <option value="CSF">CSF</option>
+                <option value="Swab / Culture">Swab / Culture</option>
+              </Select>
             </div>
           </div>
-        )}
 
-      </div>
-    </DashboardLayout>
+          <div>
+            <Label htmlFor="lab-notes">Clinical Indication / Notes</Label>
+            <Textarea
+              id="lab-notes"
+              rows={3}
+              placeholder="Enter reason for investigation or relevant symptoms..."
+              value={clinicalNotes}
+              onChange={e => setClinicalNotes(e.target.value)}
+              className="resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              <CheckCircle className="h-4 w-4" aria-hidden /> Submit Lab Order
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+    </div>
   );
 }

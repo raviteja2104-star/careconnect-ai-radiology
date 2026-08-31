@@ -1,0 +1,22 @@
+{
+  "name": "@careconnect/abdm-service",
+  "version": "1.0.0",
+  "description": "ABDM & FHIR Integration Service for CareConnect",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "uuid": "^9.0.1",
+    "axios": "^1.6.8",
+    "fhir": "^4.12.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.0",
+    "supertest": "^6.3.4"
+  }
+}

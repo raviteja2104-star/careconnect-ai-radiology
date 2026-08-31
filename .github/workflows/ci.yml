@@ -1,0 +1,124 @@
+name: CareConnect DevSecOps Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security-and-infra-scans:
+    name: Security & Infra Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 1. Secret Detection (TruffleHog)
+      - name: Secret Scanning (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      # 2. Infra Validation (Docker Compose)
+      - name: Validate Docker Compose
+        run: docker-compose -f docker-compose.yml config
+
+      # 3. Infra Validation (Kubernetes Manifests)
+      - name: Validate Kubernetes Manifests
+        uses: instrumenta/kubeval-action@master
+        with:
+          files: deploy/k8s
+
+  build-and-test:
+    name: Build & Test
+    needs: security-and-infra-scans
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm install
+
+      # Dependency Vulnerability Scanning
+      - name: NPM Audit (Dependency Vulnerability Scanning)
+        run: npm audit --audit-level=high
+
+      - name: Test Backend
+        run: cd backend && npm install && npm test --if-present
+
+      - name: Test Auth Service
+        run: cd services/auth-service && npm install && npm test --if-present
+
+      - name: Test Communication Service
+        run: cd services/communication-service && npm install && npm test --if-present
+
+      - name: Test ABDM Service
+        run: cd services/abdm-service && npm install && npm test --if-present
+
+      - name: Test Payment Service
+        run: cd services/payment-service && npm install && npm test --if-present
+
+      - name: Build Web Portal
+        run: cd web-portal && npm install --legacy-peer-deps && npm run build
+
+  docker-build-and-scan:
+    name: Build, Scan & SBOM
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, web-portal, auth-service, communication-service, abdm-service, payment-service]
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Determine context path
+      - name: Set Context Path
+        id: set-path
+        run: |
+          if [ "${{ matrix.service }}" = "backend" ] || [ "${{ matrix.service }}" = "web-portal" ]; then
+            echo "path=./${{ matrix.service }}" >> $GITHUB_ENV
+          else
+            echo "path=./services/${{ matrix.service }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Docker Image
+        run: docker build -t careconnect-${{ matrix.service }}:${{ github.sha }} ${{ env.path }}
+
+      # Container Image Scanning (Trivy)
+      - name: Container Vulnerability Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'careconnect-${{ matrix.service }}:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # SBOM Generation (Syft)
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          image: careconnect-${{ matrix.service }}:${{ github.sha }}
+          format: spdx-json
+          output-file: ${{ matrix.service }}-sbom.spdx.json
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: ${{ matrix.service }}-sbom.spdx.json

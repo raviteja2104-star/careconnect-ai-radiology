@@ -1,36 +1,55 @@
+import { Skeleton } from '@/components/ui';
+
 export default function Loading() {
   return (
-    <div className="h-screen w-full flex bg-slate-50 dark:bg-slate-950 overflow-hidden">
-      {/* Sidebar Skeleton */}
-      <div className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col hidden md:flex">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 animate-pulse">
-           <div className="w-6 h-6 bg-slate-200 dark:bg-slate-800 rounded-md mr-2"></div>
-           <div className="h-6 w-32 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
-        </div>
-        <div className="p-4 space-y-4">
-          {[1,2,3,4,5,6,7].map(i => (
-             <div key={i} className="flex items-center animate-pulse">
-               <div className="w-5 h-5 bg-slate-200 dark:bg-slate-800 rounded-md mr-3"></div>
-               <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
-             </div>
-          ))}
-        </div>
+    <div className="flex h-[calc(100vh-7.5rem)] min-h-[540px] flex-col space-y-6" aria-busy>
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-44" />
+        <Skeleton className="h-4 w-96 max-w-full" />
       </div>
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header Skeleton */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center px-6 shrink-0 animate-pulse">
-           <div className="h-10 w-96 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
-        </header>
-        
-        {/* Content Skeleton */}
-        <div className="flex-1 p-8">
-           <div className="h-12 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg mb-8 animate-pulse"></div>
-           <div className="grid grid-cols-3 gap-6">
-              {[1,2,3].map(i => (
-                 <div key={i} className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>
-              ))}
-           </div>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+        {/* Conversation list skeleton */}
+        <div className="hidden w-80 shrink-0 flex-col border-r border-border bg-muted/30 md:flex md:w-96">
+          <div className="space-y-3 border-b border-border p-4">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-9 w-full rounded-xl" />
+          </div>
+          <div className="divide-y divide-border">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3 p-4">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-2/3" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Thread skeleton */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-3 border-b border-border p-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+            <Skeleton className="ml-auto h-8 w-32 rounded-xl" />
+          </div>
+          <div className="flex-1 space-y-4 bg-muted/20 p-6">
+            <Skeleton className="h-16 w-2/3 rounded-2xl" />
+            <Skeleton className="ml-auto h-12 w-1/2 rounded-2xl" />
+            <Skeleton className="h-20 w-2/3 rounded-2xl" />
+            <Skeleton className="ml-auto h-12 w-2/5 rounded-2xl" />
+          </div>
+          <div className="flex items-center gap-2 border-t border-border p-4">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <Skeleton className="h-10 flex-1 rounded-xl" />
+            <Skeleton className="h-10 w-24 rounded-xl" />
+          </div>
         </div>
       </div>
     </div>

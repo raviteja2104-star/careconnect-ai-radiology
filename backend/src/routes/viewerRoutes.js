@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/auth');
 const DWEB = process.env.DICOMWEB_URL || 'http://localhost:5000/api/dicomweb';
+
+// The viewer page embeds patient demographics and AI findings — auth required.
+// NOTE: protect expects a Bearer token header, so direct browser navigation to
+// /viewer now requires a token-capable client (see security report).
+router.use(protect);
 
 router.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');

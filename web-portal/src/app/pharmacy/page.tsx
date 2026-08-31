@@ -1,252 +1,319 @@
 'use client';
 
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { 
-  Pill, AlertTriangle, PackageSearch, Snowflake, IndianRupee, 
-  CheckCircle, ShieldAlert, ScanBarcode, Filter, Search, Printer,
-  MoreVertical, Clock
+import { motion } from 'framer-motion';
+import {
+  Pill, AlertTriangle, Snowflake, CheckCircle, ShieldAlert,
+  ScanBarcode, Printer, Clock, PackageSearch, Truck, ArrowRight,
 } from 'lucide-react';
+import {
+  PageHeader, StatCard, StatGrid, Button, Badge, Card, CardHeader, CardTitle,
+  CardContent, Tabs, TabsList, TabsTrigger, TabsContent, DataTable, type Column,
+  EmptyState,
+} from '@/components/ui';
 import { DrugService } from '@/services/drugService';
+
+type RxItem = {
+  rxId: string; patient: string; doctor: string; time: string;
+  status: string; items: number; aiFlag: boolean; aiMsg?: string;
+};
+
+type InventoryItem = ReturnType<typeof DrugService.getAllDrugs>[number] & {
+  stock: number;
+  status: string;
+};
+
+const RX_STATUS_TONE: Record<string, 'warning' | 'info' | 'success'> = {
+  Verification: 'warning',
+  Ready: 'info',
+  Dispensed: 'success',
+};
 
 export default function PharmacyDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
 
   // Mock Data for Dashboard
   const stats = [
-    { label: "Today's Rx", value: '142', icon: <Pill className="w-5 h-5" />, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
-    { label: 'Pending Dispense', value: '18', icon: <Clock className="w-5 h-5" />, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
-    { label: 'AI Alerts (Interactions)', value: '2', icon: <ShieldAlert className="w-5 h-5" />, color: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' },
-    { label: 'Low Stock Items', value: '14', icon: <AlertTriangle className="w-5 h-5" />, color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
+    { label: "Today's Rx", value: '142', icon: Pill, tone: 'brand' as const, sub: 'Prescriptions received' },
+    { label: 'Pending Dispense', value: '18', icon: Clock, tone: 'teal' as const, sub: 'In the dispensing queue' },
+    { label: 'AI Alerts (Interactions)', value: '2', icon: ShieldAlert, tone: 'rose' as const, sub: 'Drug interaction flags' },
+    { label: 'Low Stock Items', value: '14', icon: AlertTriangle, tone: 'amber' as const, sub: 'Below reorder threshold' },
   ];
 
-  const rxQueue = [
+  const rxQueue: RxItem[] = [
     { rxId: 'RX-2026-881', patient: 'Rohit Sharma', doctor: 'Dr. Raj Sharma', time: '10 mins ago', status: 'Verification', items: 4, aiFlag: false },
     { rxId: 'RX-2026-882', patient: 'Priya Patel', doctor: 'Dr. Anita Desai', time: '15 mins ago', status: 'Ready', items: 2, aiFlag: true, aiMsg: 'Potential duplicate therapy detected.' },
     { rxId: 'RX-2026-883', patient: 'Amit Singh', doctor: 'Dr. Raj Sharma', time: '1 hour ago', status: 'Dispensed', items: 1, aiFlag: false },
   ];
 
-  const inventory = DrugService.getAllDrugs().map(d => ({
+  const inventory: InventoryItem[] = DrugService.getAllDrugs().map(d => ({
     ...d,
     stock: Math.floor(Math.random() * 500) + 10,
     status: Math.random() > 0.8 ? 'Low Stock' : 'In Stock'
   }));
 
+  const queueColumns: Column<RxItem>[] = [
+    {
+      key: 'rxId',
+      header: 'Rx ID',
+      sortable: true,
+      accessor: r => r.rxId,
+      cell: r => <span className="text-sm font-bold text-foreground">{r.rxId}</span>,
+    },
+    {
+      key: 'patient',
+      header: 'Patient',
+      sortable: true,
+      accessor: r => r.patient,
+      cell: r => (
+        <div>
+          <p className="text-sm font-semibold text-foreground">{r.patient}</p>
+          <p className="text-xs text-muted-foreground">{r.time}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'doctor',
+      header: 'Doctor',
+      accessor: r => r.doctor,
+      cell: r => <span className="text-sm text-muted-foreground">{r.doctor}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      accessor: r => r.status,
+      cell: r => <Badge tone={RX_STATUS_TONE[r.status] ?? 'neutral'} dot>{r.status}</Badge>,
+    },
+    {
+      key: 'aiFlag',
+      header: 'AI Validation',
+      accessor: r => (r.aiFlag ? 'Flagged' : 'Passed'),
+      cell: r => r.aiFlag ? (
+        <span className="flex items-center gap-1 text-xs font-semibold text-danger" title={r.aiMsg}>
+          <ShieldAlert className="h-4 w-4" aria-hidden /> Flagged
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-xs font-semibold text-success">
+          <CheckCircle className="h-4 w-4" aria-hidden /> Passed
+        </span>
+      ),
+    },
+  ];
+
+  const inventoryColumns: Column<InventoryItem>[] = [
+    {
+      key: 'id',
+      header: 'Item ID',
+      accessor: item => item.id,
+      cell: item => <span className="font-mono text-xs text-muted-foreground">{item.id}</span>,
+    },
+    {
+      key: 'brandName',
+      header: 'Brand Name',
+      sortable: true,
+      accessor: item => item.brandName,
+      cell: item => <span className="text-sm font-bold text-foreground">{item.brandName}</span>,
+    },
+    {
+      key: 'genericName',
+      header: 'Generic Name',
+      sortable: true,
+      accessor: item => item.genericName,
+      cell: item => <span className="text-sm text-muted-foreground">{item.genericName}</span>,
+    },
+    {
+      key: 'strength',
+      header: 'Strength',
+      accessor: item => `${item.strength} ${item.form}`,
+      cell: item => <span className="whitespace-nowrap text-sm text-muted-foreground">{item.strength} · {item.form}</span>,
+    },
+    {
+      key: 'price',
+      header: 'Price (MRP)',
+      sortable: true,
+      accessor: item => item.basePrice * (1 + item.gstRate / 100),
+      cell: item => (
+        <span className="text-sm font-medium text-foreground tabular-nums">
+          ₹{(item.basePrice * (1 + item.gstRate / 100)).toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      key: 'stock',
+      header: 'Stock Level',
+      sortable: true,
+      accessor: item => item.stock,
+      cell: item => (
+        <span className={`flex items-center gap-1.5 text-sm font-semibold ${item.status === 'Low Stock' ? 'text-danger' : 'text-success'}`}>
+          <span className={`h-2 w-2 rounded-full ${item.status === 'Low Stock' ? 'bg-danger' : 'bg-success'}`} aria-hidden />
+          {item.stock} Units
+        </span>
+      ),
+    },
+    {
+      key: 'tags',
+      header: 'Tags',
+      accessor: item => `${item.schedule ?? ''} ${item.requiresColdChain ? 'Cold' : ''}`,
+      cell: item => (
+        <div className="flex gap-1">
+          {item.schedule && (
+            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-500/20 dark:text-red-400" title="Controlled Substance">
+              Rx ({item.schedule})
+            </span>
+          )}
+          {item.requiresColdChain && (
+            <span className="flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
+              <Snowflake className="h-3 w-3" aria-hidden /> Cold
+            </span>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        
-        {/* Pharmacy Header & Tabs */}
-        <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-10 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2"><Pill className="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> Central Pharmacy</h1>
-              <p className="text-sm text-slate-500">Enterprise Pharmacy Information System (PIS)</p>
-            </div>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm hover:opacity-90 transition-opacity">
-                <ScanBarcode className="w-4 h-4" /> Scan Barcode
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex space-x-1">
-            {['Dashboard', 'queue', 'Inventory', 'Purchase Orders', 'Cold Chain'].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg capitalize transition-colors ${activeTab === tab ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              >
-                {tab === 'queue' ? 'Prescription Queue' : tab}
-              </button>
+    <div className="space-y-6">
+      <PageHeader
+        title="Central Pharmacy"
+        description="Enterprise Pharmacy Information System (PIS)"
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Pharmacy' }]}
+        actions={
+          <Button variant="secondary" disabled title="Coming soon">
+            <ScanBarcode className="h-4 w-4" aria-hidden /> Scan Barcode
+          </Button>
+        }
+      />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-auto flex-wrap">
+          {['Dashboard', 'queue', 'Inventory', 'Purchase Orders', 'Cold Chain'].map(tab => (
+            <TabsTrigger key={tab} value={tab}>
+              {tab === 'queue' ? 'Prescription Queue' : tab}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="Dashboard" className="mt-6 space-y-6">
+          <StatGrid>
+            {stats.map((s, i) => (
+              <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
             ))}
-          </div>
-        </div>
+          </StatGrid>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          
-          {activeTab === 'Dashboard' && (
-             <div className="space-y-6">
-                {/* KPI Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {stats.map((stat, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${stat.color}`}>
-                        {stat.icon}
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
-                      </div>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {/* AI Safety Alerts */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="xl:col-span-1"
+            >
+              <Card className="flex h-full flex-col overflow-hidden">
+                <CardHeader className="border-b border-border bg-danger-soft/40">
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5 text-danger" aria-hidden /> AI Safety Alerts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 pt-4">
+                  <div className="rounded-xl border border-danger/30 bg-danger-soft p-3">
+                    <div className="mb-1 flex items-start justify-between">
+                      <span className="text-xs font-bold text-danger">Severe Interaction</span>
+                      <span className="font-mono text-xs text-danger/80">RX-2026-885</span>
                     </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                   {/* Urgent AI Alerts */}
-                   <div className="xl:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                      <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-red-50/50 dark:bg-red-900/10 flex items-center gap-2">
-                         <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
-                         <h3 className="font-bold text-slate-900 dark:text-slate-100">AI Safety Alerts</h3>
-                      </div>
-                      <div className="p-4 flex-1">
-                         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg mb-3">
-                           <div className="flex justify-between items-start mb-1">
-                             <span className="text-xs font-bold text-red-700 dark:text-red-400">Severe Interaction</span>
-                             <span className="text-xs text-red-500">RX-2026-885</span>
-                           </div>
-                           <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">Patient prescribed Warfarin + Aspirin. High risk of bleeding.</p>
-                           <button className="text-xs font-semibold text-red-700 dark:text-red-400 hover:underline">Review & Hold</button>
-                         </div>
-                      </div>
-                   </div>
-
-                   {/* Quick Dispense Feed */}
-                   <div className="xl:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-                      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                         <h3 className="font-bold text-slate-900 dark:text-slate-100">Ready for Dispensing</h3>
-                         <button className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">View Queue</button>
-                      </div>
-                      <table className="w-full text-left border-collapse">
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {rxQueue.filter(r => r.status === 'Ready').map((rx, i) => (
-                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                              <td className="p-4">
-                                <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{rx.rxId}</p>
-                                <p className="text-xs text-slate-500">{rx.patient} • {rx.items} items</p>
-                              </td>
-                              <td className="p-4 text-right">
-                                <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm">Dispense</button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                   </div>
-                </div>
-             </div>
-          )}
-
-          {activeTab === 'queue' && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold rounded-md">All Prescriptions</button>
-                  <button className="px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium rounded-md">Pending Verification</button>
-                  <button className="px-3 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium rounded-md">Ready</button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="text" placeholder="Search Rx ID or Patient..." className="pl-9 pr-4 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" />
+                    <p className="mb-2 text-xs text-foreground">Patient prescribed Warfarin + Aspirin. High risk of bleeding.</p>
+                    <button
+                      onClick={() => setActiveTab('queue')}
+                      className="text-xs font-semibold text-danger hover:underline"
+                    >
+                      Review &amp; Hold
+                    </button>
                   </div>
-                  <button className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
-                    <Filter className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                      <th className="px-6 py-4 font-semibold">Rx ID</th>
-                      <th className="px-6 py-4 font-semibold">Patient</th>
-                      <th className="px-6 py-4 font-semibold">Doctor</th>
-                      <th className="px-6 py-4 font-semibold">Status</th>
-                      <th className="px-6 py-4 font-semibold">AI Validation</th>
-                      <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {rxQueue.map((rx, i) => (
-                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-slate-100">{rx.rxId}</td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{rx.patient}</p>
-                          <p className="text-xs text-slate-500">{rx.time}</p>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{rx.doctor}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-md ${rx.status === 'Verification' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30' : rx.status === 'Ready' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'bg-green-50 text-green-600 dark:bg-green-900/30'}`}>
-                            {rx.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {rx.aiFlag ? (
-                            <span className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400"><ShieldAlert className="w-4 h-4"/> Flagged</span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400"><CheckCircle className="w-4 h-4"/> Passed</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                             {rx.status === 'Verification' && <button className="px-3 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-lg shadow-sm hover:opacity-90">Verify Rx</button>}
-                             {rx.status === 'Ready' && <button className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:bg-indigo-700">Dispense</button>}
-                             <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><Printer className="w-4 h-4"/></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          {activeTab === 'Inventory' && (
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
-              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                 <h2 className="text-lg font-bold">Master Drug Inventory</h2>
-                 <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="text" placeholder="Search Brand, Generic, ID..." className="pl-9 pr-4 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-80" />
-                  </div>
-              </div>
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                      <th className="px-6 py-4 font-semibold">Item ID</th>
-                      <th className="px-6 py-4 font-semibold">Brand Name</th>
-                      <th className="px-6 py-4 font-semibold">Generic Name</th>
-                      <th className="px-6 py-4 font-semibold">Strength</th>
-                      <th className="px-6 py-4 font-semibold">Price (MRP)</th>
-                      <th className="px-6 py-4 font-semibold">Stock Level</th>
-                      <th className="px-6 py-4 font-semibold">Tags</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {inventory.map((item, i) => (
-                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{item.id}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-slate-100">{item.brandName}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{item.genericName}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{item.strength} • {item.form}</td>
-                        <td className="px-6 py-4 text-sm font-medium">₹{(item.basePrice * (1 + item.gstRate/100)).toFixed(2)}</td>
-                        <td className="px-6 py-4">
-                           <span className={`flex items-center gap-1.5 text-sm font-semibold ${item.status === 'Low Stock' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                             <span className={`w-2 h-2 rounded-full ${item.status === 'Low Stock' ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                             {item.stock} Units
-                           </span>
-                        </td>
-                        <td className="px-6 py-4">
-                           <div className="flex gap-1">
-                             {item.schedule && <span className="px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 text-[10px] font-bold rounded" title="Controlled Substance">Rx ({item.schedule})</span>}
-                             {item.requiresColdChain && <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 text-[10px] font-bold rounded flex items-center gap-0.5"><Snowflake className="w-3 h-3"/> Cold</span>}
-                           </div>
-                        </td>
-                      </tr>
+            {/* Ready for Dispensing */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="xl:col-span-2"
+            >
+              <Card className="h-full overflow-hidden">
+                <CardHeader className="flex-row items-center justify-between border-b border-border">
+                  <CardTitle>Ready for Dispensing</CardTitle>
+                  <Button variant="link" size="sm" onClick={() => setActiveTab('queue')}>
+                    View Queue <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ul className="divide-y divide-border">
+                    {rxQueue.filter(r => r.status === 'Ready').map((rx, i) => (
+                      <li key={i} className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/40">
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{rx.rxId}</p>
+                          <p className="text-xs text-muted-foreground">{rx.patient} · {rx.items} items</p>
+                        </div>
+                        <Button size="sm" disabled title="Coming soon">Dispense</Button>
+                      </li>
                     ))}
-                  </tbody>
-                </table>
+                  </ul>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="queue" className="mt-6">
+          <DataTable<RxItem>
+            columns={queueColumns}
+            data={rxQueue}
+            rowKey={(r, i) => `${r.rxId}-${i}`}
+            searchPlaceholder="Search Rx ID or Patient..."
+            exportName="prescription-queue"
+            emptyTitle="No prescriptions in queue"
+            emptyDescription="New prescriptions will appear here as they are received."
+            rowActions={rx => (
+              <div className="flex items-center justify-end gap-2">
+                {rx.status === 'Verification' && <Button variant="secondary" size="sm" disabled title="Coming soon">Verify Rx</Button>}
+                {rx.status === 'Ready' && <Button size="sm" disabled title="Coming soon">Dispense</Button>}
+                <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.rxId}`} disabled title="Coming soon">
+                  <Printer className="h-4 w-4" />
+                </Button>
               </div>
-             </div>
-          )}
-          
-        </div>
-      </div>
-    </DashboardLayout>
+            )}
+          />
+        </TabsContent>
+
+        <TabsContent value="Inventory" className="mt-6">
+          <DataTable<InventoryItem>
+            columns={inventoryColumns}
+            data={inventory}
+            rowKey={(item, i) => `${item.id}-${i}`}
+            searchPlaceholder="Search Brand, Generic, ID..."
+            exportName="drug-inventory"
+            emptyTitle="No inventory items"
+            emptyDescription="The master drug inventory is empty."
+          />
+        </TabsContent>
+
+        <TabsContent value="Purchase Orders" className="mt-6">
+          <EmptyState
+            icon={Truck}
+            title="No purchase orders yet"
+            description="Purchase orders raised against suppliers will appear here for tracking and approval."
+          />
+        </TabsContent>
+
+        <TabsContent value="Cold Chain" className="mt-6">
+          <EmptyState
+            icon={Snowflake}
+            title="Cold chain monitoring"
+            description="Temperature-controlled storage telemetry and excursion alerts will appear here."
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

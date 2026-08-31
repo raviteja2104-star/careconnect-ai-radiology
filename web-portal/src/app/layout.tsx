@@ -1,12 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { ThemeProvider, ThemeScript } from "@/components/providers/ThemeProvider";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { ToastProvider } from "@/components/ui/toast";
+import { TourProvider } from "@/components/tour/TourProvider";
+import { AppShell } from "@/components/shell/AppShell";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+const mono = Roboto_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
 
 export const metadata: Metadata = {
-  title: "CareConnect Web Portal",
-  description: "Enterprise Patient Authentication & Onboarding",
+  title: "CareConnect — Healthcare Operating System",
+  description: "Premium enterprise healthcare platform for patients, clinicians, and operations.",
 };
 
 export default function RootLayout({
@@ -15,9 +28,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`h-full antialiased ${inter.className}`}>
-      <body className="min-h-full flex flex-col bg-background text-text-primary">
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className={`${inter.variable} ${mono.variable} antialiased`}>
+        <ThemeProvider>
+          <SessionProvider>
+            <QueryProvider>
+              <ToastProvider>
+                <TourProvider>
+                  <AppShell>{children}</AppShell>
+                </TourProvider>
+              </ToastProvider>
+            </QueryProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

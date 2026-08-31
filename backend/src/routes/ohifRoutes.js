@@ -8,9 +8,44 @@ const path = require('path');
 const fs = require('fs');
 
 const router = express.Router();
+const { protect } = require('../middleware/auth');
+
+// The OHIF shell lists studies with patient names — authenticated users only.
+// NOTE: protect expects a Bearer token header, so direct browser navigation to
+// /ohif now requires a token-capable client (see security report).
+router.use(protect);
 
 const DICOMWEB_BASE = process.env.DICOMWEB_URL || 'http://localhost:5000/api/dicomweb';
 const OHIF_LOCAL_BUILD = path.join(__dirname, '..', '..', '..', 'ohif-viewer', 'dist');
+
+// ── OHIF container (docker-compose `ohif` service) ──────────────────────────
+// OHIF_URL is the BROWSER-facing address we redirect users to.
+// OHIF_PROBE_URL is what THIS process probes (inside docker-compose the
+// backend cannot reach the host's localhost port, so compose sets it to
+// http://ohif:80 while OHIF_URL stays browser-reachable).
+const axios = require('axios');
+const OHIF_URL = (process.env.OHIF_URL || 'http://localhost:3001').replace(/\/+$/, '');
+const OHIF_PROBE_URL = (process.env.OHIF_PROBE_URL || OHIF_URL).replace(/\/+$/, '');
+
+// Cached reachability probe — same pattern as services/OrthancClient.js.
+// We probe /app-config.js (a file only the OHIF app serves) rather than /,
+// so another service squatting on the port doesn't produce a false positive.
+const OHIF_PROBE_TIMEOUT_MS = 1500;
+const OHIF_PROBE_INTERVAL_MS = 30 * 1000;
+let _ohifReachable = false;
+let _ohifLastProbeAt = 0;
+let _ohifInflightProbe = null;
+
+async function ohifIsReachable() {
+    if (Date.now() - _ohifLastProbeAt < OHIF_PROBE_INTERVAL_MS) return _ohifReachable;
+    if (_ohifInflightProbe) return _ohifInflightProbe;
+    _ohifInflightProbe = axios
+        .get(`${OHIF_PROBE_URL}/app-config.js`, { timeout: OHIF_PROBE_TIMEOUT_MS })
+        .then((r) => { _ohifReachable = r.status === 200; return _ohifReachable; })
+        .catch(() => { _ohifReachable = false; return false; })
+        .finally(() => { _ohifLastProbeAt = Date.now(); _ohifInflightProbe = null; });
+    return _ohifInflightProbe;
+}
 
 // ── CSP middleware for all /ohif routes ──────────────────────────────────────
 router.use((req, res, next) => {
@@ -21,13 +56,13 @@ router.use((req, res, next) => {
     res.setHeader(
         'Content-Security-Policy',
         [
-            "default-src 'self' http://localhost:5000 https://viewer.ohif.org",
+            `default-src 'self' http://localhost:5000 ${OHIF_URL} https://viewer.ohif.org`,
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://viewer.ohif.org",
             "script-src-attr 'unsafe-inline' 'unsafe-hashes'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
-            "connect-src 'self' http://localhost:5000 https://viewer.ohif.org wss:",
-            "frame-src 'self' https://viewer.ohif.org http://localhost:5000",
+            `connect-src 'self' http://localhost:5000 ${OHIF_URL} https://viewer.ohif.org wss:`,
+            `frame-src 'self' ${OHIF_URL} https://viewer.ohif.org http://localhost:5000`,
             "worker-src blob: 'self'",
         ].join('; ')
     );
@@ -73,9 +108,28 @@ window.config = {
 });
 
 // ── OHIF HTML shell ────────────────────────────────────────────────────────
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+    // PREFERRED PATH: the dockerised OHIF viewer (docker-compose `ohif`
+    // service). When it answers the cached probe we simply redirect the
+    // browser there — it has its own app-config.js pointing at Orthanc.
+    let ohifUp = false;
+    try { ohifUp = await ohifIsReachable(); } catch (_) { ohifUp = false; }
+    if (ohifUp) {
+        const study = req.query.StudyInstanceUIDs || req.query.studyUID;
+        return res.redirect(
+            study
+                ? `${OHIF_URL}/viewer?StudyInstanceUIDs=${encodeURIComponent(study)}`
+                : `${OHIF_URL}/`
+        );
+    }
+
+    // FALLBACK 1: a local OHIF production build dropped into ohif-viewer/dist.
     const hasLocalBuild = fs.existsSync(path.join(OHIF_LOCAL_BUILD, 'index.html'));
     if (hasLocalBuild) return res.sendFile(path.join(OHIF_LOCAL_BUILD, 'index.html'));
+
+    // FALLBACK 2: the hand-written launcher shell below. Its deep links try
+    // the local OHIF container first and only fall back to the public
+    // viewer.ohif.org as a last resort (see /viewer.js).
 
     // All JS moved out of inline onclick= into a deferred <script src> equivalent.
     // The <script> block at bottom uses addEventListener — no inline handlers.
@@ -216,20 +270,47 @@ router.get('/viewer.js', (req, res) => {
 (function () {
   'use strict';
 
+  // Prefer the LOCAL OHIF container (docker-compose \`ohif\` service); fall
+  // back to the public viewer.ohif.org ONLY as a last resort when the local
+  // container is down.
+  var OHIF_LOCAL    = '${OHIF_URL}';
   var OHIF_PUBLIC   = 'https://viewer.ohif.org';
   var DICOMWEB_BASE = '${DICOMWEB_BASE}';
 
-  function buildStudyUrl(studyUID) {
-    return OHIF_PUBLIC
+  var localProbe = null;
+  function ohifBase() {
+    // no-cors fetch resolves (opaque) when something answers on the port and
+    // rejects on network error — good enough for a dev-time preference.
+    if (!localProbe) {
+      localProbe = fetch(OHIF_LOCAL + '/app-config.js', { mode: 'no-cors' })
+        .then(function () { return OHIF_LOCAL; })
+        .catch(function () { return OHIF_PUBLIC; });
+    }
+    return localProbe;
+  }
+
+  function buildStudyUrl(base, studyUID) {
+    if (base === OHIF_LOCAL) {
+      // Local OHIF carries its own app-config.js (pointed at Orthanc) —
+      // just pass the study UID.
+      return base + '/viewer?StudyInstanceUIDs=' + encodeURIComponent(studyUID);
+    }
+    return base
       + '/viewer?StudyInstanceUIDs=' + encodeURIComponent(studyUID)
       + '&wadoUriRoot=' + encodeURIComponent(DICOMWEB_BASE + '/wado')
       + '&qidoRoot='    + encodeURIComponent(DICOMWEB_BASE + '/rs')
       + '&wadoRoot='    + encodeURIComponent(DICOMWEB_BASE + '/rs');
   }
 
+  function openStudy(studyUID) {
+    ohifBase().then(function (base) {
+      window.open(buildStudyUrl(base, studyUID), '_blank', 'noopener');
+    });
+  }
+
   // Wire study rows
   document.querySelectorAll('.study-row[data-study-uid]').forEach(function (row) {
-    function open() { window.open(buildStudyUrl(row.dataset.studyUid), '_blank', 'noopener'); }
+    function open() { openStudy(row.dataset.studyUid); }
     row.addEventListener('click', open);
     row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') open(); });
   });
@@ -238,7 +319,9 @@ router.get('/viewer.js', (req, res) => {
   var launchBtn = document.getElementById('btn-studylist');
   if (launchBtn) {
     launchBtn.addEventListener('click', function () {
-      window.open(OHIF_PUBLIC + '/studylist', '_blank', 'noopener');
+      ohifBase().then(function (base) {
+        window.open(base === OHIF_LOCAL ? base + '/' : base + '/studylist', '_blank', 'noopener');
+      });
     });
   }
 
@@ -258,7 +341,7 @@ router.get('/viewer.js', (req, res) => {
   // Auto-open study from URL param
   var params    = new URLSearchParams(window.location.search);
   var autoStudy = params.get('StudyInstanceUIDs');
-  if (autoStudy) window.open(buildStudyUrl(autoStudy), '_blank', 'noopener');
+  if (autoStudy) openStudy(autoStudy);
 }());
     `.trim());
 });

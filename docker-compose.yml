@@ -1,0 +1,256 @@
+version: '3.8'
+
+services:
+  # 1. API Gateway / Ingress (Envoy proxy placeholder)
+  api-gateway:
+    image: envoyproxy/envoy:v1.24-latest
+    ports:
+      - "80:8080"
+    depends_on:
+      - backend
+      - web-portal
+    networks:
+      - careconnect_net
+
+  # 2. Frontend Next.js Portal
+  web-portal:
+    build: 
+      context: ./web-portal
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://api-gateway/api
+    depends_on:
+      - backend
+    networks:
+      - careconnect_net
+    ports:
+      - "3000:3000"
+
+  # 3. Node.js Backend Engine (Monolith)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      # backend/src/config/database.js reads MONGODB_URI (MONGO_URI kept for
+      # any legacy consumers). replicaSet=rs0 works in-network because the
+      # member is advertised as mongodb:27017.
+      - MONGODB_URI=mongodb://mongodb:27017/careconnect_prod?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/careconnect_prod
+      - REDIS_URL=redis://redis-cache:6379
+      - JWT_SECRET=production_secret_key_rotation
+      # PACS integration (see backend/src/services/OrthancClient.js)
+      - ORTHANC_URL=http://orthanc:8042
+      # OHIF_URL is the BROWSER-facing address /ohif redirects to;
+      # OHIF_PROBE_URL is what the backend container probes (host localhost
+      # ports are unreachable from inside the compose network).
+      # NOTE: OHIF is published on host port 3005 because grafana already
+      # occupies host port 3001 (see the `ohif` service below).
+      - OHIF_URL=http://localhost:3005
+      - OHIF_PROBE_URL=http://ohif:80
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+      - redis-cache
+    networks:
+      - careconnect_net
+
+  # 4. Auth Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - MONGO_URI=mongodb://mongodb:27017/careconnect_auth
+    ports:
+      - "5001:5001"
+    networks:
+      - careconnect_net
+
+  # 5. Communication Service
+  communication-service:
+    build:
+      context: ./services/communication-service
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=5002
+      - REDIS_URL=redis://redis-cache:6379
+    ports:
+      - "5002:5002"
+    networks:
+      - careconnect_net
+
+  # 6. ABDM Integration Service
+  abdm-service:
+    build:
+      context: ./services/abdm-service
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=5005
+    ports:
+      - "5005:5005"
+    networks:
+      - careconnect_net
+
+  # 6.5 Payment Service
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=5006
+    ports:
+      - "5006:5006"
+    networks:
+      - careconnect_net
+
+  # 7. Primary Database (MongoDB)
+  # Runs as a SINGLE-NODE REPLICA SET (rs0). MongoDB multi-document
+  # transactions REQUIRE a replica set — the backend's TxRunner probes for
+  # support at runtime and falls back to non-transactional execution on a
+  # bare standalone mongod, so this is what activates real transactions.
+  # NOTE: no root credentials are configured on purpose. Combining
+  # --replSet with MONGO_INITDB_ROOT_USERNAME would force a shared keyFile
+  # for intra-cluster auth; for local dev we keep auth off for simplicity.
+  # From the HOST, connect with ?directConnection=true (see docs/LOCAL_SETUP.md)
+  # because the replica-set member advertises itself as "mongodb:27017".
+  mongodb:
+    image: mongo:6.0
+    restart: always
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - careconnect_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # 7.1 One-shot replica-set initializer. Runs rs.initiate() (idempotent —
+  # exits 0 immediately if rs0 is already initialised) and then stops.
+  mongo-init:
+    image: mongo:6.0
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - careconnect_net
+    entrypoint:
+      - bash
+      - -c
+      - |
+        for i in $$(seq 1 30); do
+          status=$$(mongosh --host mongodb:27017 --quiet --eval 'try { rs.status().ok } catch (e) { print(0) }' 2>/dev/null | tail -n 1)
+          if [ "$$status" = "1" ]; then echo "[mongo-init] replica set rs0 already initialised"; exit 0; fi
+          if mongosh --host mongodb:27017 --quiet --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongodb:27017"}]})' >/dev/null 2>&1; then
+            echo "[mongo-init] replica set rs0 initialised"; exit 0
+          fi
+          echo "[mongo-init] waiting for MongoDB ($$i/30)..."; sleep 2
+        done
+        echo "[mongo-init] ERROR: could not initialise replica set rs0"; exit 1
+
+  # 8. Redis Cache & Event Bus Backing
+  redis-cache:
+    image: redis:7.0-alpine
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - careconnect_net
+
+  # 9. Observability - Prometheus
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - careconnect_net
+
+  # 10. Observability - Grafana
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3001:3000"
+    networks:
+      - careconnect_net
+
+  # 11. PACS — Orthanc DICOM server with the DICOMweb plugin enabled.
+  # The backend proxies /api/dicomweb/rs/* and /api/dicomweb/wado to this
+  # service when it is reachable (mock data is the fallback otherwise).
+  # Configuration is injected via ORTHANC__* environment variables (the
+  # orthancteam image converts them into orthanc.json entries).
+  orthanc:
+    image: orthancteam/orthanc:latest
+    restart: unless-stopped
+    environment:
+      - ORTHANC__NAME=CareConnect PACS
+      - ORTHANC__DICOM_AET=CARECONNECT
+      # DICOMweb plugin (QIDO-RS / WADO-RS / STOW-RS at /dicom-web,
+      # classic WADO-URI at /wado)
+      - ORTHANC__DICOM_WEB__ENABLE=true
+      - ORTHANC__DICOM_WEB__ROOT=/dicom-web/
+      - ORTHANC__DICOM_WEB__WADO_ROOT=/wado
+      # DEV ONLY: authentication disabled so the backend proxy and the OHIF
+      # container can talk to Orthanc without credentials. In production,
+      # enable AuthenticationEnabled + RegisteredUsers and keep Orthanc
+      # reachable only behind the API gateway.
+      - ORTHANC__AUTHENTICATION_ENABLED=false
+      - ORTHANC__REMOTE_ACCESS_ALLOWED=true
+    ports:
+      - "8042:8042"   # HTTP REST + DICOMweb
+      - "4242:4242"   # DICOM protocol (C-STORE / C-FIND from modalities)
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+    networks:
+      - careconnect_net
+
+  # 12. OHIF Viewer — official image with a mounted app-config.js pointing
+  # its DICOMweb data source at Orthanc (deploy/ohif/app-config.js).
+  # NOTE: published on host port 3005 (not 3001) because grafana already
+  # publishes host port 3001. The backend's /ohif route redirects here via
+  # the OHIF_URL env var above.
+  # PRODUCTION NOTE: both OHIF and Orthanc should sit behind the API gateway
+  # (single origin, TLS, auth) instead of exposing raw host ports; the
+  # app-config data source URL would then become a gateway path.
+  ohif:
+    image: ohif/app:latest
+    restart: unless-stopped
+    depends_on:
+      - orthanc
+    ports:
+      - "3005:80"
+    volumes:
+      - ./deploy/ohif/app-config.js:/usr/share/nginx/html/app-config.js:ro
+    networks:
+      - careconnect_net
+
+networks:
+  careconnect_net:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:
+  orthanc_data:

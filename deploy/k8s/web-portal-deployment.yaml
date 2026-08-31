@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: careconnect-web-portal
+  labels:
+    app: web-portal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-portal
+  template:
+    metadata:
+      labels:
+        app: web-portal
+    spec:
+      containers:
+      - name: web-portal
+        image: careconnect-web-portal:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: careconnect-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-portal
+spec:
+  type: ClusterIP
+  selector:
+    app: web-portal
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

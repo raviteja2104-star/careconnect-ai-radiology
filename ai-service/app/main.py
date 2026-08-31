@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.routers import radiology, symptoms
+from app.routers import clinical_ai, radiology, symptoms
 
 load_dotenv()
 
@@ -28,6 +28,7 @@ app.add_middleware(
 # Include routers
 app.include_router(radiology.router)
 app.include_router(symptoms.router)
+app.include_router(clinical_ai.router)
 
 
 @app.get("/")
@@ -41,6 +42,12 @@ async def root():
             "symptom_check": "/api/ai/check-symptoms",
             "model_info": "/api/ai/model-info",
             "symptom_list": "/api/ai/symptom-list",
+            "clinical_ai_health": "/api/ai/health",
+            "soap_draft": "/api/ai/soap-draft",
+            "discharge_summary": "/api/ai/discharge-summary",
+            "radiology_draft": "/api/ai/radiology-draft",
+            "explain": "/api/ai/explain",
+            "differentials": "/api/ai/differentials",
             "documentation": "/docs",
         }
     }

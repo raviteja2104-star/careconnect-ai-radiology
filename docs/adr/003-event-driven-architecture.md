@@ -39,7 +39,7 @@ Introduce `@careconnect/events` as the single source of truth for all inter-modu
 - ✅ Modules are decoupled; adding a new subscriber does not require changing the publisher.
 - ✅ Every event carries a `correlationId` enabling distributed tracing.
 - ✅ `patientId` + `tenantId` on every event enables compliance audit logging.
-- ⚠️ Event broker implementation (Redis Streams / RabbitMQ / Kafka) is still to be selected for production. Current implementation is in-process.
+- ⚠️ ~~Event broker implementation (Redis Streams / RabbitMQ / Kafka) is still to be selected for production.~~ Resolved by [ADR-007](./007-broker-decision.md): in-process EventBus + transactional Mongo outbox for single-node deployments; broker deferred until multi-node.
 - ⚠️ Event versioning strategy (schema registry) needed before v2.0.
 
 ## Alternatives Considered

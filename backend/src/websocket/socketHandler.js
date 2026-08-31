@@ -65,6 +65,77 @@ const setupWebSocket = (io) => {
             });
         });
 
+        // ------------------------------------------------------------------
+        // WebRTC signaling for telemedicine video (native RTCPeerConnection).
+        // Rooms are keyed `webrtc:<sessionId>`; the server only relays
+        // SDP offers/answers and ICE candidates between peers in a room.
+        // Auth: relies on the same JWT handshake middleware above — clients
+        // must connect with a valid token (sent from localStorage).
+        // ------------------------------------------------------------------
+        socket.on('webrtc:join', (payload = {}) => {
+            const { sessionId } = payload;
+            if (!sessionId) return;
+            const room = `webrtc:${sessionId}`;
+            // Snapshot peers already in the room BEFORE joining
+            const existingPeers = Array.from(io.sockets.adapter.rooms.get(room) || []);
+            socket.join(room);
+            socket.webrtcRoom = room;
+            // Notify peers already in the room about the newcomer…
+            socket.to(room).emit('webrtc:peer-joined', {
+                fromSocketId: socket.id,
+                userId,
+                role: socket.user.role,
+            });
+            // …and tell the newcomer who is already there, so the offering
+            // side can start negotiation regardless of join order.
+            existingPeers.forEach((peerId) => {
+                socket.emit('webrtc:peer-joined', { fromSocketId: peerId });
+            });
+        });
+
+        socket.on('webrtc:offer', (payload = {}) => {
+            const { sessionId, sdp } = payload;
+            if (!sessionId || !sdp) return;
+            socket.to(`webrtc:${sessionId}`).emit('webrtc:offer', {
+                fromSocketId: socket.id,
+                sdp,
+            });
+        });
+
+        socket.on('webrtc:answer', (payload = {}) => {
+            const { sessionId, sdp } = payload;
+            if (!sessionId || !sdp) return;
+            socket.to(`webrtc:${sessionId}`).emit('webrtc:answer', {
+                fromSocketId: socket.id,
+                sdp,
+            });
+        });
+
+        socket.on('webrtc:ice', (payload = {}) => {
+            const { sessionId, candidate } = payload;
+            if (!sessionId || !candidate) return;
+            socket.to(`webrtc:${sessionId}`).emit('webrtc:ice', {
+                fromSocketId: socket.id,
+                candidate,
+            });
+        });
+
+        socket.on('webrtc:leave', (payload = {}) => {
+            const room = payload.sessionId ? `webrtc:${payload.sessionId}` : socket.webrtcRoom;
+            if (!room) return;
+            socket.leave(room);
+            if (socket.webrtcRoom === room) socket.webrtcRoom = null;
+            socket.to(room).emit('webrtc:peer-left', { fromSocketId: socket.id });
+        });
+
+        // Additional disconnect listener (the original below stays untouched):
+        // tell WebRTC peers when a participant drops without an explicit leave.
+        socket.on('disconnect', () => {
+            if (socket.webrtcRoom) {
+                socket.to(socket.webrtcRoom).emit('webrtc:peer-left', { fromSocketId: socket.id });
+            }
+        });
+
         // Handle disconnect
         socket.on('disconnect', () => {
             connectedUsers.delete(userId);

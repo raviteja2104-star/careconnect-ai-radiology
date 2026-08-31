@@ -1,15 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import {
   Users, Clock, AlertTriangle, IndianRupee, Video,
-  Activity, Calendar, FileText, ArrowRight, Bell,
-  TrendingUp, TrendingDown, Stethoscope, FlaskConical,
+  Activity, Calendar, Bell,
+  Stethoscope, FlaskConical,
   CheckCircle, XCircle, Heart, Pill, ChevronRight,
-  MoreVertical
 } from 'lucide-react';
+import {
+  PageHeader, StatCard, StatGrid, Badge, Button, Avatar,
+  Card, CardHeader, CardTitle, CardContent,
+} from '@/components/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface QueuePatient {
@@ -25,11 +29,11 @@ interface Alert { id: string; type: 'critical' | 'warning' | 'info'; message: st
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 const KPI_STATS = [
-  { label: "Today's Appointments", value: '42', sub: '+5 from yesterday', icon: Users, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30', trend: 'up' },
-  { label: 'Waiting Queue', value: '12', sub: '3 waited > 30 min', icon: Clock, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30', trend: 'neutral' },
-  { label: 'Critical Alerts', value: '3', sub: '2 new since last login', icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30', trend: 'up' },
-  { label: 'Revenue (Today)', value: '₹45,200', sub: '↑ 12% vs last week', icon: IndianRupee, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30', trend: 'up' },
-];
+  { label: "Today's Appointments", value: '42', sub: '+5 from yesterday', icon: Users, tone: 'brand', trend: 'up' },
+  { label: 'Waiting Queue', value: '12', sub: '3 waited > 30 min', icon: Clock, tone: 'amber', trend: 'neutral' },
+  { label: 'Critical Alerts', value: '3', sub: '2 new since last login', icon: AlertTriangle, tone: 'rose', trend: 'up' },
+  { label: 'Revenue (Today)', value: '₹45,200', sub: '↑ 12% vs last week', icon: IndianRupee, tone: 'emerald', trend: 'up' },
+] as const;
 
 const QUEUE: QueuePatient[] = [
   { token: 'A-01', name: 'Rohit Sharma', age: '32', gender: 'M', type: 'OPD', time: '10:00 AM', waitMins: 15, risk: 'Low', status: 'Waiting', mrn: 'MRN-2024-07241' },
@@ -59,275 +63,302 @@ const UPCOMING = [
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const STATUS_CONFIG = {
-  'Waiting':         { dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-  'Vitals Taken':    { dot: 'bg-green-500',  text: 'text-green-700 dark:text-green-400',  bg: 'bg-green-50 dark:bg-green-900/20' },
-  'Scheduled':       { dot: 'bg-slate-400',  text: 'text-slate-600 dark:text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800' },
-  'In Consultation': { dot: 'bg-indigo-500 animate-pulse', text: 'text-indigo-700 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+const STATUS_TONE: Record<QueuePatient['status'], { tone: 'warning' | 'success' | 'neutral' | 'brand'; pulse?: boolean }> = {
+  'Waiting': { tone: 'warning' },
+  'Vitals Taken': { tone: 'success' },
+  'Scheduled': { tone: 'neutral' },
+  'In Consultation': { tone: 'brand', pulse: true },
 };
-const RISK_CONFIG = {
-  Low:    'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
-  Medium: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
-  High:   'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+const RISK_TONE: Record<QueuePatient['risk'], 'success' | 'warning' | 'danger'> = {
+  Low: 'success', Medium: 'warning', High: 'danger',
 };
 const TASK_CONFIG = {
-  radiology:    { color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30', icon: Activity },
-  prescription: { color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30', icon: Pill },
-  lab:          { color: 'bg-red-50 text-red-600 dark:bg-red-900/30', icon: FlaskConical },
-  approval:     { color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30', icon: CheckCircle },
+  radiology: { color: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400', icon: Activity },
+  prescription: { color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400', icon: Pill },
+  lab: { color: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400', icon: FlaskConical },
+  approval: { color: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400', icon: CheckCircle },
 };
-const ALERT_CONFIG = {
-  critical: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400',
-  warning:  'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400',
-  info:     'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400',
+const ALERT_STYLE: Record<Alert['type'], string> = {
+  critical: 'border-danger/30 bg-danger-soft text-danger',
+  warning: 'border-warning/30 bg-warning-soft text-warning',
+  info: 'border-info/30 bg-info-soft text-info',
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const router = useRouter();
   const [queueFilter, setQueueFilter] = useState<'All' | 'OPD' | 'Telemedicine' | 'Follow-up'>('All');
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const filteredQueue = QUEUE.filter(p => queueFilter === 'All' || p.type === queueFilter);
   const activeAlerts = ALERTS.filter(a => !dismissedAlerts.includes(a.id));
 
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  // Computed after mount: locale-formatted dates differ between server and
+  // client renders and trigger hydration errors if emitted during SSR.
+  const [today, setToday] = React.useState('');
+  React.useEffect(() => {
+    setToday(new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+  }, []);
 
   return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto">
+    <div className="space-y-6">
+      <PageHeader
+        title="Good Morning, Dr. Sharma"
+        description={today}
+        actions={
+          <>
+            <Link href="/appointments">
+              <Button variant="outline">
+                <Calendar className="h-4 w-4" aria-hidden /> Manage Schedule
+              </Button>
+            </Link>
+            <Link href="/emr">
+              <Button>
+                <Stethoscope className="h-4 w-4" aria-hidden /> Start Next Consult
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
-        {/* ── Header ── */}
-        <div className="px-8 pt-7 pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Good Morning, Dr. Sharma 👋</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{today}</p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/appointments" className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-                <Calendar className="w-4 h-4" /> Manage Schedule
-              </Link>
-              <Link href="/emr" className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
-                <Stethoscope className="w-4 h-4" /> Start Next Consult
-              </Link>
-            </div>
-          </div>
+      {/* ── KPI Row ── */}
+      <StatGrid>
+        {KPI_STATS.map((stat, i) => (
+          <StatCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            sub={stat.sub}
+            icon={stat.icon}
+            tone={stat.tone}
+            trend={stat.trend}
+            trendPositive={stat.label !== 'Critical Alerts'}
+            delay={i * 0.05}
+          />
+        ))}
+      </StatGrid>
 
-          {/* ── KPI Row ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {KPI_STATS.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div key={stat.label} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${stat.bg}`}>
-                    <Icon className={`w-5 h-5 ${stat.color}`} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{stat.label}</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{stat.value}</p>
-                    <p className={`text-xs mt-0.5 flex items-center gap-1 ${stat.trend === 'up' ? 'text-green-600 dark:text-green-400' : 'text-slate-400'}`}>
-                      {stat.trend === 'up' ? <TrendingUp className="w-3 h-3" /> : null}
-                      {stat.sub}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* ── Active Alerts Banner ── */}
+      {activeAlerts.length > 0 && (
+        <div className="space-y-2">
+          {activeAlerts.map((alert, i) => (
+            <motion.div
+              key={alert.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.05 }}
+              className={`flex items-center gap-3 rounded-2xl border p-3 text-sm ${ALERT_STYLE[alert.type]}`}
+            >
+              {alert.type === 'critical'
+                ? <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                : <Bell className="h-4 w-4 shrink-0" aria-hidden />}
+              <div className="min-w-0 flex-1">
+                <span className="font-semibold">{alert.message}</span>
+                <span className="ml-2 text-xs opacity-70">· {alert.patient} · {alert.time}</span>
+              </div>
+              <button
+                onClick={() => setDismissedAlerts(p => [...p, alert.id])}
+                className="shrink-0 rounded-lg p-1 transition-opacity hover:opacity-70"
+                aria-label="Dismiss alert"
+              >
+                <XCircle className="h-4 w-4" aria-hidden />
+              </button>
+            </motion.div>
+          ))}
         </div>
+      )}
 
-        {/* ── Active Alerts Banner ── */}
-        {activeAlerts.length > 0 && (
-          <div className="px-8 mb-2 space-y-2">
-            {activeAlerts.map(alert => (
-              <div key={alert.id} className={`flex items-center gap-3 p-3 rounded-xl border text-sm ${ALERT_CONFIG[alert.type]}`}>
-                {alert.type === 'critical' ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Bell className="w-4 h-4 shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold">{alert.message}</span>
-                  <span className="text-xs opacity-70 ml-2">· {alert.patient} · {alert.time}</span>
-                </div>
-                <button onClick={() => setDismissedAlerts(p => [...p, alert.id])} className="shrink-0 p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss">
-                  <XCircle className="w-4 h-4" />
+      {/* ── Main Content ── */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+        {/* ── Left: Queue ── */}
+        <Card className="overflow-hidden xl:col-span-2">
+          <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <CardTitle className="flex items-center gap-2">
+                Patient Queue
+                <Badge tone="brand">{QUEUE.length}</Badge>
+              </CardTitle>
+            </div>
+            <div className="flex gap-1" role="group" aria-label="Filter queue by visit type">
+              {(['All', 'OPD', 'Telemedicine', 'Follow-up'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setQueueFilter(f)}
+                  aria-pressed={queueFilter === f}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${queueFilter === f
+                    ? 'bg-primary text-primary-foreground shadow-soft'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                >
+                  {f}
                 </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Main Content ── */}
-        <div className="px-8 pb-8 flex-1 flex flex-col xl:flex-row gap-6">
-
-          {/* ── Left: Queue ── */}
-          <div className="flex-1 flex flex-col gap-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col overflow-hidden">
-              {/* Queue header */}
-              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <h2 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    Patient Queue
-                    <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">{QUEUE.length}</span>
-                  </h2>
-                  <div className="flex gap-1">
-                    {(['All', 'OPD', 'Telemedicine', 'Follow-up'] as const).map(f => (
-                      <button key={f} onClick={() => setQueueFilter(f)}
-                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${queueFilter === f ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                        {f}
-                      </button>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60">
+                  <tr className="border-b border-border">
+                    {['Token', 'Patient', 'Type', 'Time', 'Wait', 'Risk', 'Status', 'Action'].map(h => (
+                      <th key={h} scope="col" className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {h}
+                      </th>
                     ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Queue table */}
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-xs uppercase tracking-wider text-slate-500">
-                      {['Token', 'Patient', 'Type', 'Time', 'Wait', 'Risk', 'Status', 'Action'].map(h => (
-                        <th key={h} className="px-5 py-3.5 text-left font-semibold whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredQueue.map((p) => {
-                      const sc = STATUS_CONFIG[p.status];
-                      return (
-                        <tr key={p.token} className="hover:bg-indigo-50/40 dark:hover:bg-slate-800/50 transition-colors group">
-                          <td className="px-5 py-4 font-bold text-slate-900 dark:text-white font-mono">{p.token}</td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                                {p.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-slate-900 dark:text-white">{p.name}</p>
-                                <p className="text-xs text-slate-500">{p.age}y · {p.gender} · <span className="font-mono">{p.mrn}</span></p>
-                              </div>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredQueue.map((p) => {
+                    const sc = STATUS_TONE[p.status];
+                    return (
+                      <tr
+                        key={p.token}
+                        className="group cursor-pointer transition-colors hover:bg-muted/40"
+                        onClick={() => router.push('/doctor/queue')}
+                      >
+                        <td className="px-4 py-3.5 font-mono font-bold text-foreground">{p.token}</td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={p.name} size="sm" />
+                            <div>
+                              <p className="font-semibold text-foreground">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">{p.age}y · {p.gender} · <span className="font-mono">{p.mrn}</span></p>
                             </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold ${p.type === 'Telemedicine' ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                              {p.type === 'Telemedicine' && <Video className="w-3 h-3" />}
-                              {p.type}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-slate-600 dark:text-slate-400 whitespace-nowrap">{p.time}</td>
-                          <td className="px-5 py-4">
-                            <span className={`font-semibold ${p.waitMins > 20 ? 'text-red-600 dark:text-red-400' : p.waitMins > 10 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                              {p.waitMins > 0 ? `${p.waitMins}m` : '—'}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${RISK_CONFIG[p.risk]}`}>{p.risk}</span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${sc.bg} ${sc.text}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                              {p.status}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              {p.type === 'Telemedicine' && (
-                                <Link href="/consultations" className="p-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg transition-colors" title="Join Video">
-                                  <Video className="w-3.5 h-3.5" />
-                                </Link>
-                              )}
-                              <Link href="/emr" className="px-3 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-80 transition-opacity whitespace-nowrap">
-                                Open Chart
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <Badge tone={p.type === 'Telemedicine' ? 'info' : 'brand'}>
+                            {p.type === 'Telemedicine' && <Video className="h-3 w-3" aria-hidden />}
+                            {p.type}
+                          </Badge>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">{p.time}</td>
+                        <td className="px-4 py-3.5">
+                          <span className={`font-semibold tabular-nums ${p.waitMins > 20 ? 'text-danger' : p.waitMins > 10 ? 'text-warning' : 'text-muted-foreground'}`}>
+                            {p.waitMins > 0 ? `${p.waitMins}m` : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <Badge tone={RISK_TONE[p.risk]}>{p.risk}</Badge>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <Badge tone={sc.tone} dot pulse={sc.pulse}>{p.status}</Badge>
+                        </td>
+                        <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            {p.type === 'Telemedicine' && (
+                              <Link
+                                href="/consultations"
+                                title="Join Video"
+                                aria-label={`Join video consult with ${p.name}`}
+                                className="rounded-lg bg-info-soft p-1.5 text-info transition-colors hover:opacity-80"
+                              >
+                                <Video className="h-3.5 w-3.5" aria-hidden />
                               </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-400">Showing {filteredQueue.length} of {QUEUE.length} patients</span>
-                <Link href="/appointments" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                  View Full Schedule <ChevronRight className="w-3 h-3" />
-                </Link>
-              </div>
+                            )}
+                            <Link href="/emr">
+                              <Button variant="secondary" size="sm">Open Chart</Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
-
-          {/* ── Right: Sidebar ── */}
-          <div className="w-full xl:w-[360px] shrink-0 flex flex-col gap-5">
-
-            {/* Task Center */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                <h3 className="font-bold text-slate-900 dark:text-white">Task Center</h3>
-                <span className="text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full">
-                  {TASKS.filter(t => t.priority === 'urgent').length} Urgent
-                </span>
-              </div>
-              <div className="p-2">
-                {TASKS.map((task, i) => {
-                  const cfg = TASK_CONFIG[task.type];
-                  const Icon = cfg.icon;
-                  return (
-                    <Link key={i} href={task.type === 'prescription' ? '/prescriptions' : task.type === 'lab' ? '/lab-orders' : '/emr'} className="flex items-start gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-colors cursor-pointer group block">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${cfg.color}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold text-slate-800 dark:text-white group-hover:text-indigo-600 transition-colors leading-snug">{task.title}</p>
-                          {task.priority === 'urgent' && <span className="shrink-0 text-[10px] font-bold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">URGENT</span>}
-                        </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{task.patient} · {task.time}</p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <span className="text-xs text-subtle-foreground">Showing {filteredQueue.length} of {QUEUE.length} patients</span>
+              <Link href="/appointments" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                View Full Schedule <ChevronRight className="h-3 w-3" aria-hidden />
+              </Link>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Upcoming */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-                <h3 className="font-bold text-slate-900 dark:text-white">Upcoming (Afternoon)</h3>
-              </div>
-              <div className="p-3 space-y-2">
-                {UPCOMING.map((a, i) => (
-                  <Link key={i} href="/appointments" className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
-                    <div className="w-14 text-center">
-                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 font-mono">{a.time}</span>
+        {/* ── Right: Context rail ── */}
+        <div className="flex flex-col gap-6 xl:col-span-1">
+
+          {/* Task Center */}
+          <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Task Center</CardTitle>
+              <Badge tone="danger" dot pulse>
+                {TASKS.filter(t => t.priority === 'urgent').length} Urgent
+              </Badge>
+            </CardHeader>
+            <CardContent className="p-2">
+              {TASKS.map((task, i) => {
+                const cfg = TASK_CONFIG[task.type];
+                const Icon = cfg.icon;
+                return (
+                  <Link
+                    key={i}
+                    href={task.type === 'prescription' ? '/prescriptions' : task.type === 'lab' ? '/lab-orders' : '/emr'}
+                    className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-muted/60"
+                  >
+                    <span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cfg.color}`}>
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">{task.title}</p>
+                        {task.priority === 'urgent' && <Badge tone="danger" className="shrink-0 text-[10px]">Urgent</Badge>}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{task.patient} · {task.time}</p>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">{a.name}</p>
-                      <p className="text-xs text-slate-500">{a.type} · {a.specialty}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
                   </Link>
-                ))}
-              </div>
-            </div>
+                );
+              })}
+            </CardContent>
+          </Card>
 
-            {/* AI Briefing */}
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl shadow-lg p-5 text-white relative overflow-hidden">
-              <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm"><Activity className="w-4 h-4" /></div>
-                  <span className="font-bold text-sm">AI Daily Briefing</span>
-                </div>
-                <p className="text-sm text-indigo-100 leading-relaxed mb-4">
-                  You have <strong>3 high-risk patients</strong> today. <strong>Suresh Verma's</strong> MRI shows minor ischemia — review recommended before 12:00.
-                </p>
-                <Link href="/emr" className="w-full py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2">
-                  <Heart className="w-3.5 h-3.5" /> Open AI Copilot
+          {/* Upcoming */}
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>Upcoming (Afternoon)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 p-3">
+              {UPCOMING.map((a, i) => (
+                <Link key={i} href="/appointments" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-muted/60">
+                  <span className="w-14 text-center font-mono text-sm font-bold text-primary">{a.time}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-foreground">{a.name}</p>
+                    <p className="text-xs text-muted-foreground">{a.type} · {a.specialty}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-subtle-foreground" aria-hidden />
                 </Link>
-              </div>
-            </div>
+              ))}
+            </CardContent>
+          </Card>
 
-          </div>
+          {/* AI Briefing */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            className="gradient-brand relative overflow-hidden rounded-2xl p-5 text-white shadow-float"
+          >
+            <div className="absolute -right-4 -top-4 h-32 w-32 rounded-full bg-white/10 blur-2xl" aria-hidden />
+            <div className="relative z-10">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="rounded-lg bg-white/20 p-1.5 backdrop-blur-sm"><Activity className="h-4 w-4" aria-hidden /></span>
+                <span className="text-sm font-bold">AI Daily Briefing</span>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-white/85">
+                You have <strong>3 high-risk patients</strong> today. <strong>Suresh Verma&apos;s</strong> MRI shows minor ischemia — review recommended before 12:00.
+              </p>
+              <Link
+                href="/emr"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-xs font-bold text-primary shadow-soft transition-colors hover:bg-white/90"
+              >
+                <Heart className="h-3.5 w-3.5" aria-hidden /> Open AI Copilot
+              </Link>
+            </div>
+          </motion.div>
+
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

@@ -1,23 +1,24 @@
 {
-  "name": "careconnect-monorepo",
-  "version": "1.0.0",
-  "private": true,
-  "packageManager": "npm@10.8.1",
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "services/*"
-  ],
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test"
-  },
-  "devDependencies": {
-    "turbo": "^2.0.0"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+ "name": "careconnect-monorepo",
+ "version": "1.0.0",
+ "private": true,
+ "packageManager": "npm@10.8.1",
+ "workspaces": [
+  "apps/*",
+  "packages/*",
+  "services/*"
+ ],
+ "scripts": {
+  "build": "turbo run build",
+  "dev": "turbo run dev",
+  "lint": "turbo run lint",
+  "test": "turbo run test",
+  "test:release:smoke": "node --test tests/release/smoke.test.js"
+ },
+ "devDependencies": {
+  "turbo": "^2.0.0"
+ },
+ "engines": {
+  "node": ">=18"
+ }
 }

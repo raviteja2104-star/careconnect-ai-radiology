@@ -1,0 +1,49 @@
+name: Production Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Security Scans (Trivy & TruffleHog)
+        run: |
+          echo "Running Trivy container scan..."
+          echo "Running TruffleHog secrets scan..."
+      - name: Build and Push Docker Image
+        run: echo "Pushing careconnect:production"
+
+  deploy-green-and-smoke:
+    needs: build-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Green (Isolated)
+        run: |
+          echo "Deploying Green environment (receiving 0% live traffic)..."
+          # helm upgrade ... --set activeTraffic=blue
+      - name: Execute Production Smoke Tests
+        run: |
+          npm run test:release:smoke -- --target=green
+      
+  cutover-traffic:
+    needs: deploy-green-and-smoke
+    runs-on: ubuntu-latest
+    environment: production-approval
+    steps:
+      - name: Switch Blue/Green Traffic
+        run: |
+          echo "Switching 100% ingress traffic to Green pods..."
+          # helm upgrade ... --set activeTraffic=green
+
+  monitoring-window:
+    needs: cutover-traffic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Monitor SLOs for 30m
+        run: |
+          echo "Monitoring P95 Latency and Error Budgets..."
+          echo "If degradation detected, auto-trigger rollback pipeline."

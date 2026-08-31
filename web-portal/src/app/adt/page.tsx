@@ -1,22 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { 
-  UserPlus, ArrowRightLeft, UserMinus, Activity, 
-  FileCheck, FileText, CheckCircle, Clock, 
-  AlertTriangle, ShieldCheck, HeartPulse, Stethoscope, Pill
+import { motion } from 'framer-motion';
+import {
+  UserPlus, ArrowRightLeft, UserMinus, Activity,
+  FileCheck, FileText, AlertTriangle, Stethoscope, Pill,
 } from 'lucide-react';
+import {
+  PageHeader, StatCard, StatGrid, Button, Badge, Card, CardHeader, CardTitle,
+  CardContent, Tabs, TabsList, TabsTrigger, TabsContent, EmptyState, Progress,
+} from '@/components/ui';
 
 export default function ADTDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // Mock Data
   const stats = [
-    { label: "Admissions (Today)", value: '24', icon: <UserPlus className="w-5 h-5" />, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    { label: 'Pending Discharges', value: '12', icon: <UserMinus className="w-5 h-5" />, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
-    { label: 'Active Transfers', value: '5', icon: <ArrowRightLeft className="w-5 h-5" />, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
-    { label: 'Current Inpatients', value: '382', icon: <Activity className="w-5 h-5" />, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' },
+    { label: 'Admissions (Today)', value: '24', icon: UserPlus, tone: 'emerald' as const, sub: 'Checked in since midnight' },
+    { label: 'Pending Discharges', value: '12', icon: UserMinus, tone: 'amber' as const, sub: 'Awaiting clearances' },
+    { label: 'Active Transfers', value: '5', icon: ArrowRightLeft, tone: 'teal' as const, sub: 'Between wards / units' },
+    { label: 'Current Inpatients', value: '382', icon: Activity, tone: 'brand' as const, sub: 'Occupying beds now' },
   ];
 
   const pendingAdmissions = [
@@ -30,150 +33,177 @@ export default function ADTDashboard() {
   ];
 
   return (
-    <DashboardLayout>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        
-        {/* Header & Tabs */}
-        <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 z-10 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <ArrowRightLeft className="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> IPD / ADT Center
-              </h1>
-              <p className="text-sm text-slate-500">Admission, Transfer, and Discharge Operations</p>
-            </div>
-            <div className="flex gap-3">
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors">
-                <UserPlus className="w-4 h-4" /> New Admission
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex space-x-1">
-            {['dashboard', 'admissions', 'transfers', 'discharge planner', 'clearance checklist'].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg capitalize transition-colors ${activeTab === tab ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="IPD / ADT Center"
+        description="Admission, Transfer, and Discharge Operations"
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'ADT' }]}
+        actions={
+          <Button onClick={() => setActiveTab('admissions')}>
+            <UserPlus className="h-4 w-4" aria-hidden /> New Admission
+          </Button>
+        }
+      />
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          
-          {activeTab === 'dashboard' && (
-             <div className="space-y-6">
-                
-                {/* KPI Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {stats.map((stat, idx) => (
-                    <div key={idx} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${stat.color}`}>
-                        {stat.icon}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-auto flex-wrap">
+          {['dashboard', 'admissions', 'transfers', 'discharge planner', 'clearance checklist'].map(tab => (
+            <TabsTrigger key={tab} value={tab} className="capitalize">
+              {tab}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="dashboard" className="mt-6 space-y-6">
+          <StatGrid>
+            {stats.map((s, i) => (
+              <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
+            ))}
+          </StatGrid>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {/* Pending Admissions */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Card className="flex h-full flex-col overflow-hidden">
+                <CardHeader className="flex-row items-center justify-between border-b border-border">
+                  <CardTitle className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4 text-primary" aria-hidden /> Pending Admissions
+                  </CardTitle>
+                  <Button variant="link" size="sm" onClick={() => setActiveTab('admissions')}>View All</Button>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                  {pendingAdmissions.map((adm, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col justify-between gap-4 rounded-xl border border-border bg-muted/40 p-4 sm:flex-row sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="font-bold text-foreground">{adm.patient}</span>
+                          <Badge tone={adm.type === 'Emergency' ? 'danger' : 'info'} className="uppercase">
+                            {adm.type}
+                          </Badge>
+                        </div>
+                        <p className="mb-1 text-sm text-muted-foreground">{adm.diagnosis}</p>
+                        <p className="flex items-center gap-1 text-xs font-semibold text-warning">
+                          <AlertTriangle className="h-3 w-3" aria-hidden /> {adm.bedStatus}
+                        </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
+                      <div className="flex shrink-0 gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setActiveTab('admissions')}>View Details</Button>
+                        <Button size="sm" disabled title="Coming soon">Check-in</Button>
                       </div>
                     </div>
                   ))}
-                </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                   
-                   {/* Admission Requests Queue */}
-                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                         <h3 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                           <UserPlus className="w-4 h-4 text-indigo-600" /> Pending Admissions
-                         </h3>
-                         <button className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">View All</button>
-                      </div>
-                      <div className="p-4 space-y-4">
-                        {pendingAdmissions.map((adm, i) => (
-                          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg gap-4">
-                            <div>
-                               <div className="flex items-center gap-2 mb-1">
-                                 <span className="font-bold text-slate-900 dark:text-slate-100">{adm.patient}</span>
-                                 <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${adm.type === 'Emergency' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{adm.type}</span>
-                               </div>
-                               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{adm.diagnosis}</p>
-                               <p className="text-xs font-semibold text-amber-600 flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> {adm.bedStatus}</p>
-                            </div>
-                            <div className="flex gap-2">
-                               <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded shadow-sm hover:bg-slate-50">View Details</button>
-                               <button className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded shadow-sm hover:bg-indigo-700">Check-in</button>
-                            </div>
+            {/* Discharge Planner / Clearance Tracker */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Card className="flex h-full flex-col overflow-hidden">
+                <CardHeader className="flex-row items-center justify-between border-b border-border">
+                  <CardTitle className="flex items-center gap-2">
+                    <UserMinus className="h-4 w-4 text-success" aria-hidden /> Discharge Planner
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                  {dischargeQueue.map((dis, i) => {
+                    const isFullyCleared = dis.docClear && dis.nurseClear && dis.pharmClear && dis.billClear;
+                    const clearances = [
+                      { label: 'Clinical', done: dis.docClear, icon: Stethoscope },
+                      { label: 'Nursing', done: dis.nurseClear, icon: Activity },
+                      { label: 'Pharmacy', done: dis.pharmClear, icon: Pill },
+                      { label: 'Billing', done: dis.billClear, icon: FileText },
+                    ];
+                    const clearedCount = clearances.filter(c => c.done).length;
+                    return (
+                      <div key={i} className="rounded-xl border border-border bg-muted/40 p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-bold text-foreground">{dis.patient}</p>
+                            <p className="text-xs text-muted-foreground">Bed: {dis.bed} · ID: {dis.id}</p>
                           </div>
-                        ))}
-                      </div>
-                   </div>
-
-                   {/* Discharge Planner / Clearance Tracker */}
-                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                         <h3 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                           <UserMinus className="w-4 h-4 text-emerald-600" /> Discharge Planner
-                         </h3>
-                      </div>
-                      <div className="p-4 space-y-4">
-                        {dischargeQueue.map((dis, i) => {
-                          const isFullyCleared = dis.docClear && dis.nurseClear && dis.pharmClear && dis.billClear;
-                          return (
-                            <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg">
-                              <div className="flex justify-between items-start mb-3">
-                                 <div>
-                                   <p className="font-bold text-slate-900 dark:text-slate-100">{dis.patient}</p>
-                                   <p className="text-xs text-slate-500">Bed: {dis.bed} • ID: {dis.id}</p>
-                                 </div>
-                                 {isFullyCleared ? (
-                                   <button className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded shadow-sm">Final Discharge</button>
-                                 ) : (
-                                   <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded">Pending Clearances</span>
-                                 )}
+                          {isFullyCleared ? (
+                            <Button size="sm" className="bg-success hover:bg-success/90" disabled title="Coming soon">Final Discharge</Button>
+                          ) : (
+                            <Badge tone="warning" dot>Pending Clearances</Badge>
+                          )}
+                        </div>
+                        <Progress
+                          value={(clearedCount / clearances.length) * 100}
+                          tone={isFullyCleared ? 'success' : 'warning'}
+                          size="sm"
+                          label={`${clearedCount} of ${clearances.length} clearances`}
+                          className="mb-3"
+                        />
+                        <div className="grid grid-cols-4 gap-2">
+                          {clearances.map(c => {
+                            const Icon = c.icon;
+                            return (
+                              <div
+                                key={c.label}
+                                className={`flex flex-col items-center justify-center rounded-lg border p-2 transition-colors ${
+                                  c.done
+                                    ? 'border-success/30 bg-success-soft text-success'
+                                    : 'border-border bg-card text-subtle-foreground'
+                                }`}
+                              >
+                                <Icon className="mb-1 h-4 w-4" aria-hidden />
+                                <span className="text-center text-[10px] font-semibold leading-tight">{c.label}</span>
                               </div>
-                              <div className="grid grid-cols-4 gap-2">
-                                <div className={`flex flex-col items-center justify-center p-2 rounded border ${dis.docClear ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                   <Stethoscope className="w-4 h-4 mb-1" />
-                                   <span className="text-[10px] font-semibold text-center leading-tight">Clinical</span>
-                                </div>
-                                <div className={`flex flex-col items-center justify-center p-2 rounded border ${dis.nurseClear ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                   <Activity className="w-4 h-4 mb-1" />
-                                   <span className="text-[10px] font-semibold text-center leading-tight">Nursing</span>
-                                </div>
-                                <div className={`flex flex-col items-center justify-center p-2 rounded border ${dis.pharmClear ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                   <Pill className="w-4 h-4 mb-1" />
-                                   <span className="text-[10px] font-semibold text-center leading-tight">Pharmacy</span>
-                                </div>
-                                <div className={`flex flex-col items-center justify-center p-2 rounded border ${dis.billClear ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                   <FileText className="w-4 h-4 mb-1" />
-                                   <span className="text-[10px] font-semibold text-center leading-tight">Billing</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                   </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </TabsContent>
 
-                </div>
-             </div>
-          )}
+        <TabsContent value="admissions" className="mt-6">
+          <EmptyState
+            icon={UserPlus}
+            title="Admissions workspace"
+            description="The full admission request queue, bed allocation, and check-in workflows will appear here."
+          />
+        </TabsContent>
 
-          {activeTab === 'discharge planner' && (
-             <div className="flex flex-col items-center justify-center h-full text-center">
-               <FileCheck className="w-16 h-16 text-slate-300 mb-4" />
-               <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">Discharge Clearance Checklist</h3>
-               <p className="text-slate-500 max-w-md">Orchestrating multi-department sign-offs to safely transition patients out of inpatient care and release beds.</p>
-             </div>
-          )}
-          
-        </div>
-      </div>
-    </DashboardLayout>
+        <TabsContent value="transfers" className="mt-6">
+          <EmptyState
+            icon={ArrowRightLeft}
+            title="No active transfer requests"
+            description="Ward-to-ward and unit-to-unit patient transfer requests will appear here for coordination."
+          />
+        </TabsContent>
+
+        <TabsContent value="discharge planner" className="mt-6">
+          <EmptyState
+            icon={FileCheck}
+            title="Discharge Clearance Checklist"
+            description="Orchestrating multi-department sign-offs to safely transition patients out of inpatient care and release beds."
+          />
+        </TabsContent>
+
+        <TabsContent value="clearance checklist" className="mt-6">
+          <EmptyState
+            icon={FileCheck}
+            title="Clearance checklist"
+            description="Departmental clearance tracking for pending discharges will appear here."
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

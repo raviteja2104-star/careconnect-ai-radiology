@@ -5,7 +5,7 @@ import {
   Building, Users, Shield, Settings, Server, FileText, 
   Activity, Search, Plus, MoreVertical, Edit2, Trash2, 
   CheckCircle, XCircle, AlertTriangle, Key, Bell, Database,
-  PieChart, Menu, Monitor
+  PieChart, Menu, Monitor, GitMerge, Sparkles, Code2, ShieldCheck, Building2, DollarSign, FolderKanban
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -99,24 +99,65 @@ export default function AdminDashboard() {
 
                   {/* Quick Actions */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                     <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Quick Actions</h3>
-                     <div className="space-y-2">
-                       <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
-                         <Building className="w-4 h-4 text-indigo-500" /> Onboard New Organization
-                       </button>
-                       <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
-                         <Users className="w-4 h-4 text-green-500" /> Invite Super Admin
-                       </button>
-                       <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
-                         <Shield className="w-4 h-4 text-orange-500" /> Review Compliance Alerts (2)
-                       </button>
+                        <a href="/admin/workflow-builder" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><GitMerge className="w-4 h-4 text-indigo-200" /> Workflow Builder (No-Code OS)</span>
+                          <span className="text-xs px-2 py-0.5 bg-indigo-500 rounded font-mono">Launch</span>
+                        </a>
+                        <a href="/admin/production" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-emerald-200" /> Production Hardening & QA</span>
+                          <span className="text-xs px-2 py-0.5 bg-emerald-500 rounded font-mono">v1.1</span>
+                        </a>
+                        <a href="/admin/operations" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Building2 className="w-4 h-4 text-blue-200" /> Delivery & Operations OS</span>
+                          <span className="text-xs px-2 py-0.5 bg-blue-500 rounded font-mono">Ops</span>
+                        </a>
+                        <a href="/admin/commercial" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><DollarSign className="w-4 h-4 text-emerald-200" /> Commercial SaaS & Revenue</span>
+                          <span className="text-xs px-2 py-0.5 bg-emerald-500 rounded font-mono">Monetize</span>
+                        </a>
+                        <a href="/admin/program" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><FolderKanban className="w-4 h-4 text-indigo-200" /> Enterprise Program & PMO</span>
+                          <span className="text-xs px-2 py-0.5 bg-indigo-500 rounded font-mono">DevSecOps</span>
+                        </a>
+                        <a href="/admin/ai-platform" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Sparkles className="w-4 h-4 text-purple-200" /> Enterprise AI Platform</span>
+                          <span className="text-xs px-2 py-0.5 bg-purple-500 rounded font-mono">Studio</span>
+                        </a>
+                        <a href="/admin/developer" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Code2 className="w-4 h-4 text-blue-200" /> Developer Platform & SDK</span>
+                          <span className="text-xs px-2 py-0.5 bg-blue-500 rounded font-mono">HPaaS</span>
+                        </a>
+                        <a href="/admin/data-platform" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Database className="w-4 h-4 text-cyan-200" /> Enterprise Data Platform & Twin</span>
+                          <span className="text-xs px-2 py-0.5 bg-cyan-500 rounded font-mono">EDP</span>
+                        </a>
+                        <a href="/admin/command-center" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Activity className="w-4 h-4 text-red-200" /> Hospital Command Center</span>
+                          <span className="text-xs px-2 py-0.5 bg-red-500 rounded font-mono">Live</span>
+                        </a>
+                        <a href="/admin/enterprise" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Server className="w-4 h-4 text-purple-200" /> Enterprise Integration Hub</span>
+                          <span className="text-xs px-2 py-0.5 bg-purple-500 rounded font-mono">FHIR/HL7</span>
+                        </a>
+                        <a href="/admin/master-data" className="w-full flex items-center justify-between p-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm">
+                          <span className="flex items-center gap-3"><Database className="w-4 h-4 text-emerald-200" /> Master Data & Config Hub</span>
+                          <span className="text-xs px-2 py-0.5 bg-emerald-500 rounded font-mono">Manage</span>
+                        </a>
+                        <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <Building className="w-4 h-4 text-indigo-500" /> Onboard New Organization
+                        </button>
+                        <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <Users className="w-4 h-4 text-green-500" /> Invite Super Admin
+                        </button>
+                        <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <Shield className="w-4 h-4 text-orange-500" /> Review Compliance Alerts (2)
+                        </button>
                        <button className="w-full flex items-center gap-3 p-3 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm">
                          <Settings className="w-4 h-4 text-slate-500" /> Global Feature Flags
                        </button>
                      </div>
                   </div>
                </div>
-            </div>
           )}
 
           {activeTab === 'Organizations' && (

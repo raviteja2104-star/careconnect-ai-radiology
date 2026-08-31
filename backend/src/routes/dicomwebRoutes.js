@@ -15,6 +15,8 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { protect, authorize } = require('../middleware/auth');
+const orthanc = require('../services/OrthancClient');
 
 // Configure multer for DICOM uploads
 const storage = multer.diskStorage({
@@ -35,7 +37,43 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ── DICOM mock data (realistic UIDs) ─────────────────────────────────────────
+// PUBLIC: /health is a liveness probe with no PHI. Every other DICOMweb endpoint
+// (QIDO/WADO expose patient names, IDs, birth dates and pixel data) requires a
+// valid JWT. NOTE: the OHIF viewer must now attach a Bearer token to its
+// DICOMweb requests (see security report).
+router.use((req, res, next) => (req.path === '/health' ? next() : protect(req, res, next)));
+
+// ── LIVE PACS PATH: proxy /rs/* to Orthanc's DICOMweb API when reachable ─────
+// This middleware sits at the top of every QIDO/WADO-RS/STOW handler below.
+// If Orthanc answers its cached health probe, the request is streamed to
+// {ORTHANC_URL}/dicom-web/* and Orthanc's response is returned verbatim
+// (binary streaming for frames/bulkdata, multipart passthrough for STOW).
+// If Orthanc is down — or the proxy fails before headers are sent — we call
+// next() and fall through to the MOCK handlers below, which are kept intact
+// as the offline/dev fallback.
+router.use('/rs', async (req, res, next) => {
+    let pacsUp = false;
+    try { pacsUp = await orthanc.isReachable(); } catch (_) { pacsUp = false; }
+    if (!pacsUp) return next(); // MOCK FALLBACK: Orthanc unreachable
+
+    const doProxy = async () => {
+        try {
+            // req.url here is relative to the /rs mount (e.g. "/studies?...")
+            await orthanc.proxyDicomWeb(req, res, req.url);
+        } catch (err) {
+            if (res.headersSent) return; // stream already started; res was destroyed
+            next(); // MOCK FALLBACK: proxy failed cleanly — serve mock data
+        }
+    };
+
+    // Preserve the role gate the mock STOW handler enforces (writes only).
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+        return doProxy();
+    }
+    return authorize('radiologist', 'admin')(req, res, (err) => (err ? next(err) : doProxy()));
+});
+
+// ── DICOM mock data (realistic UIDs) — FALLBACK when Orthanc is offline ──────
 const MOCK_STUDIES = [
     {
         '0020000D': { vr: 'UI', Value: ['1.2.840.113619.2.55.3.604688119.971.1717595236.375'] }, // StudyInstanceUID
@@ -215,7 +253,19 @@ router.get('/rs/studies/:studyUID/series/:seriesUID/instances/:sopUID/frames/:fr
 });
 
 // ── WADO-URI (classic): ?requestType=WADO&studyUID=...&... ────────────────
-router.get('/wado', (req, res) => {
+router.get('/wado', async (req, res) => {
+    // LIVE PACS PATH: forward WADO-URI to Orthanc's /wado when reachable.
+    let pacsUp = false;
+    try { pacsUp = await orthanc.isReachable(); } catch (_) { pacsUp = false; }
+    if (pacsUp) {
+        try {
+            return await orthanc.proxyWadoUri(req, res);
+        } catch (err) {
+            if (res.headersSent) return; // stream already started
+            // MOCK FALLBACK: proxy failed — continue to local-file/mock logic below
+        }
+    }
+
     const { requestType, studyUID, seriesUID, objectUID, contentType } = req.query;
     if (requestType !== 'WADO') return res.status(400).json({ error: 'Only requestType=WADO supported' });
 
@@ -237,20 +287,42 @@ router.get('/wado', (req, res) => {
 });
 
 // ── STOW-RS / Simple File Upload ──────────────────────────────────────────
-router.post('/upload', upload.single('dicomFile'), (req, res) => {
+router.post('/upload', authorize('radiologist', 'admin'), upload.single('dicomFile'), async (req, res) => {
     if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
-    
+
+    // LIVE PACS PATH: push the received DICOM into Orthanc when reachable.
+    // The file is also kept in uploads/dicom/ so the mock WADO fallback can
+    // still serve it if Orthanc later goes away.
+    let pacsUp = false;
+    try { pacsUp = await orthanc.isReachable(); } catch (_) { pacsUp = false; }
+    if (pacsUp) {
+        try {
+            const buffer = fs.readFileSync(req.file.path);
+            const stored = await orthanc.storeInstance(buffer);
+            return res.status(200).json({
+                success: true,
+                message: 'DICOM file stored in Orthanc PACS',
+                file: req.file.filename,
+                orthanc: stored,
+            });
+        } catch (err) {
+            // MOCK FALLBACK: Orthanc rejected the file (e.g. not valid DICOM)
+            // or dropped mid-upload — fall through to local-storage response.
+        }
+    }
+
     // In a full implementation we would parse the DICOM tags to extract study/series/SOP UIDs
     // and update our database. For now, we return success so the frontend knows it uploaded.
-    res.status(200).json({ 
-        success: true, 
+    res.status(200).json({
+        success: true,
         message: 'DICOM file uploaded successfully',
         file: req.file.filename
     });
 });
 
-// STOW-RS (Standard)
-router.post('/rs/studies', (req, res) => {
+// STOW-RS (Standard) — MOCK FALLBACK. When Orthanc is reachable the /rs proxy
+// middleware above forwards the STOW multipart to Orthanc before this runs.
+router.post('/rs/studies', authorize('radiologist', 'admin'), (req, res) => {
     const dicomDir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
     if (!fs.existsSync(dicomDir)) fs.mkdirSync(dicomDir, { recursive: true });
     res.status(200).json({ '00081190': { vr: 'UR', Value: [`http://localhost:5000/api/dicomweb/rs/studies`] } });
@@ -282,10 +354,17 @@ router.get('/ohif-config', (req, res) => {
 });
 
 // ── Health check ───────────────────────────────────────────────────────────
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
+    let pacsUp = false;
+    try { pacsUp = await orthanc.isReachable(); } catch (_) { pacsUp = false; }
     res.json({
         success: true,
         service: 'CareConnect DICOMweb Server',
+        pacs: {
+            orthancUrl: orthanc.ORTHANC_URL,
+            reachable: pacsUp,
+            mode: pacsUp ? 'orthanc-proxy' : 'mock-fallback',
+        },
         endpoints: {
             studies: 'GET /api/dicomweb/rs/studies',
             series: 'GET /api/dicomweb/rs/studies/:uid/series',

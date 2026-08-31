@@ -12,21 +12,35 @@ class AIDecisionEngine {
     }
 
     initializeListeners() {
+        // Async listener rejections would otherwise become unhandled — wrap
+        // every handler so a bad payload can never crash the process.
+        const safe = (name, handler) => async (event) => {
+            try {
+                await handler(event);
+            } catch (error) {
+                console.error('[AI Engine] handler failed', JSON.stringify({
+                    engine: 'AIDecisionEngine',
+                    handler: name,
+                    error: error && error.message,
+                }));
+            }
+        };
+
         // 1. Smart Triage & Symptom Evaluation
-        EventBus.on(EVENTS.AI_SYMPTOM_EVALUATED, this.handleSymptomEvaluation.bind(this));
-        
+        EventBus.on(EVENTS.AI_SYMPTOM_EVALUATED, safe('handleSymptomEvaluation', this.handleSymptomEvaluation.bind(this)));
+
         // 2. Radiology Scan Analysis
-        EventBus.on(EVENTS.AI_SCAN_ANALYZED, this.handleScanAnalysis.bind(this));
+        EventBus.on(EVENTS.AI_SCAN_ANALYZED, safe('handleScanAnalysis', this.handleScanAnalysis.bind(this)));
 
         // 3. Lab Results Processing
-        EventBus.on(EVENTS.LAB_RESULTS_UPLOADED, this.handleLabResults.bind(this));
+        EventBus.on(EVENTS.LAB_RESULTS_UPLOADED, safe('handleLabResults', this.handleLabResults.bind(this)));
     }
 
     /**
      * Handles the "Smart Triage Loop"
      */
     async handleSymptomEvaluation(event) {
-        const { patientId, symptoms, riskScore } = event.data;
+        const { patientId, symptoms, riskScore } = (event && event.data) || {};
         
         console.log(`[AI Engine] Evaluating symptoms for patient ${patientId} | Score: ${riskScore}`);
 
@@ -54,7 +68,7 @@ class AIDecisionEngine {
      * Handles the "Lab -> Radiology Intelligent Routing Flow"
      */
     async handleScanAnalysis(event) {
-        const { scanId, patientId, findings, riskLevel, confidence } = event.data;
+        const { scanId, patientId, findings, riskLevel, confidence } = (event && event.data) || {};
         
         console.log(`[AI Engine] Post-processing Scan ${scanId}. AI Risk: ${riskLevel}`);
 
@@ -83,10 +97,11 @@ class AIDecisionEngine {
      * Simulates processing lab results for abnormalities
      */
     async handleLabResults(event) {
-        const { labId, patientId, results } = event.data;
-        
-        // Mock logic: check for abnormal flags
-        const hasAbnormalities = results.some(r => r.isAbnormal);
+        const { labId, patientId, results } = (event && event.data) || {};
+
+        // Check for abnormal flags. LAB_RESULTS_UPLOADED is published by
+        // labController without a results array — treat that as "no flags".
+        const hasAbnormalities = Array.isArray(results) && results.some(r => r && r.isAbnormal);
 
         if (hasAbnormalities) {
             console.log(`[AI Engine] ⚠️ Abnormal Lab Results detected for patient ${patientId}.`);
