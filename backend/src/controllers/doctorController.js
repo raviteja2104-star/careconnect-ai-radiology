@@ -29,6 +29,7 @@ const MOCK_CONSULTATIONS = [
 const getDoctorStats = async (req, res, next) => {
     try {
         if (!isDBConnected()) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ success: false, error: 'Database unavailable' });
             return res.json({ success: true, data: MOCK_STATS });
         }
         const doctorId = req.user._id;
@@ -47,6 +48,7 @@ const getDoctorStats = async (req, res, next) => {
 const getPatients = async (req, res, next) => {
     try {
         if (!isDBConnected()) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ success: false, error: 'Database unavailable' });
             return res.json({ success: true, data: MOCK_PATIENTS });
         }
         const doctorId = req.user._id;
@@ -61,6 +63,7 @@ const getPatientHistory = async (req, res, next) => {
     try {
         const { patientId } = req.params;
         if (!isDBConnected()) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ success: false, error: 'Database unavailable' });
             const patient = MOCK_PATIENTS.find(p => p._id === patientId);
             return res.json({ success: true, data: { patient: patient || MOCK_PATIENTS[0], consultations: MOCK_CONSULTATIONS.filter(c => c.patientId._id === patientId), scans: [], medications: [] } });
         }
@@ -79,6 +82,7 @@ const getConsultations = async (req, res, next) => {
     try {
         const { status, page = 1, limit = 20 } = req.query;
         if (!isDBConnected()) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ success: false, error: 'Database unavailable' });
             let list = [...MOCK_CONSULTATIONS];
             if (status) list = list.filter(c => c.status === status);
             return res.json({ success: true, data: list, pagination: { total: list.length, page: 1, pages: 1 } });

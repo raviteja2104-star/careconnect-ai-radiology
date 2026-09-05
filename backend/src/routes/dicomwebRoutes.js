@@ -18,6 +18,8 @@ const multer = require('multer');
 const { protect, authorize } = require('../middleware/auth');
 const orthanc = require('../services/OrthancClient');
 
+const DICOMWEB_BASE = process.env.DICOMWEB_URL || `http://localhost:${process.env.PORT || 5000}/api/dicomweb`;
+
 // Configure multer for DICOM uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -325,7 +327,7 @@ router.post('/upload', authorize('radiologist', 'admin'), upload.single('dicomFi
 router.post('/rs/studies', authorize('radiologist', 'admin'), (req, res) => {
     const dicomDir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
     if (!fs.existsSync(dicomDir)) fs.mkdirSync(dicomDir, { recursive: true });
-    res.status(200).json({ '00081190': { vr: 'UR', Value: [`http://localhost:5000/api/dicomweb/rs/studies`] } });
+    res.status(200).json({ '00081190': { vr: 'UR', Value: [`${DICOMWEB_BASE}/rs/studies`] } });
 });
 
 // ── OHIF config endpoint ───────────────────────────────────────────────────
@@ -337,9 +339,9 @@ router.get('/ohif-config', (req, res) => {
         servers: {
             dicomWeb: [{
                 name: 'CareConnect DICOMweb',
-                wadoUriRoot: 'http://localhost:5000/api/dicomweb/wado',
-                qidoRoot: 'http://localhost:5000/api/dicomweb/rs',
-                wadoRoot: 'http://localhost:5000/api/dicomweb/rs',
+                wadoUriRoot: `${DICOMWEB_BASE}/wado`,
+                qidoRoot: `${DICOMWEB_BASE}/rs`,
+                wadoRoot: `${DICOMWEB_BASE}/rs`,
                 qidoSupportsIncludeField: false,
                 imageRendering: 'wadors',
                 thumbnailRendering: 'wadors',

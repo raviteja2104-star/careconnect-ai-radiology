@@ -53,16 +53,17 @@ router.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     // Allow inline scripts/styles on our own OHIF shell page.
+    const dicomwebOrigin = (() => { try { return new URL(DICOMWEB_BASE).origin; } catch { return 'http://localhost:5000'; } })();
     res.setHeader(
         'Content-Security-Policy',
         [
-            `default-src 'self' http://localhost:5000 ${OHIF_URL} https://viewer.ohif.org`,
+            `default-src 'self' ${dicomwebOrigin} ${OHIF_URL} https://viewer.ohif.org`,
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://viewer.ohif.org",
             "script-src-attr 'unsafe-inline' 'unsafe-hashes'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
-            `connect-src 'self' http://localhost:5000 ${OHIF_URL} https://viewer.ohif.org wss:`,
-            `frame-src 'self' ${OHIF_URL} https://viewer.ohif.org http://localhost:5000`,
+            `connect-src 'self' ${dicomwebOrigin} ${OHIF_URL} https://viewer.ohif.org wss:`,
+            `frame-src 'self' ${OHIF_URL} https://viewer.ohif.org ${dicomwebOrigin}`,
             "worker-src blob: 'self'",
         ].join('; ')
     );
@@ -327,7 +328,7 @@ router.get('/viewer.js', (req, res) => {
 
   // Backend health check
   var statusEl = document.getElementById('status-text');
-  fetch('http://localhost:5000/api/dicomweb/health')
+  fetch('${DICOMWEB_BASE}/health')
     .then(function (r) { return r.json(); })
     .then(function (d) {
       statusEl.textContent = '\u2705 ' + d.service + ' \u2014 Online';

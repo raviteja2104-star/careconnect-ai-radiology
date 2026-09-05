@@ -104,7 +104,10 @@ const sendOtp = async (req, res, next) => {
         // Store OTP with expiration (5 mins)
         otpStore.set(identifier, { otp, expires: Date.now() + 5 * 60 * 1000 });
 
-        console.log(`🔑 OTP for ${identifier} is ${otp}`);
+        if (process.env.NODE_ENV !== 'production') {
+            // Never log OTPs in production — development/test only
+            console.log(`🔑 OTP for ${identifier} is ${otp}`);
+        }
 
         res.json({ success: true, message: `OTP sent successfully to ${identifier}` });
     } catch (error) {
