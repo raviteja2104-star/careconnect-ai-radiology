@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -21,13 +21,13 @@ export default function SmartQueueAIOptimiser() {
   const [mockRecDismissed, setMockRecDismissed] = React.useState(false);
   const { data: predictionsRes } = useQuery({
     queryKey: ['ai_queue_predictions'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/operations/predictions`).then(res => res.json()),
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/predictions`).then(res => res.json()),
     refetchInterval: 15000 // Refetch every 15s to simulate live AI recalculations
   });
 
   const { data: recommendationsRes } = useQuery({
     queryKey: ['ai_recommendations'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/operations/recommendations`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/recommendations`).then(res => res.json())
   });
 
   const predictions = predictionsRes?.data || [];

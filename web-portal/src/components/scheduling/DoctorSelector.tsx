@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import { Search, Check, Users } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -9,7 +9,7 @@ export const DoctorSelector = ({ selected, onSelect }: { selected: string, onSel
   const { data, isLoading } = useQuery({
     queryKey: ['admin_doctors'],
     // Fetching all doctors across all specialties for admin view
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/appointments/doctors`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/appointments/doctors`).then(res => res.json())
   });
 
   const doctors = data?.data || [];

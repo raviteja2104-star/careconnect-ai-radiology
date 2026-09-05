@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 /**
  * Provider Dashboard API client — talks to the CareConnect Nearby backend at
- * http://localhost:5000/api/nearby and degrades gracefully to a small,
+ * https://api.careconnect.care/api/nearby and degrades gracefully to a small,
  * clearly-labeled demo dataset when the API is unreachable. Reads return
  * `{ data, demo }` so the UI can show a "Demo data — backend offline" badge.
  * Writes throw ApiOfflineError; the page decides how to simulate locally
@@ -20,7 +20,7 @@
  * see DESIGN_SYSTEM.md / build brief for the split.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

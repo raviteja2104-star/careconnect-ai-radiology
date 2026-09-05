@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:5000';
+const BACKEND = process.env.BACKEND_URL ?? 'https://api.careconnect.care';
 const SENDGRID_KEY = process.env.SENDGRID_API_KEY ?? '';
 const NOTIFY_EMAIL = process.env.PROVIDER_NOTIFY_EMAIL ?? 'providers@careconnect.in';
 const FROM_EMAIL   = process.env.SENDGRID_FROM_EMAIL  ?? 'noreply@careconnect.in';

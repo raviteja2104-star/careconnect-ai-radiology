@@ -84,8 +84,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         authService.setActiveSession(persona);
         setSession(persona);
         setIsAuthenticated(false);
-        router.push('/login');
-    }, [router]);
+        // Patients go to the public home, clinical staff go to the workspace selector.
+        const role = session.role;
+        router.push(role === 'PATIENT' ? '/' : '/login');
+    }, [router, session.role]);
 
     const value = React.useMemo<SessionContextValue>(
         () => ({

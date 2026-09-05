@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QrCode, Video, MapPin, IndianRupee, Clock } from 'lucide-react';
@@ -13,12 +13,12 @@ export default function AppointmentCheckIn() {
 
   const { data: appointmentsRes, isLoading } = useQuery({
     queryKey: ['reception_appointments'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/reception/appointments`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/appointments`).then(res => res.json())
   });
 
   const checkinMutation = useMutation({
     mutationFn: (appointmentId: string) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/reception/checkin`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/checkin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId, paymentCollected: true })

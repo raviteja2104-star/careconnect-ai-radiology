@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 /**
  * Health Record Capture — patient-facing API client. Talks to the backend
- * feature mounted at http://localhost:5000/api/health-records (already
+ * feature mounted at https://api.careconnect.care/api/health-records (already
  * built and verified server-side: photograph a paper document → Claude
  * vision extracts fields with per-field confidence → a human reviews it
  * before it becomes a real record).
@@ -34,7 +34,7 @@
 
 import { readStoredAuth, type AuthUserSession } from '@/services/authService';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

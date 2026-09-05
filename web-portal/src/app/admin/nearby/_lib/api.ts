@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 /**
  * Nearby — Provider Directory Admin API client. Talks to the CareConnect
- * Nearby backend at http://localhost:5000/api/nearby (admin-only surface)
+ * Nearby backend at https://api.careconnect.care/api/nearby (admin-only surface)
  * and degrades gracefully to a small, clearly-labeled demo dataset when the
  * API is unreachable. Reads return `{ data, demo }` so the UI can show a
  * "Demo data — backend offline" badge. Writes throw ApiOfflineError; the
@@ -21,7 +21,7 @@
  * 'admin'). A dedicated admin scope for the Nearby directory is a follow-up.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

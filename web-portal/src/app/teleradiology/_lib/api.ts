@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 /**
  * Teleradiology API client — talks to the real backend at
- * http://localhost:5000/api/teleradiology/worklist and degrades gracefully to
+ * https://api.careconnect.care/api/teleradiology/worklist and degrades gracefully to
  * a realistic in-memory demo dataset when the API is unreachable or the
  * caller is unauthenticated. Reads return `{ data, demo }` so pages can show
  * a "Demo data — backend offline" badge; writes are simulated against the
@@ -11,7 +11,7 @@
  * crashing or silently faking a server success.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 const WORKLIST = '/api/teleradiology/worklist';
 
 /* ────────────────────────────── Types ────────────────────────────── */

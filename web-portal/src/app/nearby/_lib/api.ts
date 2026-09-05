@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 /**
  * CareConnect Nearby — API client for the patient discovery + booking surface.
- * Talks to the real backend at http://localhost:5000/api/nearby and degrades
+ * Talks to the real backend at https://api.careconnect.care/api/nearby and degrades
  * gracefully to a clearly-labeled demo dataset when the API is unreachable.
  * Every read returns `{ data, demo }` so the UI can surface a
  * "Demo data — backend offline" badge instead of crashing or pretending the
@@ -14,7 +14,7 @@
  * carried through to the UI unmodified.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -43,14 +43,14 @@ export default function WalkInRegistration() {
 
   const { data: doctorsRes } = useQuery({
     queryKey: ['doctors', formData.department],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/appointments/doctors?specialty=${formData.department}`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/appointments/doctors?specialty=${formData.department}`).then(res => res.json())
   });
 
   const doctors = doctorsRes?.data || [];
 
   const registerMutation = useMutation({
     mutationFn: (data: any) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/reception/walkin`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/walkin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

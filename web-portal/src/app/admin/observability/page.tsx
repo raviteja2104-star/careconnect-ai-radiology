@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck, Mail, Database, Zap, AlertTriangle, Play, Search, Clock,
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
  * unreachable or the caller is unauthenticated.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 const REFETCH_MS = 15_000;
 
 interface RouteStat {

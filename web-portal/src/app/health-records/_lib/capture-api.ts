@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 /**
  * Health Record Capture — CAPTURE + REVIEW API client (upload a scanned
  * document, walk the AI-extracted fields, accept/edit/reject each one,
- * confirm). Talks to the backend at http://localhost:5000/api/health-records
+ * confirm). Talks to the backend at https://api.careconnect.care/api/health-records
  * (already built and verified).
  *
  * Deliberately kept separate from `./api.ts` (the timeline/dashboard/
@@ -25,7 +25,7 @@
  * the app's real backend calls.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

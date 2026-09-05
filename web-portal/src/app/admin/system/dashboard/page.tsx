@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -17,13 +17,13 @@ import {
 export default function ProductionDashboard() {
   const { data: healthRes } = useQuery({
     queryKey: ['system_health'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/system/health`).then(res => res.json()),
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/system/health`).then(res => res.json()),
     refetchInterval: 5000
   });
 
   const { data: perfRes } = useQuery({
     queryKey: ['system_performance'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/system/performance`).then(res => res.json()),
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/system/performance`).then(res => res.json()),
     refetchInterval: 5000
   });
 

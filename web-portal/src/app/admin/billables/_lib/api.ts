@@ -1,15 +1,15 @@
-'use client';
+﻿'use client';
 
 /**
  * Billable Items Master API client — talks to the backend at
- * http://localhost:5000/api/masters/billables and degrades gracefully to a
+ * https://api.careconnect.care/api/masters/billables and degrades gracefully to a
  * small, clearly-labeled demo dataset when the API is unreachable. Reads
  * return `{ data, demo }` so the UI can show a "Demo data — backend offline"
  * badge. Writes throw ApiOfflineError; the page decides how to simulate
  * locally (never faking a server success silently).
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

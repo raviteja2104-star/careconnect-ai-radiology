@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 import { useState } from 'react';
 import Link from 'next/link';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 type ProviderType = 'DOCTOR' | 'CLINIC' | 'HOSPITAL' | 'LAB' | 'PHARMACY' | 'ORGANISATION';
 

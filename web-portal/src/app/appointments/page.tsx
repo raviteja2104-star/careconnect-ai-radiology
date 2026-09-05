@@ -1,8 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
   Search,
@@ -29,7 +30,11 @@ import {
   EmptyState,
   Dropdown,
   DropdownItem,
+  Skeleton,
+  SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api`;
 
 export interface AppointmentData {
   id: string;
@@ -44,54 +49,26 @@ export interface AppointmentData {
   room?: string;
 }
 
-const mockAppointments: AppointmentData[] = [
-  {
-    id: 'apt-1',
-    doctorName: 'Dr. Sarah Johnson',
-    specialty: 'Cardiologist',
-    hospital: 'HealthCore Hospital, New York',
-    room: '304',
-    date: 'Today, May 25, 2024',
-    time: '10:30 AM',
-    type: 'Video Call',
-    status: 'Upcoming',
-    image: 'https://i.pravatar.cc/150?u=doc1'
-  },
-  {
-    id: 'apt-2',
-    doctorName: 'Dr. Michael Brown',
-    specialty: 'General Physician',
-    hospital: 'HealthCore Clinic, Downtown',
-    room: '102',
-    date: 'May 28, 2024',
-    time: '02:00 PM',
-    type: 'In-Person',
-    status: 'Upcoming',
-    image: 'https://i.pravatar.cc/150?u=doc2'
-  },
-  {
-    id: 'apt-3',
-    doctorName: 'Dr. Emily Davis',
-    specialty: 'Dermatologist',
-    hospital: 'Skin & Care Center',
-    date: 'Jun 02, 2024',
-    time: '11:00 AM',
-    type: 'Video Call',
-    status: 'Upcoming',
-    image: 'https://i.pravatar.cc/150?u=doc3'
-  },
-  {
-    id: 'apt-4',
-    doctorName: 'Dr. Robert Wilson',
-    specialty: 'Orthopedics',
-    hospital: 'HealthCore Hospital, New York',
-    date: 'Apr 15, 2024',
-    time: '09:00 AM',
-    type: 'In-Person',
-    status: 'Completed',
-    image: 'https://i.pravatar.cc/150?u=doc4'
-  }
-];
+function mapApiAppointment(raw: any): AppointmentData {
+  const dateStr = raw.date ? new Date(raw.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : raw.date;
+  const statusMap: Record<string, AppointmentData['status']> = {
+    scheduled: 'Upcoming', confirmed: 'Upcoming', upcoming: 'Upcoming',
+    completed: 'Completed', done: 'Completed',
+    cancelled: 'Cancelled', canceled: 'Cancelled',
+  };
+  return {
+    id: raw._id ?? raw.id,
+    doctorName: raw.doctorName ?? raw.doctor?.name ?? 'Doctor',
+    specialty: raw.specialty ?? raw.doctor?.specialty ?? '',
+    hospital: raw.hospital ?? raw.doctor?.hospital ?? 'CareConnect',
+    room: raw.room,
+    date: dateStr,
+    time: raw.timeSlot ?? raw.time ?? '',
+    type: (raw.visitType === 'Video Call' || raw.type === 'Video Call') ? 'Video Call' : 'In-Person',
+    status: statusMap[String(raw.status).toLowerCase()] ?? 'Upcoming',
+    image: raw.doctor?.image ?? '',
+  };
+}
 
 const statusTone: Record<AppointmentData['status'], 'info' | 'success' | 'danger'> = {
   Upcoming: 'info',
@@ -186,17 +163,46 @@ function AppointmentRow({ appointment, delay }: { appointment: AppointmentData; 
 export default function AppointmentsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Past' | 'Cancelled'>('Upcoming');
+  const [search, setSearch] = useState('');
 
-  const filteredAppointments = mockAppointments.filter(apt => {
-    if (activeTab === 'Upcoming') return apt.status === 'Upcoming';
-    if (activeTab === 'Past') return apt.status === 'Completed';
-    return apt.status === 'Cancelled';
+  const { data: rawData, isLoading } = useQuery({
+    queryKey: ['appointments'],
+    queryFn: async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_BASE}/appointments`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+    },
+    staleTime: 30_000,
   });
 
-  const upcoming = mockAppointments.filter(a => a.status === 'Upcoming').length;
-  const completed = mockAppointments.filter(a => a.status === 'Completed').length;
-  const cancelled = mockAppointments.filter(a => a.status === 'Cancelled').length;
-  const videoVisits = mockAppointments.filter(a => a.type === 'Video Call' && a.status === 'Upcoming').length;
+  const appointments: AppointmentData[] = useMemo(
+    () => (rawData ?? []).map(mapApiAppointment),
+    [rawData]
+  );
+
+  const filtered = useMemo(() => {
+    const byTab = appointments.filter(apt => {
+      if (activeTab === 'Upcoming') return apt.status === 'Upcoming';
+      if (activeTab === 'Past') return apt.status === 'Completed';
+      return apt.status === 'Cancelled';
+    });
+    if (!search.trim()) return byTab;
+    const q = search.toLowerCase();
+    return byTab.filter(a =>
+      a.doctorName.toLowerCase().includes(q) ||
+      a.specialty.toLowerCase().includes(q) ||
+      a.hospital.toLowerCase().includes(q)
+    );
+  }, [appointments, activeTab, search]);
+
+  const upcoming = appointments.filter(a => a.status === 'Upcoming').length;
+  const completed = appointments.filter(a => a.status === 'Completed').length;
+  const cancelled = appointments.filter(a => a.status === 'Cancelled').length;
+  const videoVisits = appointments.filter(a => a.type === 'Video Call' && a.status === 'Upcoming').length;
 
   return (
     <div className="space-y-6">
@@ -215,10 +221,10 @@ export default function AppointmentsPage() {
       />
 
       <StatGrid>
-        <StatCard label="Upcoming" value={upcoming} sub="Next: Today, 10:30 AM" icon={CalendarIcon} tone="brand" delay={0} onClick={() => setActiveTab('Upcoming')} />
+        <StatCard label="Upcoming" value={upcoming} sub={upcoming ? 'Scheduled visits' : 'No upcoming visits'} icon={CalendarIcon} tone="brand" delay={0} onClick={() => setActiveTab('Upcoming')} />
         <StatCard label="Video Visits" value={videoVisits} sub="Scheduled online" icon={Video} tone="violet" delay={0.05} onClick={() => router.push('/telemedicine')} />
-        <StatCard label="Completed" value={completed} sub="This quarter" icon={CheckCircle2} tone="emerald" delay={0.1} onClick={() => setActiveTab('Past')} />
-        <StatCard label="Cancelled" value={cancelled} sub="No cancellations" icon={XCircle} tone="rose" delay={0.15} onClick={() => setActiveTab('Cancelled')} />
+        <StatCard label="Completed" value={completed} sub="Past visits" icon={CheckCircle2} tone="emerald" delay={0.1} onClick={() => setActiveTab('Past')} />
+        <StatCard label="Cancelled" value={cancelled} sub={cancelled ? `${cancelled} cancelled` : 'No cancellations'} icon={XCircle} tone="rose" delay={0.15} onClick={() => setActiveTab('Cancelled')} />
       </StatGrid>
 
       {/* Controls: tabs + search */}
@@ -232,23 +238,35 @@ export default function AppointmentsPage() {
         </Tabs>
 
         <div className="w-full md:w-72">
-          <Input icon={<Search />} placeholder="Search doctor or specialty…" aria-label="Search appointments" />
+          <Input
+            icon={<Search />}
+            placeholder="Search doctor or specialty…"
+            aria-label="Search appointments"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
       {/* Appointment list */}
       <div className="space-y-4">
-        {filteredAppointments.length > 0 ? (
-          filteredAppointments.map((apt, i) => (
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : filtered.length > 0 ? (
+          filtered.map((apt, i) => (
             <AppointmentRow key={apt.id} appointment={apt} delay={i * 0.05} />
           ))
         ) : (
           <EmptyState
             icon={CalendarIcon}
-            title={`No ${activeTab.toLowerCase()} appointments`}
-            description={`You don't have any ${activeTab.toLowerCase()} appointments at the moment. Would you like to schedule one?`}
+            title={search ? 'No results' : `No ${activeTab.toLowerCase()} appointments`}
+            description={
+              search
+                ? `No appointments match "${search}". Try a different search term.`
+                : `You don't have any ${activeTab.toLowerCase()} appointments at the moment. Would you like to schedule one?`
+            }
             action={
-              activeTab === 'Upcoming'
+              activeTab === 'Upcoming' && !search
                 ? { label: 'Book an Appointment', onClick: () => router.push('/appointments/book') }
                 : undefined
             }

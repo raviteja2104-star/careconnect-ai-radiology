@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CareConnect Security, Audit & PHI Protection Service (Phase 11)
  * SHA-256 Immutable Audit Logs, PHI Redaction Filter, KMS Key Management, & Rate Limiter Telemetry.
  */
@@ -61,7 +61,7 @@ interface BackendAuditEntry {
   hash: string;
 }
 
-const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 function mapBackendEntry(e: BackendAuditEntry): AuditLogEntry {
   const actor = e.actorId && typeof e.actorId === 'object' ? e.actorId : null;

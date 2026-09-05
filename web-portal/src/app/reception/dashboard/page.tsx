@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -29,7 +29,7 @@ const doctorStatusMeta: Record<string, { avatar: 'online' | 'busy' | 'away' | 'o
 export default function ReceptionDashboard() {
   const { data: statsRes, isLoading } = useQuery({
     queryKey: ['reception_dashboard'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/reception/dashboard`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/dashboard`).then(res => res.json())
   });
 
   const stats = statsRes?.data || { appointmentsToday: 0, walkInsToday: 0, checkedIn: 0, waiting: 0, completed: 0, revenueCollected: 0 };

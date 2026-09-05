@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 /**
  * Nearby — Provider Import Admin API client. Talks to the CareConnect
- * Nearby backend at http://localhost:5000/api/nearby/admin/import
+ * Nearby backend at https://api.careconnect.care/api/nearby/admin/import
  * (admin-only surface, already built and unit-tested on the backend).
  *
  * Unlike the sibling `admin/nearby/_lib/api.ts`, this feature has no
@@ -19,7 +19,7 @@
  * out with whatever Bearer JWT is in localStorage under 'token'.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,7 +22,7 @@ import {
   SkeletonCard,
 } from '@/components/ui';
 
-const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api`;
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api`;
 
 const ICON_MAP: Record<string, any> = {
   Heart, Brain, Activity, Baby, Eye, Stethoscope
@@ -38,7 +38,10 @@ export default function BookAppointmentPage() {
   // Form State
   const [specialty, setSpecialty] = useState('');
   const [doctor, setDoctor] = useState('');
-  const [date, setDate] = useState('2024-05-25');
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-indexed
+  const [date, setDate] = useState(() => today.toISOString().split('T')[0]);
   const [time, setTime] = useState('');
   const [visitType, setVisitType] = useState<'In-Person' | 'Video Call'>('In-Person');
   const [reason, setReason] = useState('');
@@ -64,12 +67,17 @@ export default function BookAppointmentPage() {
 
   // Mutation
   const bookMutation = useMutation({
-    mutationFn: (bookingData: any) =>
-      fetch(`${API_BASE}/appointments`, {
+    mutationFn: (bookingData: any) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return fetch(`${API_BASE}/appointments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(bookingData)
-      }).then(res => res.json()),
+      }).then(res => res.json());
+    },
     onSuccess: () => {
       setStep(6);
     }
@@ -302,34 +310,70 @@ export default function BookAppointmentPage() {
                   <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                     {/* Calendar */}
                     <div className="rounded-2xl border border-border bg-card p-6">
-                      <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
-                        <CalendarIcon className="h-5 w-5 text-primary" aria-hidden /> May 2024
-                      </h3>
-                      <div className="mb-4 grid grid-cols-7 gap-2 text-center text-xs font-semibold text-subtle-foreground">
-                        {['M','T','W','T','F','S','S'].map((d,i) => <div key={i}>{d}</div>)}
-                      </div>
-                      <div className="grid grid-cols-7 gap-2">
-                        {Array.from({length: 31}).map((_, i) => {
-                          const day = i + 1;
-                          const isPast = day < 20;
-                          const isSelected = date === `2024-05-${day.toString().padStart(2, '0')}`;
-                          return (
-                            <button
-                              key={i}
-                              disabled={isPast}
-                              onClick={() => setDate(`2024-05-${day.toString().padStart(2, '0')}`)}
-                              className={cn(
-                                'flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition-all',
-                                isPast ? 'cursor-not-allowed text-subtle-foreground opacity-40' :
-                                isSelected ? 'gradient-brand text-white shadow-soft' :
-                                'bg-muted text-foreground hover:bg-border/70'
-                              )}
-                            >
-                              {day}
-                            </button>
-                          )
-                        })}
-                      </div>
+                      {(() => {
+                        const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                        // 0=Sun … 6=Sat → convert to Mon-first offset
+                        const rawFirst = new Date(calYear, calMonth, 1).getDay();
+                        const offset = (rawFirst + 6) % 7; // Mon=0 … Sun=6
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const canGoPrev = calYear > today.getFullYear() || calMonth > today.getMonth();
+                        const prevMonth = () => {
+                          if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+                          else setCalMonth(m => m - 1);
+                        };
+                        const nextMonth = () => {
+                          if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+                          else setCalMonth(m => m + 1);
+                        };
+                        return (
+                          <>
+                            <div className="mb-4 flex items-center justify-between">
+                              <h3 className="flex items-center gap-2 font-semibold text-foreground">
+                                <CalendarIcon className="h-5 w-5 text-primary" aria-hidden />
+                                {MONTH_NAMES[calMonth]} {calYear}
+                              </h3>
+                              <div className="flex gap-1">
+                                <button onClick={prevMonth} disabled={!canGoPrev} aria-label="Previous month"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
+                                  ‹
+                                </button>
+                                <button onClick={nextMonth} aria-label="Next month"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted">
+                                  ›
+                                </button>
+                              </div>
+                            </div>
+                            <div className="mb-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-subtle-foreground">
+                              {['M','T','W','T','F','S','S'].map((d,i) => <div key={i}>{d}</div>)}
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                              {Array.from({length: offset}).map((_, i) => <div key={`e${i}`} />)}
+                              {Array.from({length: daysInMonth}).map((_, i) => {
+                                const day = i + 1;
+                                const dayStr = `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                                const isPast = dayStr < todayStr;
+                                const isSelected = date === dayStr;
+                                return (
+                                  <button
+                                    key={day}
+                                    disabled={isPast}
+                                    onClick={() => setDate(dayStr)}
+                                    className={cn(
+                                      'flex h-9 items-center justify-center rounded-xl text-sm font-semibold transition-all',
+                                      isPast ? 'cursor-not-allowed text-subtle-foreground opacity-40' :
+                                      isSelected ? 'gradient-brand text-white shadow-soft' :
+                                      'bg-muted text-foreground hover:bg-border/70'
+                                    )}
+                                  >
+                                    {day}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Time slots */}

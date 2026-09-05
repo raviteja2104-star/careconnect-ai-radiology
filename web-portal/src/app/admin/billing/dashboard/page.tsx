@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
@@ -26,12 +26,12 @@ export default function RevenueDashboard() {
 
   const { data: dashboardRes, refetch: refetchDash, isLoading: dashLoading } = useQuery({
     queryKey: ['billing_dashboard'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/billing/dashboard`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/billing/dashboard`).then(res => res.json())
   });
 
   const { data: invoicesRes, refetch: refetchInvoices, isLoading: invoicesLoading } = useQuery({
     queryKey: ['billing_invoices'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/billing/invoices`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/billing/invoices`).then(res => res.json())
   });
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function RevenueDashboard() {
 
   // Hook into Event Bus for live financial events
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care');
 
     socket.on('INVOICE_CREATED', (data) => {
       refetchDash();

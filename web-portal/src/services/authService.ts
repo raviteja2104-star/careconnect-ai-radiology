@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CareConnect OAuth 2.1, OIDC, RBAC/ABAC & MFA Authentication Service (Phase 11)
  * Enforces Enterprise SSO, JWT Session Tokens, Role/Permission Checks, & TOTP Multi-Factor Authentication.
  */
@@ -85,7 +85,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
 };
 
 /* ───────────────────────── Real backend auth ─────────────────────────
- * The monolith at http://localhost:5000 issues JWTs via /api/auth.
+ * The monolith at https://api.careconnect.care issues JWTs via /api/auth.
  * Storage keys are load-bearing: the EMR/teleradiology API clients read the
  * JWT from localStorage under 'token'; the raw backend user is kept under
  * 'cc-user' so SessionProvider can rebuild the session on reload.
@@ -93,7 +93,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
 
 export const AUTH_API_BASE =
     (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-    'http://localhost:5000';
+    'https://api.careconnect.care';
 export const TOKEN_STORAGE_KEY = 'token';
 export const USER_STORAGE_KEY = 'cc-user';
 

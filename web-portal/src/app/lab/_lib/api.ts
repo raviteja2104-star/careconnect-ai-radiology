@@ -1,15 +1,15 @@
-'use client';
+﻿'use client';
 
 /**
  * LIS (Laboratory Information System) API client — talks to the backend at
- * http://localhost:5000/api/lis and degrades gracefully to realistic demo
+ * https://api.careconnect.care/api/lis and degrades gracefully to realistic demo
  * data when the API is unreachable or the caller is unauthenticated.
  * Per project rule the frontend must never crash when the backend is down;
  * every read returns `{ data, demo }` so the UI can surface a subtle
  * "Demo data — backend offline" badge instead.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 

@@ -1,14 +1,14 @@
-'use client';
+﻿'use client';
 
 /**
- * Audit-log API client — talks to the real backend at http://localhost:5000
+ * Audit-log API client — talks to the real backend at https://api.careconnect.care
  * (GET /api/audit and /api/audit/verify) and degrades gracefully to a clearly
  * labeled demo dataset when the backend is unreachable or the caller is
  * unauthenticated. Follows the same `{ data, demo }` convention as
  * src/app/emr/_lib/api.ts.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 
