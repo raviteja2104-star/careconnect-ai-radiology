@@ -86,10 +86,21 @@ app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) return next();
     helmet({ crossOriginResourcePolicy: false })(req, res, next);
 });
+const CORS_ORIGINS = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : ['http://localhost:3000', 'http://localhost:3001', 'https://www.careconnect.care', 'https://careconnect.care'];
+
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-        : ['http://localhost:3000', 'http://localhost:3001', 'https://www.careconnect.care', 'https://careconnect.care'],
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, server-to-server)
+        if (!origin) return callback(null, true);
+        if (CORS_ORIGINS.includes(origin)) return callback(null, true);
+        // Allow Vercel preview deployments for this project in non-production
+        if (process.env.NODE_ENV !== 'production' && /\.vercel\.app$/.test(origin)) return callback(null, true);
+        // In production, also allow Vercel URLs if ALLOWED_ORIGINS is not explicitly set
+        if (!process.env.ALLOWED_ORIGINS && /\.vercel\.app$/.test(origin)) return callback(null, true);
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
 }));
 app.use(morgan('dev'));

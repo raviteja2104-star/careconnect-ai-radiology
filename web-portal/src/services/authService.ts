@@ -200,7 +200,7 @@ async function authRequest(path: string, body: Record<string, unknown>): Promise
     });
     clearTimeout(timer);
   } catch {
-    throw new AuthApiError(0, 'Cannot reach the CareConnect server. Is the backend running on port 5000?');
+    throw new AuthApiError(0, 'Cannot reach the CareConnect server. Check your internet connection or try again in a moment.');
   }
   let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string } } = {};
   try {
