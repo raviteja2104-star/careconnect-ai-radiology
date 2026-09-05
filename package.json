@@ -6,8 +6,7 @@
  "workspaces": [
   "apps/*",
   "packages/*",
-  "services/*",
-  "web-portal"
+  "services/*"
  ],
  "scripts": {
   "build": "turbo run build",
