@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -154,15 +154,39 @@ export default function EMRDashboard() {
     }
   };
 
-  // Autosave simulation
-  useEffect(() => {
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [encounterId, setEncounterId] = useState<string | null>(null);
+  useEffect(() => { setEncounterId(new URLSearchParams(window.location.search).get('encounter')); }, []);
+
+  const saveClinicalNote = useCallback(async (draft = true) => {
+    if (!encounterId) return;
     setSaveStatus('saving');
-    const timer = setTimeout(() => {
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [chiefComplaint, hpi, examination, assessment, plan, pastHistory, examGeneral, examCvs, examRs, examAbdomen, examCns]);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+      const res = await fetch(`${API_BASE}/api/emr/encounters/${encounterId}/note`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ chiefComplaint, hpi, examination, assessment, plan, pastHistory, draft }),
+      });
+      if (res.ok) {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        setSaveStatus('idle');
+      }
+    } catch {
+      setSaveStatus('idle');
+    }
+  }, [encounterId, chiefComplaint, hpi, examination, assessment, plan, pastHistory]);
+
+  useEffect(() => {
+    if (!encounterId) return;
+    setSaveStatus('saving');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveClinicalNote(true), 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [chiefComplaint, hpi, examination, assessment, plan, pastHistory, examGeneral, examCvs, examRs, examAbdomen, examCns, saveClinicalNote]);
 
   const handleInsertAI = () => {
     setChiefComplaint("32yo male presents with central chest pain x 2 days. Pain is pressure-like, non-radiating, worsened by exertion.");
@@ -1436,7 +1460,7 @@ export default function EMRDashboard() {
                       className="text-xs"
                       aria-label={`${activeTab} clinical notes`}
                     />
-                    <Button size="sm" onClick={() => alert(`Saved clinical note for ${activeTab}`)}>
+                    <Button size="sm" onClick={() => saveClinicalNote(false)}>
                       Save {activeTab} Note
                     </Button>
                   </div>
@@ -1577,19 +1601,13 @@ export default function EMRDashboard() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setSaveStatus('saving');
-                setTimeout(() => setSaveStatus('saved'), 1000);
-              }}
+              onClick={() => saveClinicalNote(true)}
             >
               Save Draft
             </Button>
             <Button
               size="sm"
-              onClick={() => {
-                setSaveStatus('saving');
-                setTimeout(() => setSaveStatus('saved'), 1000);
-              }}
+              onClick={() => saveClinicalNote(false)}
             >
               <CheckCircle className="h-4 w-4" aria-hidden /> Save & Sign
             </Button>

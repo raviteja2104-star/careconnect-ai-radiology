@@ -1,17 +1,25 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
+const BACKEND = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+export async function POST(req: NextRequest) {
   try {
-    const { message, context } = await req.json();
-    return NextResponse.json({
-      success: true,
-      data: {
-        reply: `CareConnect AI Copilot: Base on ${context?.specialty || 'General Medicine'} guidelines, patient query "${message}" indicates evaluation for mild viral URI or hypertension follow-up.`,
-        confidencePct: 94,
-        citations: ['CareConnect Outpatient Guideline 2026', 'UpToDate Clinical Decision Support']
-      }
+    const body = await req.json();
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authHeader) headers['Authorization'] = authHeader;
+
+    const res = await fetch(`${BACKEND}/api/ai/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    if (!res.ok) {
+      return NextResponse.json({ success: false, error: 'AI service unavailable' }, { status: res.status });
+    }
+    const data = await res.json();
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Unable to reach AI backend' }, { status: 503 });
   }
 }

@@ -4,10 +4,13 @@ import { lowCodeWorkflowService } from '@/services/lowCodeWorkflowService';
 export async function POST(req: Request) {
   try {
     const { definitionId, patientId, patientName } = await req.json();
+    if (!patientId || !patientName) {
+      return NextResponse.json({ success: false, error: 'patientId and patientName are required' }, { status: 400 });
+    }
     const instance = lowCodeWorkflowService.startWorkflow(
-      definitionId || 'tmpl-opd-01', 
-      patientId || 'PT-0001234', 
-      patientName || 'Rohit Sharma'
+      definitionId || 'tmpl-opd-01',
+      patientId,
+      patientName
     );
     return NextResponse.json({ success: true, data: instance });
   } catch (error: any) {
