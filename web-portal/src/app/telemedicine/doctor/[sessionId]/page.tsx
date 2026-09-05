@@ -32,14 +32,15 @@ export default function DoctorConsultationWorkspace({ params }: { params: Promis
   } = useWebRTC({ sessionId, role: 'doctor' });
 
   const endMutation = useMutation({
-    mutationFn: () =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/telemedicine/end`, {
+    mutationFn: () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/telemedicine/end`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
         body: JSON.stringify({ sessionId, aiSummary })
-      }).then(res => res.json()),
+      }).then(res => res.json());
+    },
     onSuccess: () => {
-      // Return to doctor queue
       window.location.href = '/doctor/queue';
     }
   });

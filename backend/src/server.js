@@ -119,6 +119,9 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Health check
 app.get('/api/health', (req, res) => {
+    const mongoose = require('mongoose');
+    const dbState = mongoose.connection.readyState;
+    const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
     res.json({
         success: true,
         message: 'CareConnect API is running',
@@ -126,7 +129,9 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
         services: {
-            database: 'connected',
+            database: dbStatus,
+            mongodb_uri_set: !!process.env.MONGODB_URI,
+            jwt_secret_set: !!process.env.JWT_SECRET,
             ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
         },
     });

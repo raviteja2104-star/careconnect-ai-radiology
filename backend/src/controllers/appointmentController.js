@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
 const User = require('../models/User');

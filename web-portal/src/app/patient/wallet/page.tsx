@@ -19,12 +19,19 @@ export default function DigitalHealthWallet() {
     activeTokens: [], pendingInvoices: [], pendingConsents: [], appointments: [], telemedicine: []
   });
 
-  // MOCK: using a hardcoded patient ID for demonstration
-  const patientId = '66a1e3b5e4b0c12345678901';
+  const patientId = typeof window !== 'undefined'
+    ? (() => { try { return JSON.parse(localStorage.getItem('cc-user') ?? '{}')._id ?? null; } catch { return null; } })()
+    : null;
 
   const { data: walletRes, refetch } = useQuery({
     queryKey: ['patient_wallet', patientId],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/patient/${patientId}/wallet`).then(res => res.json())
+    enabled: !!patientId,
+    queryFn: () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/patient/${patientId}/wallet`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      }).then(res => res.json());
+    }
   });
 
   useEffect(() => {

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { use } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 interface Doctor {
     _id: string;

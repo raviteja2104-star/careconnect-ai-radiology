@@ -19,16 +19,23 @@ export default function DoctorQueueWorkspace() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTarget, setTransferTarget] = useState('Laboratory');
 
+  const getAuthHeader = (): Record<string, string> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   const { data: queueData, isLoading } = useQuery({
     queryKey: ['queue', department],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/queue/${department}`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/queue/${department}`, {
+      headers: getAuthHeader(),
+    }).then(res => res.json())
   });
 
   const callMutation = useMutation({
     mutationFn: (tokenId: string) =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/queue/call/${tokenId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ room: 'OPD-1' })
       }).then(res => res.json()),
     onSuccess: () => {
@@ -36,12 +43,12 @@ export default function DoctorQueueWorkspace() {
     }
   });
 
-
   const completeMutation = useMutation({
     mutationFn: (tokenId: string) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/queue/call/${tokenId}`, { // Assuming complete endpoint would be here, mocking for now
-        method: 'POST'
-      }),
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/queue/complete/${tokenId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      }).then(res => res.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['queue', department] });
     }
@@ -51,13 +58,12 @@ export default function DoctorQueueWorkspace() {
     mutationFn: (data: any) =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/transfers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify(data)
       }).then(res => res.json()),
     onSuccess: () => {
       setShowTransferModal(false);
       queryClient.invalidateQueries({ queryKey: ['queue', department] });
-      alert('Patient Transferred successfully. Token generated for destination.');
     }
   });
 

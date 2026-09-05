@@ -25,12 +25,14 @@ export default function PatientVirtualWaitingRoom({ params }: { params: Promise<
   } = useWebRTC({ sessionId: session?._id ?? null, role: 'patient' });
 
   const joinMutation = useMutation({
-    mutationFn: () =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/telemedicine/join`, {
+    mutationFn: () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/telemedicine/join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
         body: JSON.stringify({ tokenId })
-      }).then(res => res.json()),
+      }).then(res => res.json());
+    },
     onSuccess: (res) => {
       setSession(res.data);
       setStatus(res.data.status === 'IN_PROGRESS' ? 'IN_CONSULTATION' : 'WAITING');
@@ -42,7 +44,7 @@ export default function PatientVirtualWaitingRoom({ params }: { params: Promise<
     joinMutation.mutate();
 
     // Listen for doctor start
-    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care');
     socket.on('CONSULTATION_STARTED', (data) => {
       if (data.tokenId === tokenId) {
         setStatus('IN_CONSULTATION');
@@ -51,7 +53,7 @@ export default function PatientVirtualWaitingRoom({ params }: { params: Promise<
 
     socket.on('CONSULTATION_COMPLETED', (data) => {
       if (session && data.sessionId === session._id) {
-        window.location.href = '/telemedicine/feedback'; // Mock redirect
+        window.location.href = '/appointments'; // Consultation complete — return to appointments
       }
     });
 
