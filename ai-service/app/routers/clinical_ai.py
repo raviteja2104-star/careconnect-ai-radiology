@@ -190,3 +190,50 @@ def differentials(payload: Dict[str, Any] = Body(...)):
     if isinstance(data, dict):
         data.setdefault("differentials", [])
     return data
+
+
+@router.post("/medication-suggestions")
+def medication_suggestions(payload: Dict[str, Any] = Body(...)):
+    """
+    Input: {diagnoses: [..], symptoms, patient: {age, gender, allergies,
+            currentMedications, renalImpairment, pregnant, history},
+            exclude: [drug names already suggested/dismissed]}
+    Output: {needsMoreInfo, missingInfo: [..], suggestions: [{name, generic,
+             indication, dosage, route, frequency, duration, precautions,
+             interactions}], note}
+    """
+    system = (
+        "You are clinical decision support inside an EMR, suggesting "
+        "medication OPTIONS for a qualified doctor to review. The doctor — "
+        "never you — decides and prescribes.\n"
+        "Output JSON shape:\n"
+        '{"needsMoreInfo": false, "missingInfo": [], "suggestions": '
+        '[{"name": "...", "generic": "...", "indication": "...", '
+        '"dosage": "...", "route": "...", "frequency": "...", '
+        '"duration": "...", "precautions": "...", "interactions": "..."}], '
+        '"note": "..."}\n'
+        "Rules:\n"
+        "- Use ONLY the supplied patient data; never invent findings, "
+        "allergies or history.\n"
+        "- Suggest 2-5 evidence-based first-line options appropriate to the "
+        "supplied diagnoses and context (Indian market generic names; adult "
+        "or pediatric dosing per the supplied age; typical dosage RANGES).\n"
+        "- indication: one concise sentence of clinical reasoning grounded in "
+        "the supplied data — why this drug for this patient.\n"
+        "- precautions: the important ones for THIS patient (age, renal, "
+        "pregnancy, allergy-class) — say so explicitly when relevant.\n"
+        "- interactions: check against the supplied currentMedications and "
+        "state 'None identified with listed medications' when none.\n"
+        "- If the supplied diagnoses/context are insufficient for reliable "
+        "suggestions, set needsMoreInfo true, list what is missing in "
+        "missingInfo, and return an empty suggestions list.\n"
+        "- Never include drugs listed in exclude.\n"
+        "- note must state these are decision-support suggestions requiring "
+        "the doctor's review and approval."
+    )
+    data = _run(system, payload, ["note"])
+    if isinstance(data, dict):
+        data.setdefault("suggestions", [])
+        data.setdefault("needsMoreInfo", False)
+        data.setdefault("missingInfo", [])
+    return data

@@ -22,6 +22,7 @@ import {
 import { ContextRail } from './context-rail';
 import { OrdersPanel, type OrderPanelTab } from './orders-panel';
 import { CopilotRail } from './copilot-rail';
+import { SuggestInput } from '../../_components/SuggestInput';
 
 /* ── Section catalogs per note format ── */
 
@@ -261,6 +262,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
 
     /* ── Diagnoses ── */
     const [dxTerm, setDxTerm] = React.useState('');
+    const [dxCode, setDxCode] = React.useState<string | undefined>(undefined);
     const [dxType, setDxType] = React.useState<'provisional' | 'differential' | 'confirmed' | 'ruled_out'>('provisional');
     const [dxPrimary, setDxPrimary] = React.useState(false);
     const [dxSaving, setDxSaving] = React.useState(false);
@@ -273,7 +275,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const handleAddDiagnosis = async () => {
         if (!dxTerm.trim()) return;
         setDxSaving(true);
-        const body = { term: dxTerm.trim(), type: dxType, isPrimary: dxPrimary };
+        const body = { term: dxTerm.trim(), type: dxType, isPrimary: dxPrimary, ...(dxCode ? { code: dxCode } : {}) };
         try {
             await postDiagnosis(encounterId, body);
             queryClient.invalidateQueries({ queryKey: ['emr', 'encounter', encounterId] });
@@ -287,6 +289,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             }
         } finally {
             setDxTerm('');
+            setDxCode(undefined);
             setDxPrimary(false);
             setDxSaving(false);
         }
@@ -429,13 +432,24 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                                     {HISTORY_SECTIONS.map(([key, label]) => (
                                         <div key={key} className={key === 'chiefComplaint' || key === 'historyOfPresentIllness' || key === 'physicalExamination' ? 'md:col-span-2' : ''}>
                                             <Label htmlFor={`note-${key}`}>{label}</Label>
-                                            <Textarea
-                                                id={`note-${key}`}
-                                                value={sections[key] as string || ''}
-                                                onChange={(e) => updateSection(key, e.target.value)}
-                                                placeholder={`${label}…`}
-                                                className="min-h-20"
-                                            />
+                                            {key === 'chiefComplaint' ? (
+                                                <SuggestInput
+                                                    id={`note-${key}`}
+                                                    kind="complaint"
+                                                    commaSeparated
+                                                    value={sections[key] as string || ''}
+                                                    onChange={(v) => updateSection(key, v)}
+                                                    placeholder="Start typing — e.g. Fe… → Fever (comma-separate multiple)"
+                                                />
+                                            ) : (
+                                                <Textarea
+                                                    id={`note-${key}`}
+                                                    value={sections[key] as string || ''}
+                                                    onChange={(e) => updateSection(key, e.target.value)}
+                                                    placeholder={`${label}…`}
+                                                    className="min-h-20"
+                                                />
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -474,8 +488,15 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                                 )}
                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-end">
                                     <div>
-                                        <Label htmlFor="dx-term">Diagnosis term</Label>
-                                        <Input id="dx-term" value={dxTerm} onChange={(e) => setDxTerm(e.target.value)} placeholder="e.g. Atypical chest pain — r/o CAD" />
+                                        <Label htmlFor="dx-term">Diagnosis term{dxCode ? ` · ICD-10 ${dxCode}` : ''}</Label>
+                                        <SuggestInput
+                                            id="dx-term"
+                                            kind="diagnosis"
+                                            value={dxTerm}
+                                            onChange={(v) => { setDxTerm(v); setDxCode(undefined); }}
+                                            onSelect={(item) => setDxCode(item.code)}
+                                            placeholder="Start typing — e.g. hyp… → Essential hypertension (I10)"
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor="dx-type">Type</Label>
@@ -517,6 +538,13 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                         initialTab={initialPanel}
                         allergies={p360?.patient.allergies || []}
                         currentMedications={(p360?.activeMedications || []).map((m) => m.name || '').filter(Boolean)}
+                        diagnoses={diagnoses.map((d) => d.term).filter(Boolean)}
+                        patientMeta={{
+                            age: p360?.patient.dateOfBirth
+                                ? Math.floor((Date.now() - new Date(p360.patient.dateOfBirth).getTime()) / 31557600000)
+                                : undefined,
+                            gender: p360?.patient.gender,
+                        }}
                         onChanged={() => queryClient.invalidateQueries({ queryKey: ['emr', 'encounter', encounterId] })}
                     />
                 </div>

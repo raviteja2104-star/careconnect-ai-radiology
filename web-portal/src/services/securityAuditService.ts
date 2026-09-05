@@ -61,7 +61,7 @@ interface BackendAuditEntry {
   hash: string;
 }
 
-const BACKEND_API_BASE = 'http://localhost:5000';
+const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 function mapBackendEntry(e: BackendAuditEntry): AuditLogEntry {
   const actor = e.actorId && typeof e.actorId === 'object' ? e.actorId : null;

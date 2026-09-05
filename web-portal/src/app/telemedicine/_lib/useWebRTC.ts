@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
-const SIGNALING_URL = 'http://localhost:5000';
+const SIGNALING_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 
 export type WebRTCConnectionState =

@@ -21,12 +21,12 @@ export default function PatientDisplayBoard() {
   // Fetch initial queue state
   const { data: queueData } = useQuery({
     queryKey: ['queue', 'OPD'],
-    queryFn: () => fetch('http://localhost:5000/api/queue/OPD').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/queue/OPD`).then(res => res.json())
   });
 
   // Setup WebSockets
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
 
     socket.on('connect', () => {
       console.log('Connected to Queue WebSocket');

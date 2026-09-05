@@ -31,12 +31,12 @@ export default function CommunicationDashboard() {
 
   const { data: analyticsRes, isLoading: analyticsLoading } = useQuery({
     queryKey: ['communication_analytics'],
-    queryFn: () => fetch('http://localhost:5000/api/communication/analytics').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/communication/analytics`).then(res => res.json())
   });
 
   const { data: historyRes, isLoading: historyLoading } = useQuery({
     queryKey: ['communication_history'],
-    queryFn: () => fetch('http://localhost:5000/api/communication/history').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/communication/history`).then(res => res.json())
   });
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function CommunicationDashboard() {
 
   // Hook into Event Bus for live message updates
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
     socket.on('MESSAGE_SENT', (data) => {
       setLiveLogs(prev => [data.message, ...prev].slice(0, 50));
     });

@@ -26,12 +26,12 @@ export default function RevenueDashboard() {
 
   const { data: dashboardRes, refetch: refetchDash, isLoading: dashLoading } = useQuery({
     queryKey: ['billing_dashboard'],
-    queryFn: () => fetch('http://localhost:5000/api/billing/dashboard').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/billing/dashboard`).then(res => res.json())
   });
 
   const { data: invoicesRes, refetch: refetchInvoices, isLoading: invoicesLoading } = useQuery({
     queryKey: ['billing_invoices'],
-    queryFn: () => fetch('http://localhost:5000/api/billing/invoices').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/billing/invoices`).then(res => res.json())
   });
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function RevenueDashboard() {
 
   // Hook into Event Bus for live financial events
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
 
     socket.on('INVOICE_CREATED', (data) => {
       refetchDash();

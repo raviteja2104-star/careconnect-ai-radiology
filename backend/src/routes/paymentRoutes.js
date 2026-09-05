@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const { protect } = require('../middleware/auth');
+const { sendEmail, templates } = require('../services/EmailNotificationService');
 
 let Razorpay;
 try { Razorpay = require('razorpay'); } catch (_) { Razorpay = null; }
@@ -71,10 +72,10 @@ router.post('/verify', protect, async (req, res, next) => {
             // Demo mode — auto-verify, credit wallet
             const User = require('../models/User');
             const WalletTransaction = require('../models/WalletTransaction');
-            const isDB = require('mongoose').connection.readyState === 1;
+            const dbConnected = require('mongoose').connection.readyState === 1;
             const creditAmount = (amount || 50000) / 100;
 
-            if (isDB) {
+            if (dbConnected) {
                 await User.findByIdAndUpdate(req.user._id, { $inc: { 'wallet.balance': creditAmount } });
                 await WalletTransaction.create({ userId: req.user._id, type: 'credit', amount: creditAmount, description: `Wallet top-up (demo) — ₹${creditAmount}`, status: 'completed', paymentId: `pay_demo_${Date.now()}` });
             }
@@ -104,7 +105,19 @@ router.post('/verify', protect, async (req, res, next) => {
         const updatedUser = await User.findById(req.user._id);
         req.io?.emit('wallet_updated', { userId: req.user._id, balance: updatedUser.wallet.balance });
 
-        res.json({ success: true, message: `₹${creditAmount} credited.`, data: { paymentId: razorpay_payment_id, newBalance: updatedUser.wallet.balance } });
+        const result = { success: true, message: `₹${creditAmount} credited.`, data: { paymentId: razorpay_payment_id, newBalance: updatedUser.wallet.balance } };
+        res.json(result);
+
+        // Send payment confirmation email (non-blocking)
+        if (req.user.email) {
+            const { subject, html } = templates.paymentConfirmationEmail({
+                patientName: `${req.user.firstName} ${req.user.lastName}`,
+                amount: creditAmount,
+                transactionId: razorpay_payment_id,
+                purpose: purpose || 'Wallet Top-up',
+            });
+            void sendEmail({ to: req.user.email, toName: `${req.user.firstName} ${req.user.lastName}`, subject, html });
+        }
     } catch (err) { next(err); }
 });
 

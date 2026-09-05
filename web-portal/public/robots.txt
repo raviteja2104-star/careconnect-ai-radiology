@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+Allow: /home
+Allow: /business
+Allow: /provider/register
+
+# Block all patient/clinical pages from indexing
+Disallow: /dashboard
+Disallow: /appointments
+Disallow: /doctor
+Disallow: /admin
+Disallow: /reception
+Disallow: /lab
+Disallow: /pharmacy
+Disallow: /billing
+Disallow: /teleradiology
+Disallow: /telemedicine
+Disallow: /health-records
+Disallow: /emr
+Disallow: /patient
+Disallow: /wallet
+Disallow: /kiosk
+Disallow: /display
+Disallow: /command
+Disallow: /communication
+Disallow: /consent
+Disallow: /api/
+
+Sitemap: https://www.careconnect.care/sitemap.xml

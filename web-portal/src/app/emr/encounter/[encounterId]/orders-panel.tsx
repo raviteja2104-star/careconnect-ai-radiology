@@ -15,6 +15,12 @@ import {
     postOrder, patchOrderStatus, demoScreenDrugs, ApiOfflineError, ApiHttpError, formatWhen,
     type ClinicalOrderRecord, type CreateOrderBody, type DrugLine, type SafetyFlag,
 } from '../../_lib/api';
+import { SuggestInput } from '../../_components/SuggestInput';
+import { postAiMedicationSuggestions, type MedSuggestion, type MedSuggestionResponse } from '../../_lib/api';
+import {
+    Sparkles as IconAi, RefreshCcw as IconRefresh, Info as IconInfo,
+    X as IconX, ShieldAlert as IconShield,
+} from 'lucide-react';
 
 export type OrderPanelTab = 'lab' | 'radiology' | 'medication' | 'list';
 
@@ -24,6 +30,9 @@ interface OrdersPanelProps {
     initialTab?: OrderPanelTab;
     allergies: string[];
     currentMedications: string[];
+    /** Diagnosis terms entered on the encounter — drives AI med suggestions. */
+    diagnoses?: string[];
+    patientMeta?: { age?: number; gender?: string };
     onChanged: () => void;
 }
 
@@ -47,10 +56,83 @@ const STATUS_TONE: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'n
 };
 
 export function OrdersPanel({
-    encounterId, serverOrders, initialTab, allergies, currentMedications, onChanged,
+    encounterId, serverOrders, initialTab, allergies, currentMedications,
+    diagnoses = [], patientMeta = {}, onChanged,
 }: OrdersPanelProps) {
     const { toast } = useToast();
     const [tab, setTab] = React.useState<OrderPanelTab>(initialTab && initialTab !== 'list' ? initialTab : 'lab');
+
+    /* ── AI medication suggestions (decision support — doctor decides) ── */
+    const [aiSugs, setAiSugs] = React.useState<MedSuggestionResponse | null>(null);
+    const [aiLoading, setAiLoading] = React.useState(false);
+    const [aiDismissed, setAiDismissed] = React.useState<string[]>([]);
+    const [aiInfoOpen, setAiInfoOpen] = React.useState<Record<string, boolean>>({});
+    const [aiWarnAck, setAiWarnAck] = React.useState<Record<string, boolean>>({});
+    const aiFetchedFor = React.useRef<string>('');
+
+    const dxSignature = diagnoses.join('|');
+    const fetchAiSuggestions = React.useCallback(async (exclude: string[] = []) => {
+        setAiLoading(true);
+        const res = await postAiMedicationSuggestions({
+            diagnoses,
+            patient: {
+                age: patientMeta.age,
+                gender: patientMeta.gender,
+                allergies,
+                currentMedications,
+            },
+            exclude,
+        });
+        setAiSugs(res);
+        setAiLoading(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dxSignature, allergies.join('|'), currentMedications.join('|'), patientMeta.age, patientMeta.gender]);
+
+    // Auto-fetch once per diagnosis set when the medication tab is open.
+    React.useEffect(() => {
+        if (tab !== 'medication' || diagnoses.length === 0) return;
+        if (aiFetchedFor.current === dxSignature) return;
+        aiFetchedFor.current = dxSignature;
+        fetchAiSuggestions();
+    }, [tab, dxSignature, diagnoses.length, fetchAiSuggestions]);
+
+    const freqToOption = (f?: string): string => {
+        const s = (f || '').toLowerCase();
+        if (s.includes('1-1-1-1') || s.includes('qid') || s.includes('6 hourly')) return '1-1-1-1 (QID)';
+        if (s.includes('1-1-1') || s.includes('tid')) return '1-1-1 (TID)';
+        if (s.includes('1-0-1') || s.includes('bid')) return '1-0-1 (BID)';
+        if (s.includes('0-0-1') || s.includes('hs') || s.includes('night')) return '0-0-1 (OD night)';
+        if (s.includes('sos') || s.includes('needed') || s.includes('prn')) return 'SOS';
+        if (s.includes('1-0-0') || s.includes('od') || s.includes('once')) return '1-0-0 (OD)';
+        return '';
+    };
+
+    const addSuggestionToRx = (s: MedSuggestion) => {
+        const mappedFreq = freqToOption(s.frequency);
+        const line: DrugLine = {
+            name: s.generic && s.generic !== s.name ? `${s.name} (${s.generic})` : s.name,
+            dose: s.dosage || '',
+            frequency: mappedFreq || '1-0-1 (BID)',
+            route: s.route || 'Oral',
+            duration: s.duration || '',
+            instructions: [
+                !mappedFreq && s.frequency ? `Frequency: ${s.frequency}` : '',
+                s.precautions || '',
+            ].filter(Boolean).join('. '),
+            foodTiming: 'after food',
+            prn: /sos|prn/i.test(s.frequency || ''),
+        };
+        setDrugs((list) => {
+            const firstEmpty = list.findIndex((d) => !d.name.trim());
+            if (firstEmpty >= 0) {
+                const next = [...list];
+                next[firstEmpty] = line;
+                return next;
+            }
+            return [...list, line];
+        });
+        toast('success', 'Added to prescription draft', `${s.name} — review, adjust, and place the order to prescribe.`);
+    };
     const [localOrders, setLocalOrders] = React.useState<ClinicalOrderRecord[]>([]);
     const [statusOverrides, setStatusOverrides] = React.useState<Record<string, string>>({});
 
@@ -335,7 +417,13 @@ export function OrdersPanel({
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <Label htmlFor="lab-custom">Other test</Label>
-                                    <Input id="lab-custom" value={labCustom} onChange={(e) => setLabCustom(e.target.value)} placeholder="e.g. Serum Ferritin" />
+                                    <SuggestInput
+                                        id="lab-custom"
+                                        kind="lab_test"
+                                        value={labCustom}
+                                        onChange={setLabCustom}
+                                        placeholder="Start typing — e.g. HbA… → HbA1c"
+                                    />
                                 </div>
                                 <div>
                                     <Label htmlFor="lab-priority">Priority</Label>
@@ -400,6 +488,115 @@ export function OrdersPanel({
 
                         {/* ── Medication ── */}
                         <TabsContent value="medication" className="space-y-4">
+                            {/* ── AI Medication Suggestions — decision support only ── */}
+                            <div className="rounded-2xl border border-primary/25 bg-primary/[0.04] p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <IconAi className="h-4 w-4 text-primary" aria-hidden />
+                                        <span className="text-sm font-semibold text-foreground">AI Medication Suggestions</span>
+                                        {aiSugs && aiSugs.source === 'ai' && <Badge tone="brand" dot>Claude AI</Badge>}
+                                        {aiSugs && aiSugs.source === 'reference' && <Badge tone="neutral">First-line reference</Badge>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {aiSugs && aiSugs.suggestions.length > 0 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => fetchAiSuggestions([...aiSugs.suggestions.map((s) => s.name), ...aiDismissed])}
+                                                disabled={aiLoading}
+                                            >
+                                                <IconRefresh className="h-3.5 w-3.5" aria-hidden /> Alternatives
+                                            </Button>
+                                        )}
+                                        <Button variant="outline" size="sm" onClick={() => fetchAiSuggestions(aiDismissed)} loading={aiLoading} disabled={diagnoses.length === 0}>
+                                            {aiSugs ? 'Refresh' : 'Suggest medications'}
+                                        </Button>
+                                    </div>
+                                </div>
+                                <p className="mt-1.5 text-xs text-muted-foreground">
+                                    Decision support only — the doctor reviews, modifies, and explicitly approves every medication. AI assists the doctor; the doctor makes the decision.
+                                </p>
+
+                                {diagnoses.length === 0 && (
+                                    <div className="mt-3 rounded-xl border border-warning/40 bg-warning-soft px-3.5 py-2.5 text-sm text-warning">
+                                        Additional patient information may be required before generating a reliable medication suggestion. Add at least one diagnosis above.
+                                    </div>
+                                )}
+                                {aiSugs && aiSugs.source === 'unavailable' && (
+                                    <div className="mt-3 rounded-xl border border-border bg-muted/60 px-3.5 py-2.5 text-sm text-muted-foreground">
+                                        Suggestions are unavailable right now — the backend could not be reached.
+                                    </div>
+                                )}
+                                {aiSugs && aiSugs.source !== 'unavailable' && aiSugs.notice && (
+                                    <div className="mt-3 text-xs text-muted-foreground">{aiSugs.notice}</div>
+                                )}
+
+                                {aiSugs && aiSugs.suggestions.filter((s) => !aiDismissed.includes(s.name)).length > 0 && (
+                                    <div className="mt-3 space-y-2.5">
+                                        {aiSugs.suggestions.filter((s) => !aiDismissed.includes(s.name)).map((s) => {
+                                            const warns = (s.warnings || []).filter((w) => w.severity !== 'info');
+                                            const critical = warns.some((w) => w.severity === 'critical');
+                                            const needsAck = warns.length > 0 && !aiWarnAck[s.name];
+                                            return (
+                                                <div key={s.name} className="rounded-xl border border-border bg-card p-3.5">
+                                                    <div className="flex flex-wrap items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="text-sm font-semibold text-foreground">{s.name}</span>
+                                                                {s.generic && s.generic !== s.name && (
+                                                                    <span className="text-xs text-muted-foreground">{s.generic}</span>
+                                                                )}
+                                                                {critical && <Badge tone="danger" dot pulse>Review required</Badge>}
+                                                                {!critical && warns.length > 0 && <Badge tone="warning" dot>Caution</Badge>}
+                                                            </div>
+                                                            {s.indication && <p className="mt-1 text-xs text-muted-foreground">{s.indication}</p>}
+                                                            <p className="mt-1.5 text-xs font-medium text-foreground">
+                                                                {[s.dosage, s.route, s.frequency, s.duration].filter(Boolean).join(' · ')}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex shrink-0 items-center gap-1.5">
+                                                            <Button
+                                                                size="sm"
+                                                                variant={needsAck ? 'outline' : 'secondary'}
+                                                                onClick={() => {
+                                                                    if (needsAck) { setAiWarnAck((m) => ({ ...m, [s.name]: true })); return; }
+                                                                    addSuggestionToRx(s);
+                                                                }}
+                                                            >
+                                                                {needsAck ? 'Review warnings' : '✓ Add to Prescription'}
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon-sm" aria-label={`Clinical information for ${s.name}`} onClick={() => setAiInfoOpen((m) => ({ ...m, [s.name]: !m[s.name] }))}>
+                                                                <IconInfo className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon-sm" aria-label={`Dismiss ${s.name}`} onClick={() => setAiDismissed((d) => [...d, s.name])}>
+                                                                <IconX className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    {warns.length > 0 && (
+                                                        <div className={`mt-2.5 rounded-lg border px-3 py-2 text-xs ${critical ? 'border-danger/40 bg-danger-soft text-danger' : 'border-warning/40 bg-warning-soft text-warning'}`} role="alert">
+                                                            <span className="flex items-center gap-1.5 font-semibold"><IconShield className="h-3.5 w-3.5" aria-hidden /> Patient-specific safety check</span>
+                                                            <ul className="mt-1 list-disc pl-4">
+                                                                {warns.map((w, i) => <li key={i}>{w.message}</li>)}
+                                                            </ul>
+                                                            {aiWarnAck[s.name] && (
+                                                                <p className="mt-1.5 font-medium">Reviewed — you may now add this to the prescription draft.</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {aiInfoOpen[s.name] && (
+                                                        <div className="mt-2.5 space-y-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                                                            {s.precautions && <p><span className="font-semibold text-foreground">Precautions:</span> {s.precautions}</p>}
+                                                            {s.interactions && <p><span className="font-semibold text-foreground">Interactions:</span> {s.interactions}</p>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="space-y-3">
                                 {drugs.map((d, i) => (
                                     <div key={i} className="relative rounded-2xl border border-border bg-muted/40 p-4">
@@ -416,7 +613,19 @@ export function OrdersPanel({
                                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                             <div className="sm:col-span-2">
                                                 <Label htmlFor={`drug-name-${i}`}>Drug name</Label>
-                                                <Input id={`drug-name-${i}`} value={d.name} onChange={(e) => patchDrug(setDrugs, i, { name: e.target.value })} placeholder="e.g. Metformin" />
+                                                <SuggestInput
+                                                    id={`drug-name-${i}`}
+                                                    kind="medication"
+                                                    value={d.name}
+                                                    onChange={(v) => patchDrug(setDrugs, i, { name: v })}
+                                                    onSelect={(item) => patchDrug(setDrugs, i, {
+                                                        name: item.meta?.generic
+                                                            ? `${item.meta.generic}${item.meta.brand ? ` (${item.meta.brand})` : ''}`
+                                                            : item.label,
+                                                        ...(d.dose ? {} : { dose: item.meta?.strength || '' }),
+                                                    })}
+                                                    placeholder="Start typing — e.g. Met… → Metformin"
+                                                />
                                             </div>
                                             <div>
                                                 <Label htmlFor={`drug-dose-${i}`}>Dose</Label>
@@ -446,11 +655,24 @@ export function OrdersPanel({
                                             </div>
                                             <div>
                                                 <Label htmlFor={`drug-duration-${i}`}>Duration</Label>
-                                                <Input id={`drug-duration-${i}`} value={d.duration} onChange={(e) => patchDrug(setDrugs, i, { duration: e.target.value })} placeholder="e.g. 5 days" />
+                                                <SuggestInput
+                                                    id={`drug-duration-${i}`}
+                                                    kind="duration"
+                                                    value={d.duration}
+                                                    onChange={(v) => patchDrug(setDrugs, i, { duration: v })}
+                                                    placeholder="e.g. 5 days"
+                                                />
                                             </div>
                                             <div className="sm:col-span-2">
                                                 <Label htmlFor={`drug-instr-${i}`}>Instructions</Label>
-                                                <Input id={`drug-instr-${i}`} value={d.instructions} onChange={(e) => patchDrug(setDrugs, i, { instructions: e.target.value })} placeholder="e.g. With a full glass of water" />
+                                                <SuggestInput
+                                                    id={`drug-instr-${i}`}
+                                                    kind="instruction"
+                                                    commaSeparated
+                                                    value={d.instructions}
+                                                    onChange={(v) => patchDrug(setDrugs, i, { instructions: v })}
+                                                    placeholder="e.g. After food (comma-separate multiple)"
+                                                />
                                             </div>
                                             <div>
                                                 <Label htmlFor={`drug-food-${i}`}>Food timing</Label>

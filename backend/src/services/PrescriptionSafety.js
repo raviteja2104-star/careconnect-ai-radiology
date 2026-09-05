@@ -80,9 +80,12 @@ function screen(drugs = [], context = {}) {
         }
     }
 
-    // Trivial dose anomaly heuristic: numeric dose 0 or absurd multiplier
+    // Trivial dose anomaly heuristic: numeric dose 0 or absurd multiplier.
+    // Reads the FIRST number so ranges like "500–1000 mg" parse as 500,
+    // not a concatenated "5001000".
     for (const d of drugs) {
-        const doseNum = parseFloat(String(d.dose || '').replace(/[^\d.]/g, ''));
+        const firstNum = /(\d+(?:\.\d+)?)/.exec(String(d.dose || ''));
+        const doseNum = firstNum ? parseFloat(firstNum[1]) : NaN;
         if (!Number.isNaN(doseNum) && (doseNum === 0 || doseNum > 5000)) {
             flags.push({ kind: 'dose_anomaly', severity: 'warning', message: `Dose “${d.dose}” for ${d.name} looks anomalous — please verify.` });
         }

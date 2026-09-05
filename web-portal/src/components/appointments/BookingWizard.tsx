@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api`;
 
 const ICON_MAP: Record<string, any> = {
   Heart, Brain, Activity, Baby, Eye, Stethoscope

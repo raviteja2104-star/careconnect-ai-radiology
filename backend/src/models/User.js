@@ -10,7 +10,11 @@ const userSchema = new mongoose.Schema(
         phone: { type: String, unique: true, sparse: true },
         role: {
             type: String,
-            enum: ['patient', 'doctor', 'radiologist', 'admin', 'lab_tech', 'pharmacist', 'reception', 'emergency'],
+            // 'nurse' added for CareConnect Health Record Capture (multi-role
+            // capture: nurse is an explicit capturer role in that spec) — the
+            // frontend's authService.mapBackendRole() already maps
+            // 'nurse'->'NURSE' and expected this value to exist here.
+            enum: ['patient', 'doctor', 'radiologist', 'admin', 'lab_tech', 'pharmacist', 'reception', 'emergency', 'nurse'],
             required: true,
             default: 'patient'
         },

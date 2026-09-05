@@ -8,7 +8,7 @@
  * UI can surface a subtle "Demo data — backend offline" badge instead.
  */
 
-export const API_BASE = 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 /* ────────────────────────────── Types ────────────────────────────── */
 
@@ -614,4 +614,183 @@ export function formatWhen(iso?: string): string {
 export function formatINR(amount?: number): string {
     if (amount == null) return '—';
     return '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/* ──────────────── Clinical catalog typeahead ──────────────── */
+
+export type CatalogKind = 'medication' | 'complaint' | 'diagnosis' | 'lab_test' | 'duration' | 'instruction';
+
+export interface CatalogSuggestion {
+    kind: CatalogKind;
+    label: string;
+    code?: string;
+    meta?: { generic?: string; brand?: string; strength?: string; form?: string };
+}
+
+/** Small offline subset so suggestions still work with the backend down. */
+const DEMO_CATALOG: Record<CatalogKind, CatalogSuggestion[]> = {
+    medication: [
+        { kind: 'medication', label: 'Paracetamol 500 mg Tablet', meta: { generic: 'Paracetamol', brand: 'Crocin', strength: '500 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Paracetamol 650 mg Tablet', meta: { generic: 'Paracetamol', brand: 'Dolo 650', strength: '650 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Amoxicillin + Clavulanate 625 mg Tablet', meta: { generic: 'Amoxicillin + Clavulanate', brand: 'Augmentin', strength: '625 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Azithromycin 500 mg Tablet', meta: { generic: 'Azithromycin', brand: 'Azithral', strength: '500 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Metformin 500 mg Tablet', meta: { generic: 'Metformin', brand: 'Glycomet', strength: '500 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Amlodipine 5 mg Tablet', meta: { generic: 'Amlodipine', brand: 'Amlong', strength: '5 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Telmisartan 40 mg Tablet', meta: { generic: 'Telmisartan', brand: 'Telma', strength: '40 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Atorvastatin 10 mg Tablet', meta: { generic: 'Atorvastatin', brand: 'Atorva', strength: '10 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Pantoprazole 40 mg Tablet', meta: { generic: 'Pantoprazole', brand: 'Pan 40', strength: '40 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Cetirizine 10 mg Tablet', meta: { generic: 'Cetirizine', brand: 'Cetzine', strength: '10 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Ondansetron 4 mg Tablet', meta: { generic: 'Ondansetron', brand: 'Emeset', strength: '4 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Salbutamol 100 mcg Inhaler', meta: { generic: 'Salbutamol', brand: 'Asthalin', strength: '100 mcg', form: 'Inhaler' } },
+        { kind: 'medication', label: 'Levothyroxine 50 mcg Tablet', meta: { generic: 'Levothyroxine', brand: 'Thyronorm', strength: '50 mcg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Aspirin 75 mg Tablet', meta: { generic: 'Aspirin', brand: 'Ecosprin', strength: '75 mg', form: 'Tablet' } },
+        { kind: 'medication', label: 'Ibuprofen 400 mg Tablet', meta: { generic: 'Ibuprofen', brand: 'Brufen', strength: '400 mg', form: 'Tablet' } },
+    ],
+    complaint: [
+        'Fever', 'Cough', 'Chest pain', 'Breathlessness', 'Abdominal pain', 'Headache', 'Dizziness',
+        'Vomiting', 'Loose stools', 'Burning micturition', 'Joint pain', 'Low back pain', 'Sore throat',
+        'Skin rash', 'Palpitations', 'Generalized weakness', 'Weight loss', 'Blurred vision',
+    ].map((label) => ({ kind: 'complaint' as const, label })),
+    diagnosis: [
+        { kind: 'diagnosis', label: 'Essential (primary) hypertension', code: 'I10' },
+        { kind: 'diagnosis', label: 'Type 2 diabetes mellitus without complications', code: 'E11.9' },
+        { kind: 'diagnosis', label: 'Acute upper respiratory infection, unspecified', code: 'J06.9' },
+        { kind: 'diagnosis', label: 'Urinary tract infection, site not specified', code: 'N39.0' },
+        { kind: 'diagnosis', label: 'Gastritis, unspecified', code: 'K29.7' },
+        { kind: 'diagnosis', label: 'Pneumonia, unspecified organism', code: 'J18.9' },
+        { kind: 'diagnosis', label: 'Asthma, unspecified', code: 'J45.9' },
+        { kind: 'diagnosis', label: 'Hypothyroidism, unspecified', code: 'E03.9' },
+        { kind: 'diagnosis', label: 'Dengue fever', code: 'A90' },
+        { kind: 'diagnosis', label: 'Iron deficiency anemia, unspecified', code: 'D50.9' },
+        { kind: 'diagnosis', label: 'Low back pain', code: 'M54.5' },
+        { kind: 'diagnosis', label: 'Dyslipidemia', code: 'E78.5' },
+    ],
+    lab_test: [
+        { kind: 'lab_test', label: 'Complete Blood Count (CBC)', code: 'CBC' },
+        { kind: 'lab_test', label: 'Liver Function Test (LFT)', code: 'LFT' },
+        { kind: 'lab_test', label: 'Kidney Function Test (KFT)', code: 'KFT' },
+        { kind: 'lab_test', label: 'HbA1c (Glycated Hemoglobin)', code: 'HBA1C' },
+        { kind: 'lab_test', label: 'Fasting Blood Sugar (FBS)', code: 'FBS' },
+        { kind: 'lab_test', label: 'Lipid Profile', code: 'LIPID' },
+        { kind: 'lab_test', label: 'Thyroid Stimulating Hormone (TSH)', code: 'TSH' },
+        { kind: 'lab_test', label: 'Urine Routine & Microscopy', code: 'URINE-RM' },
+        { kind: 'lab_test', label: 'C-Reactive Protein (CRP)', code: 'CRP' },
+        { kind: 'lab_test', label: 'Dengue NS1 Antigen', code: 'NS1' },
+        { kind: 'lab_test', label: 'Troponin I', code: 'TROP-I' },
+        { kind: 'lab_test', label: 'Serum Electrolytes', code: 'ELEC' },
+    ],
+    duration: [
+        'Single dose', '3 days', '5 days', '7 days', '10 days', '14 days', '2 weeks',
+        '1 month', '3 months', 'Ongoing / long term', 'Until next review', 'SOS (as needed)',
+    ].map((label) => ({ kind: 'duration' as const, label })),
+    instruction: [
+        'After food', 'Before food', 'Early morning on empty stomach', 'At bedtime',
+        'With a full glass of water', 'Do not crush or chew', 'Complete the full course',
+        'Avoid alcohol during treatment', 'May cause drowsiness - avoid driving',
+        'Take at the same time every day', 'Shake well before use', 'Rinse mouth after inhaler use',
+    ].map((label) => ({ kind: 'instruction' as const, label })),
+};
+
+export function demoCatalogSearch(kind: CatalogKind, q: string): CatalogSuggestion[] {
+    const needle = q.toLowerCase();
+    const pool = DEMO_CATALOG[kind] || [];
+    const starts = pool.filter((s) =>
+        [s.label, s.code, s.meta?.generic, s.meta?.brand].filter(Boolean).some((h) => String(h).toLowerCase().startsWith(needle))
+    );
+    const contains = pool.filter((s) =>
+        !starts.includes(s) &&
+        [s.label, s.code, s.meta?.generic, s.meta?.brand].filter(Boolean).some((h) => String(h).toLowerCase().includes(needle))
+    );
+    return [...starts, ...contains].slice(0, 12);
+}
+
+/** Typeahead search against the clinical catalog; offline-safe, never throws. */
+export async function fetchCatalogSuggestions(kind: CatalogKind, q: string): Promise<CatalogSuggestion[]> {
+    const query = q.trim();
+    if (!query) return [];
+    try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(
+            API_BASE + '/api/emr/catalog?kind=' + encodeURIComponent(kind) + '&q=' + encodeURIComponent(query),
+            {
+                headers: token ? { Authorization: 'Bearer ' + token } : undefined,
+                signal: controller.signal,
+            }
+        );
+        clearTimeout(timer);
+        if (!res.ok) return demoCatalogSearch(kind, query);
+        const body = await res.json();
+        const suggestions = Array.isArray(body?.suggestions) ? body.suggestions : [];
+        return suggestions.length > 0 ? suggestions : demoCatalogSearch(kind, query);
+    } catch {
+        return demoCatalogSearch(kind, query);
+    }
+}
+
+/* ──────────── AI medication suggestions (decision support) ──────────── */
+
+export interface MedSuggestion {
+    name: string;
+    generic?: string;
+    indication?: string;
+    dosage?: string;
+    route?: string;
+    frequency?: string;
+    duration?: string;
+    precautions?: string;
+    interactions?: string;
+    warnings?: Array<{ kind: string; severity: 'info' | 'warning' | 'critical'; message: string }>;
+}
+
+export interface MedSuggestionResponse {
+    source: 'ai' | 'reference' | 'insufficient' | 'unavailable';
+    suggestions: MedSuggestion[];
+    notice?: string;
+    disclaimer?: string;
+}
+
+/**
+ * Request medication decision-support suggestions for the entered diagnoses
+ * and patient context. Never throws; backend-down returns 'unavailable'.
+ */
+export async function postAiMedicationSuggestions(body: {
+    diagnoses: string[];
+    symptoms?: string;
+    patient?: {
+        age?: number;
+        gender?: string;
+        allergies?: string[];
+        currentMedications?: string[];
+        renalImpairment?: boolean;
+        pregnant?: boolean;
+    };
+    exclude?: string[];
+}): Promise<MedSuggestionResponse> {
+    try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 65000);
+        const res = await fetch(API_BASE + '/api/emr/ai/medication-suggestions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: 'Bearer ' + token } : {}),
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+        });
+        clearTimeout(timer);
+        if (!res.ok) return { source: 'unavailable', suggestions: [] };
+        const data = await res.json();
+        return {
+            source: data.source || 'unavailable',
+            suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+            notice: data.notice,
+            disclaimer: data.disclaimer,
+        };
+    } catch {
+        return { source: 'unavailable', suggestions: [] };
+    }
 }

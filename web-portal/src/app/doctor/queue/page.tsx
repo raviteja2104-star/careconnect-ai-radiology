@@ -21,12 +21,12 @@ export default function DoctorQueueWorkspace() {
 
   const { data: queueData, isLoading } = useQuery({
     queryKey: ['queue', department],
-    queryFn: () => fetch(`http://localhost:5000/api/queue/${department}`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/queue/${department}`).then(res => res.json())
   });
 
   const callMutation = useMutation({
     mutationFn: (tokenId: string) =>
-      fetch(`http://localhost:5000/api/queue/call/${tokenId}`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/queue/call/${tokenId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room: 'OPD-1' })
@@ -39,7 +39,7 @@ export default function DoctorQueueWorkspace() {
 
   const completeMutation = useMutation({
     mutationFn: (tokenId: string) =>
-      fetch(`http://localhost:5000/api/queue/call/${tokenId}`, { // Assuming complete endpoint would be here, mocking for now
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/queue/call/${tokenId}`, { // Assuming complete endpoint would be here, mocking for now
         method: 'POST'
       }),
     onSuccess: () => {
@@ -49,7 +49,7 @@ export default function DoctorQueueWorkspace() {
 
   const transferMutation = useMutation({
     mutationFn: (data: any) =>
-      fetch(`http://localhost:5000/api/transfers`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/transfers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

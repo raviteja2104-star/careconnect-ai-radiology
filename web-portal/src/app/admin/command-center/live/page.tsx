@@ -22,12 +22,12 @@ export default function LiveOperationsWall() {
   // Fetch initial state
   const { data: liveData } = useQuery({
     queryKey: ['command_live_stats'],
-    queryFn: () => fetch('http://localhost:5000/api/command/live').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/command/live`).then(res => res.json())
   });
 
   const { data: flowData } = useQuery({
     queryKey: ['command_patient_flow'],
-    queryFn: () => fetch('http://localhost:5000/api/command/patient-flow').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/command/patient-flow`).then(res => res.json())
   });
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function LiveOperationsWall() {
 
   // Hook into universal Event Bus
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
 
     const handleEvent = (eventName: string) => (data: any) => {
       // Invalidate queries to refresh counts

@@ -11,7 +11,7 @@
  * crashing or silently faking a server success.
  */
 
-export const API_BASE = 'http://localhost:5000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 const WORKLIST = '/api/teleradiology/worklist';
 
 /* ────────────────────────────── Types ────────────────────────────── */

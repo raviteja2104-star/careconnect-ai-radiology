@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { SUPPORTED_LANGUAGES, DisplayMode } from '@/services/prescriptionTranslationService';
 import { LanguageSelector } from './LanguageSelector';
-import { Send, MessageSquare, Mail, Smartphone, CheckCircle2, ShieldCheck, X } from 'lucide-react';
+import { Send, MessageSquare, Mail, Smartphone, CheckCircle2, ShieldCheck, X, Printer } from 'lucide-react';
+import { openPrescriptionPrintWindow } from './prescriptionSheet';
 
 interface DispatchRxModalProps {
   isOpen: boolean;
@@ -13,6 +14,9 @@ interface DispatchRxModalProps {
   patientEmail: string;
   selectedLanguage: string;
   displayMode: DisplayMode;
+  /** Full self-contained prescription document HTML — shown as the live
+   * preview and used for Print / Save-as-PDF. */
+  sheetHtml?: string;
   onDispatchSuccess: (message: string) => void;
 }
 
@@ -24,6 +28,7 @@ export function DispatchRxModal({
   patientEmail,
   selectedLanguage,
   displayMode,
+  sheetHtml,
   onDispatchSuccess
 }: DispatchRxModalProps) {
   const [channel, setChannel] = useState<'whatsapp' | 'email' | 'sms'>('whatsapp');
@@ -66,7 +71,35 @@ export function DispatchRxModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full ${sheetHtml ? 'max-w-5xl grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] overflow-hidden max-h-[92vh]' : 'max-w-lg'} shadow-2xl`}>
+
+        {/* Full prescription preview — the actual document that is sent/printed */}
+        {sheetHtml && (
+          <div className="hidden lg:flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Prescription Preview</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!openPrescriptionPrintWindow(sheetHtml)) {
+                    onDispatchSuccess('Pop-up blocked — allow pop-ups to print the prescription.');
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print / Save PDF
+              </button>
+            </div>
+            <iframe
+              title="Prescription document preview"
+              srcDoc={sheetHtml}
+              sandbox=""
+              className="flex-1 w-full min-h-[520px] bg-white"
+            />
+          </div>
+        )}
+
+        <div className="p-6 space-y-5 overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 rounded-xl">
@@ -189,6 +222,19 @@ export function DispatchRxModal({
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+          {sheetHtml && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!openPrescriptionPrintWindow(sheetHtml)) {
+                  onDispatchSuccess('Pop-up blocked — allow pop-ups to print the prescription.');
+                }
+              }}
+              className="mr-auto px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl flex items-center gap-1.5 lg:hidden"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print / PDF
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -210,6 +256,7 @@ export function DispatchRxModal({
               </>
             )}
           </button>
+        </div>
         </div>
       </div>
     </div>

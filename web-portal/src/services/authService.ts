@@ -91,7 +91,9 @@ export const PERSONAS: Record<string, AuthUserSession> = {
  * 'cc-user' so SessionProvider can rebuild the session on reload.
  */
 
-export const AUTH_API_BASE = 'http://localhost:5000';
+export const AUTH_API_BASE =
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
+    'http://localhost:5000';
 export const TOKEN_STORAGE_KEY = 'token';
 export const USER_STORAGE_KEY = 'cc-user';
 
@@ -251,6 +253,9 @@ export function persistAuth(user: BackendUser, token: string): void {
   try {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    // Signal to Next.js middleware that a session exists
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `cc-session=1; path=/; max-age=86400; SameSite=Lax${secure}`;
   } catch {
     /* storage unavailable */
   }
@@ -260,6 +265,7 @@ export function clearStoredAuth(): void {
   try {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(USER_STORAGE_KEY);
+    document.cookie = 'cc-session=; path=/; max-age=0; SameSite=Lax';
   } catch {
     /* storage unavailable */
   }

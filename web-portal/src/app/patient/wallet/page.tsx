@@ -24,7 +24,7 @@ export default function DigitalHealthWallet() {
 
   const { data: walletRes, refetch } = useQuery({
     queryKey: ['patient_wallet', patientId],
-    queryFn: () => fetch(`http://localhost:5000/api/patient/${patientId}/wallet`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/patient/${patientId}/wallet`).then(res => res.json())
   });
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function DigitalHealthWallet() {
 
   // Hook into Event Bus for live updates on the patient's phone
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
 
     const handleRefresh = () => refetch();
 

@@ -13,12 +13,12 @@ export default function AppointmentCheckIn() {
 
   const { data: appointmentsRes, isLoading } = useQuery({
     queryKey: ['reception_appointments'],
-    queryFn: () => fetch('http://localhost:5000/api/reception/appointments').then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/reception/appointments`).then(res => res.json())
   });
 
   const checkinMutation = useMutation({
     mutationFn: (appointmentId: string) =>
-      fetch('http://localhost:5000/api/reception/checkin', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/reception/checkin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId, paymentCollected: true })

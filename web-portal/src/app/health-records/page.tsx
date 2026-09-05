@@ -1,237 +1,353 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import * as React from 'react';
+import Link from 'next/link';
 import {
-  Activity,
-  Pill,
-  FileText,
-  Stethoscope,
-  RefreshCw,
-  Download,
-  ShieldCheck,
-  Clock,
-  Calendar,
+    FileText, Pill, FlaskConical, ScanLine, Stethoscope, Calendar, User as UserIcon,
+    AlertTriangle, HeartPulse, Scissors, Users2, ChevronDown, ChevronRight, ExternalLink, WifiOff,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
-  PageHeader,
-  StatCard,
-  StatGrid,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  Badge,
-  Button,
-  Timeline,
-  TimelineItem,
+    PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription, CardContent,
+    Badge, Button, Timeline, TimelineItem, EmptyState, ErrorState, SkeletonCard, SkeletonTable,
 } from '@/components/ui';
+import { useSession } from '@/components/providers/SessionProvider';
+import {
+    fetchSummary, fetchTimeline, ApiHttpError, actorIsDoctor,
+    formatDate, formatDateTime, toClinicalReviewModel,
+    RECORD_STATUS_TONE,
+    type PatientSummary, type TimelineEntry, type TimelineRecordType,
+    type PrescriptionRecord, type LabReportRecord, type DiagnosticReportRecord,
+} from './_lib/api';
+import { ClinicalReviewActions } from './_components/ClinicalReviewActions';
 
-const MOCK_RECORDS = {
-  patientId: "PAT-123",
-  abdmLinked: true,
-  lastSynced: "2026-08-04T10:30:00Z",
-  conditions: [
-    { id: "DIAG-001", name: "Essential (primary) hypertension", code: "I10", status: "Active", date: "2026-08-03", doctor: "Dr. Sunita Sharma" },
-    { id: "DIAG-002", name: "Type 2 diabetes mellitus", code: "E11", status: "Active", date: "2025-11-15", doctor: "Dr. Anil Kumar" }
-  ],
-  medications: [
-    { id: "RX-001", name: "Amlodipine 5mg Tablet", dosage: "1 tablet daily", status: "Active", prescribed: "2026-08-03" },
-    { id: "RX-002", name: "Metformin 500mg", dosage: "1 tablet twice daily", status: "Active", prescribed: "2025-11-15" }
-  ],
-  visits: [
-    { id: "ENC-999", type: "Telemedicine", date: "2026-08-03", doctor: "Dr. Sunita Sharma", department: "Cardiology", summary: "Routine blood pressure check." },
-    { id: "ENC-888", type: "Outpatient", date: "2026-06-12", doctor: "Dr. Anil Kumar", department: "Endocrinology", summary: "HbA1c review and medication adjustment." }
-  ]
+const RECORD_TYPE_META: Record<TimelineRecordType, { icon: LucideIcon; label: string; tone: 'brand' | 'success' | 'warning' | 'danger' | 'neutral' }> = {
+    HEALTH_DOCUMENT: { icon: FileText, label: 'Captured document', tone: 'brand' },
+    PRESCRIPTION: { icon: Pill, label: 'Prescription', tone: 'success' },
+    LAB_REPORT: { icon: FlaskConical, label: 'Lab report', tone: 'warning' },
+    DIAGNOSTIC_REPORT: { icon: ScanLine, label: 'Diagnostic report', tone: 'neutral' },
+    CONSULTATION: { icon: Stethoscope, label: 'Consultation', tone: 'brand' },
 };
 
-export default function HealthRecordsPage() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isSyncing, setIsSyncing] = useState(false);
+function statusTone(status: string | null): 'success' | 'warning' | 'neutral' | 'danger' | 'info' {
+    if (!status) return 'neutral';
+    return (RECORD_STATUS_TONE as Record<string, 'success' | 'warning' | 'neutral' | 'danger' | 'info'>)[status] ?? 'neutral';
+}
 
-  const handleSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => setIsSyncing(false), 2000);
-  };
+type StructuredRecord = PrescriptionRecord | LabReportRecord | DiagnosticReportRecord;
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(MOCK_RECORDS, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `health-records-${MOCK_RECORDS.patientId}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+function findStructuredRecord(summary: PatientSummary | null, recordType: TimelineRecordType, recordId: string): StructuredRecord | null {
+    if (!summary) return null;
+    if (recordType === 'PRESCRIPTION') return summary.prescriptions.find((r) => r._id === recordId) ?? null;
+    if (recordType === 'LAB_REPORT') return summary.labReports.find((r) => r._id === recordId) ?? null;
+    if (recordType === 'DIAGNOSTIC_REPORT') return summary.diagnosticReports.find((r) => r._id === recordId) ?? null;
+    return null;
+}
 
-  const encountersTimeline = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Clinical Encounters Timeline</CardTitle>
-        <CardDescription>Consultations and visits pulled from your linked facilities.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Timeline>
-          {MOCK_RECORDS.visits.map((visit) => (
-            <TimelineItem
-              key={visit.id}
-              icon={Stethoscope}
-              tone="brand"
-              title={`${visit.department} Consultation`}
-              meta={
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3" aria-hidden />
-                  {new Date(visit.date).toLocaleDateString()}
-                </span>
-              }
-            >
-              <div className="mt-1 rounded-2xl border border-border bg-muted/40 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="brand">{visit.type}</Badge>
-                  <span className="text-sm font-medium text-foreground">{visit.doctor}</span>
+function Chips({ items, tone = 'neutral' }: { items: string[]; tone?: 'neutral' | 'danger' | 'info' }) {
+    if (items.length === 0) return <p className="text-sm text-muted-foreground">None on record.</p>;
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {items.map((item, i) => <Badge key={`${item}-${i}`} tone={tone}>{item}</Badge>)}
+        </div>
+    );
+}
+
+function StructuredRecordDetail({ record, recordType }: { record: StructuredRecord; recordType: TimelineRecordType }) {
+    if (recordType === 'PRESCRIPTION') {
+        const rx = record as PrescriptionRecord;
+        return (
+            <div className="space-y-2 text-sm">
+                {rx.doctorName && <p><span className="text-muted-foreground">Doctor: </span>{rx.doctorName}</p>}
+                {rx.diagnosis.length > 0 && <p><span className="text-muted-foreground">Diagnosis: </span>{rx.diagnosis.join(', ')}</p>}
+                <div className="overflow-x-auto rounded-xl border border-border">
+                    <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs text-muted-foreground">
+                            <tr>
+                                <th className="px-3 py-2 text-left font-medium">Medication</th>
+                                <th className="px-3 py-2 text-left font-medium">Strength</th>
+                                <th className="px-3 py-2 text-left font-medium">Frequency</th>
+                                <th className="px-3 py-2 text-left font-medium">Duration</th>
+                                <th className="px-3 py-2 text-left font-medium">Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {rx.medications.map((m, i) => (
+                                <tr key={i}>
+                                    <td className="px-3 py-2 font-medium text-foreground">{m.name ?? '—'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{m.strength ?? '—'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{m.frequency ?? '—'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{m.duration ?? '—'}</td>
+                                    <td className="px-3 py-2">{m.confidenceLevel ? <Badge tone={statusTone(m.confidenceLevel)}>{m.confidenceLevel}</Badge> : '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">{visit.summary}</p>
-                {MOCK_RECORDS.conditions.filter(c => c.date === visit.date).length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
-                    {MOCK_RECORDS.conditions.filter(c => c.date === visit.date).map(c => (
-                      <span key={c.id} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Activity className="h-4 w-4 text-danger" aria-hidden />
-                        {c.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </TimelineItem>
-          ))}
-        </Timeline>
-      </CardContent>
-    </Card>
-  );
+            </div>
+        );
+    }
+    if (recordType === 'LAB_REPORT') {
+        const lr = record as LabReportRecord;
+        return (
+            <div className="space-y-2 text-sm">
+                {lr.labName && <p><span className="text-muted-foreground">Lab: </span>{lr.labName}</p>}
+                <div className="overflow-x-auto rounded-xl border border-border">
+                    <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs text-muted-foreground">
+                            <tr>
+                                <th className="px-3 py-2 text-left font-medium">Test</th>
+                                <th className="px-3 py-2 text-left font-medium">Result</th>
+                                <th className="px-3 py-2 text-left font-medium">Reference range</th>
+                                <th className="px-3 py-2 text-left font-medium">Flag</th>
+                                <th className="px-3 py-2 text-left font-medium">Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {lr.results.map((r, i) => (
+                                <tr key={i}>
+                                    <td className="px-3 py-2 font-medium text-foreground">{r.testName ?? '—'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{r.result ?? '—'} {r.unit ?? ''}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{r.referenceRange ?? '—'}</td>
+                                    <td className="px-3 py-2">{r.flag ? <Badge tone="warning">{r.flag}</Badge> : '—'}</td>
+                                    <td className="px-3 py-2">{r.confidenceLevel ? <Badge tone={statusTone(r.confidenceLevel)}>{r.confidenceLevel}</Badge> : '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }
+    const dr = record as DiagnosticReportRecord;
+    return (
+        <div className="space-y-1.5 text-sm">
+            {dr.modality && <p><span className="text-muted-foreground">Modality: </span>{dr.modality}</p>}
+            {dr.findings && <p><span className="text-muted-foreground">Findings: </span>{dr.findings}</p>}
+            {dr.impression && <p><span className="text-muted-foreground">Impression: </span>{dr.impression}</p>}
+        </div>
+    );
+}
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="My Health Records"
-        description="Manage and view your complete medical history."
-        crumbs={[{ label: 'Home', href: '/' }, { label: 'Health Records' }]}
-        actions={
-          <>
-            <Badge tone="success" dot pulse className="px-3 py-1.5">
-              <ShieldCheck className="h-4 w-4" aria-hidden />
-              ABDM Linked
-            </Badge>
-            <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin text-primary' : ''}`} aria-hidden />
-              {isSyncing ? 'Syncing with NHA Gateway…' : 'Sync Records'}
-            </Button>
-            <Button variant="primary" onClick={handleExport}>
-              <Download className="h-4 w-4" aria-hidden />
-              Export FHIR
-            </Button>
-          </>
-        }
-      />
+export default function HealthRecordsPage() {
+    const { session } = useSession();
+    const patientId = session.userId;
+    const isDoctor = actorIsDoctor(session);
 
-      <StatGrid>
-        <StatCard label="Active Conditions" value={MOCK_RECORDS.conditions.length} icon={Activity} tone="rose" delay={0} sub={`Patient ${MOCK_RECORDS.patientId}`} />
-        <StatCard label="Current Medications" value={MOCK_RECORDS.medications.length} icon={Pill} tone="amber" delay={0.05} sub="All active prescriptions" />
-        <StatCard label="Past Visits" value={MOCK_RECORDS.visits.length} icon={Stethoscope} tone="brand" delay={0.1} sub="Across linked facilities" />
-        <StatCard label="Lab Reports" value="0" icon={FileText} tone="emerald" delay={0.15} sub={`Last synced ${new Date(MOCK_RECORDS.lastSynced).toLocaleDateString()}`} />
-      </StatGrid>
+    const [summary, setSummary] = React.useState<PatientSummary | null>(null);
+    const [timeline, setTimeline] = React.useState<TimelineEntry[]>([]);
+    const [demo, setDemo] = React.useState(false);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
+    const [refreshKey, setRefreshKey] = React.useState(0);
+    const refresh = React.useCallback(() => setRefreshKey((k) => k + 1), []);
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList aria-label="Health record sections">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="conditions">Conditions</TabsTrigger>
-          <TabsTrigger value="medications">Medications</TabsTrigger>
-          <TabsTrigger value="visits">Visits</TabsTrigger>
-        </TabsList>
+    const [expanded, setExpanded] = React.useState<string | null>(null);
 
-        <TabsContent value="overview">{encountersTimeline}</TabsContent>
-        <TabsContent value="visits">{encountersTimeline}</TabsContent>
+    React.useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+        Promise.all([fetchSummary(patientId), fetchTimeline(patientId)])
+            .then(([summaryRes, timelineRes]) => {
+                if (cancelled) return;
+                setSummary(summaryRes.data);
+                setTimeline(timelineRes.data);
+                setDemo(summaryRes.demo || timelineRes.demo);
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                setError(err instanceof ApiHttpError ? err.message : err instanceof Error ? err.message : 'Failed to load health records');
+            })
+            .finally(() => !cancelled && setLoading(false));
+        return () => { cancelled = true; };
+    }, [patientId, refreshKey]);
 
-        <TabsContent value="conditions">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {MOCK_RECORDS.conditions.map((condition, i) => (
-              <motion.div
-                key={condition.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card variant="interactive" className="h-full" onClick={() => router.push('/emr/patients/demo')}>
-                  <CardContent className="flex h-full flex-col justify-between gap-4 p-5">
-                    <div>
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">
-                            <Activity className="h-4 w-4" aria-hidden />
-                          </span>
-                          <Badge tone="outline" className="font-mono">ICD-10: {condition.code}</Badge>
+    const applyReviewedRecord = (recordType: TimelineRecordType, updated: StructuredRecord) => {
+        setSummary((prev) => {
+            if (!prev) return prev;
+            if (recordType === 'PRESCRIPTION') return { ...prev, prescriptions: prev.prescriptions.map((r) => r._id === updated._id ? { ...r, ...updated } as PrescriptionRecord : r) };
+            if (recordType === 'LAB_REPORT') return { ...prev, labReports: prev.labReports.map((r) => r._id === updated._id ? { ...r, ...updated } as LabReportRecord : r) };
+            if (recordType === 'DIAGNOSTIC_REPORT') return { ...prev, diagnosticReports: prev.diagnosticReports.map((r) => r._id === updated._id ? { ...r, ...updated } as DiagnosticReportRecord : r) };
+            return prev;
+        });
+    };
+
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                title="My Health Records"
+                description="Every document a doctor, nurse or receptionist has captured for you, plus AI-extracted prescriptions, lab reports and diagnostics — each shown with its human review status."
+                crumbs={[{ label: 'Home', href: '/' }, { label: 'Health Records' }]}
+                actions={demo ? <Badge tone="warning" dot pulse><WifiOff className="h-3.5 w-3.5" aria-hidden /> Backend offline</Badge> : undefined}
+            />
+
+            {error ? (
+                <ErrorState onRetry={refresh} description={error} />
+            ) : loading ? (
+                <div className="space-y-6">
+                    <StatGrid>{Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={1} />)}</StatGrid>
+                    <SkeletonTable rows={5} />
+                </div>
+            ) : demo && !summary ? (
+                <EmptyState
+                    icon={WifiOff}
+                    title="Requires a live backend connection"
+                    description="Health Record Capture reads real medical data only — nothing here is simulated. Start the backend at localhost:5000 and reload to see your timeline, documents and extracted records."
+                    action={{ label: 'Retry', onClick: refresh }}
+                />
+            ) : (
+                <>
+                    <StatGrid>
+                        <StatCard label="Documents captured" value={summary?.documentCounts.total ?? 0} icon={FileText} tone="brand" delay={0} />
+                        <StatCard label="Awaiting review" value={summary?.documentCounts.reviewRequired ?? 0} icon={AlertTriangle} tone="amber" delay={0.05} />
+                        <StatCard label="Active medications" value={summary?.medications.length ?? 0} icon={Pill} tone="emerald" delay={0.1} />
+                        <StatCard label="Known allergies" value={summary?.allergies.length ?? 0} icon={HeartPulse} tone="rose" delay={0.15} />
+                    </StatGrid>
+
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        <div className="space-y-6 lg:col-span-1">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base"><UserIcon className="h-4 w-4" aria-hidden /> Demographics</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-1.5 pt-0 text-sm">
+                                    <p className="font-semibold text-foreground">{summary?.demographics.name ?? '—'}</p>
+                                    <p className="text-muted-foreground">DOB: {summary?.demographics.dateOfBirth ? formatDate(summary.demographics.dateOfBirth) : '—'}</p>
+                                    <p className="text-muted-foreground">Gender: {summary?.demographics.gender ?? '—'}</p>
+                                    {summary?.demographics.bloodGroup && <Badge tone="danger">{summary.demographics.bloodGroup}</Badge>}
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-danger" aria-hidden /> Allergies</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0"><Chips items={summary?.allergies ?? []} tone="danger" /></CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base"><HeartPulse className="h-4 w-4" aria-hidden /> Chronic conditions</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0"><Chips items={summary?.chronicDiseases ?? []} tone="info" /></CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base"><Pill className="h-4 w-4" aria-hidden /> Current medications</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0"><Chips items={summary?.medications ?? []} /></CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base"><Scissors className="h-4 w-4" aria-hidden /> Surgeries</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0"><Chips items={summary?.surgeries ?? []} /></CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-base"><Users2 className="h-4 w-4" aria-hidden /> Family history</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0"><Chips items={summary?.familyHistory ?? []} /></CardContent>
+                            </Card>
                         </div>
-                        <Badge tone="success" dot>{condition.status}</Badge>
-                      </div>
-                      <h3 className="text-lg font-bold leading-tight text-foreground">{condition.name}</h3>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5" aria-hidden />
-                        Recorded {new Date(condition.date).toLocaleDateString()}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <Stethoscope className="h-3.5 w-3.5" aria-hidden />
-                        {condition.doctor}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </TabsContent>
 
-        <TabsContent value="medications">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {MOCK_RECORDS.medications.map((med, i) => (
-              <motion.div
-                key={med.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card variant="interactive" className="h-full" onClick={() => router.push('/medications')}>
-                  <CardContent className="p-5">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
-                          <Pill className="h-5 w-5" aria-hidden />
-                        </span>
-                        <div>
-                          <h3 className="text-base font-bold leading-tight text-foreground">{med.name}</h3>
-                          <p className="mt-0.5 text-sm text-muted-foreground">{med.dosage}</p>
+                        <div className="lg:col-span-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Timeline</CardTitle>
+                                    <CardDescription>Newest first — every captured document and extracted record, with its human review status.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {timeline.length === 0 ? (
+                                        <EmptyState icon={FileText} title="No health records yet" description="Once a document is captured (by you, a caregiver, or clinical staff), it will show up here." />
+                                    ) : (
+                                        <Timeline>
+                                            {timeline.map((entry, i) => {
+                                                const meta = RECORD_TYPE_META[entry.recordType];
+                                                const Icon = meta.icon;
+                                                const key = `${entry.recordType}-${entry.recordId}-${i}`;
+                                                const isExpandable = entry.recordType !== 'HEALTH_DOCUMENT' && entry.recordType !== 'CONSULTATION';
+                                                const isOpen = expanded === key;
+                                                const structured = isExpandable ? findStructuredRecord(summary, entry.recordType, entry.recordId) : null;
+                                                const reviewModel = toClinicalReviewModel(entry.recordType);
+
+                                                return (
+                                                    <TimelineItem
+                                                        key={key}
+                                                        icon={Icon}
+                                                        tone={meta.tone}
+                                                        title={entry.summary || meta.label}
+                                                        meta={
+                                                            <span className="inline-flex items-center gap-1.5">
+                                                                <Calendar className="h-3 w-3" aria-hidden />
+                                                                {formatDateTime(entry.date)}
+                                                            </span>
+                                                        }
+                                                    >
+                                                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                            <Badge tone="outline">{meta.label}</Badge>
+                                                            {entry.verificationStatus && <Badge tone={statusTone(entry.verificationStatus)}>{entry.verificationStatus}</Badge>}
+                                                            {entry.uploadedBy && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    by {entry.uploadedBy}{entry.uploadedByRole ? ` (${entry.uploadedByRole})` : ''}
+                                                                </span>
+                                                            )}
+                                                            {entry.source && <span className="text-xs text-subtle-foreground">· {entry.source}</span>}
+                                                        </div>
+
+                                                        <div className="mt-2">
+                                                            {entry.recordType === 'HEALTH_DOCUMENT' ? (
+                                                                <Link href={`/health-records/documents/${entry.recordId}`}>
+                                                                    <Button size="sm" variant="outline">
+                                                                        <ExternalLink className="h-3.5 w-3.5" aria-hidden /> View document
+                                                                    </Button>
+                                                                </Link>
+                                                            ) : isExpandable ? (
+                                                                <Button size="sm" variant="ghost" onClick={() => setExpanded(isOpen ? null : key)}>
+                                                                    {isOpen ? <ChevronDown className="h-3.5 w-3.5" aria-hidden /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden />}
+                                                                    {isOpen ? 'Hide details' : 'View details'}
+                                                                </Button>
+                                                            ) : null}
+                                                        </div>
+
+                                                        {isOpen && (
+                                                            <div className="mt-3 space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                                                                {structured ? (
+                                                                    <>
+                                                                        <StructuredRecordDetail record={structured} recordType={entry.recordType} />
+                                                                        {reviewModel && (
+                                                                            <div className="border-t border-border pt-3">
+                                                                                <ClinicalReviewActions
+                                                                                    model={reviewModel}
+                                                                                    id={structured._id}
+                                                                                    status={structured.status}
+                                                                                    isDoctor={isDoctor}
+                                                                                    onReviewed={(rec) => applyReviewedRecord(entry.recordType, rec)}
+                                                                                    dense
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <p className="text-sm text-muted-foreground">Structured record detail isn&apos;t available in your current summary — try refreshing.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </TimelineItem>
+                                                );
+                                            })}
+                                        </Timeline>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
-                      </div>
-                      <Badge tone="success" dot>{med.status}</Badge>
                     </div>
-                    <div className="flex items-center gap-1.5 border-t border-border pt-3 text-sm text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" aria-hidden />
-                      Prescribed on {new Date(med.prescribed).toLocaleDateString()}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+                </>
+            )}
+        </div>
+    );
 }

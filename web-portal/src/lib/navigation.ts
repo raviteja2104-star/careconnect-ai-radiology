@@ -5,6 +5,7 @@ import {
     DoorOpen, Building2, MonitorPlay, UserCheck, UserPlus, Tv, Command, Radar, Gauge,
     ServerCog, BrainCircuit, Receipt, Send, CalendarRange, FormInput, Workflow, Database,
     Sparkles, Boxes, Code2, Briefcase, Store, Factory, Target, Settings, HelpCircle,
+    MapPin, ShieldQuestion, Upload, ScanLine, ClipboardCheck, HeartHandshake, Share2,
     type LucideIcon,
 } from 'lucide-react';
 import type { AuthUserSession } from '@/services/authService';
@@ -32,8 +33,12 @@ export const NAV_GROUPS: NavGroup[] = [
         roles: ['PATIENT', 'SUPER_ADMIN'],
         items: [
             { name: 'Dashboard', path: '/', icon: LayoutDashboard, keywords: 'home overview' },
+            { name: 'CareConnect Nearby', path: '/nearby', icon: MapPin, keywords: 'find doctor hospital clinic lab pharmacy nearby search book' },
             { name: 'Appointments', path: '/appointments', icon: Calendar, keywords: 'book visit schedule' },
             { name: 'Health Records', path: '/health-records', icon: FileText, keywords: 'emr documents' },
+            { name: 'Add Health Record', path: '/health-records/capture', icon: ScanLine, keywords: 'scan prescription upload lab report discharge summary capture ai extraction' },
+            { name: 'Caregivers', path: '/health-records/caregivers', icon: HeartHandshake, keywords: 'attendant family authorization permission access' },
+            { name: 'Record Sharing', path: '/health-records/sharing', icon: Share2, keywords: 'share consent grant access history revoke' },
             { name: 'Prescriptions', path: '/prescriptions', icon: ClipboardList, keywords: 'rx' },
             { name: 'Lab Reports', path: '/lab-reports', icon: FilePlus, keywords: 'results tests' },
             { name: 'Radiology', path: '/radiology', icon: Scan, keywords: 'imaging xray mri' },
@@ -53,11 +58,13 @@ export const NAV_GROUPS: NavGroup[] = [
         roles: ['PHYSICIAN', 'NURSE', 'RADIOLOGIST', 'LAB_TECH', 'PHARMACIST', 'SUPER_ADMIN'],
         items: [
             { name: 'Doctor Dashboard', path: '/dashboard', icon: Stethoscope, keywords: 'physician overview' },
+            { name: 'Review Dashboard', path: '/health-records/dashboard', icon: ClipboardCheck, keywords: 'health record capture review queue clinician verification low confidence' },
             { name: 'My Queue', path: '/doctor/queue', icon: ListOrdered, keywords: 'patients waiting tokens' },
             { name: 'Consultations', path: '/consultations', icon: FolderHeart, keywords: 'soap notes visits' },
             { name: 'EMR', path: '/emr', icon: FileText, keywords: 'records charting' },
             { name: 'Patients', path: '/patients', icon: Users, keywords: 'directory list' },
             { name: 'Lab Orders', path: '/lab-orders', icon: FlaskConical, keywords: 'tests requisition' },
+            { name: 'Lab Worklist', path: '/lab/worklist', icon: FlaskConical, keywords: 'lis results entry verification samples technician' },
             { name: 'Pharmacy', path: '/pharmacy', icon: Pill, keywords: 'dispensing orders' },
             { name: 'Nurse Station', path: '/nurse-station', icon: HeartPulse, keywords: 'vitals ward' },
             { name: 'ICU', path: '/icu', icon: Activity, keywords: 'critical care monitors' },
@@ -67,6 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Emergency', path: '/emergency', icon: Siren, keywords: 'sos triage', badgeKey: 'alerts' },
             { name: 'EMS Dispatch', path: '/ems', icon: Ambulance, keywords: 'ambulance tracking' },
             { name: 'Teleradiology Worklist', path: '/teleradiology/worklist', icon: Scan, keywords: 'radiologist studies reading stat sla' },
+            { name: 'Provider Dashboard', path: '/nearby/provider/dashboard', icon: MapPin, keywords: 'nearby directory listing doctors services availability appointments' },
         ],
     },
     {
@@ -101,6 +109,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Form Builder', path: '/admin/forms/builder', icon: FormInput, keywords: 'consent eforms' },
             { name: 'Workflow Builder', path: '/admin/workflow-builder', icon: Workflow, keywords: 'bpm low-code' },
             { name: 'Master Data', path: '/admin/master-data', icon: Database, keywords: 'mdm catalog' },
+            { name: 'Billable Items', path: '/admin/billables', icon: Receipt, keywords: 'lab tests consumables ivd pricing gst master catalogue' },
             { name: 'AI Platform', path: '/admin/ai-platform', icon: Sparkles, keywords: 'models ml' },
             { name: 'Data Platform', path: '/admin/data-platform', icon: Boxes, keywords: 'warehouse pipelines' },
             { name: 'Developer', path: '/admin/developer', icon: Code2, keywords: 'api keys webhooks' },
@@ -108,6 +117,8 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Commercial', path: '/admin/commercial', icon: Store, keywords: 'saas plans' },
             { name: 'Production', path: '/admin/production', icon: Target, keywords: 'hardening readiness' },
             { name: 'Programs', path: '/admin/program', icon: Briefcase, keywords: 'initiatives' },
+            { name: 'Nearby Directory', path: '/admin/nearby', icon: ShieldQuestion, keywords: 'providers verification claims duplicates nearby' },
+            { name: 'Provider Import', path: '/admin/nearby/import', icon: Upload, keywords: 'excel csv import bulk providers upload' },
         ],
     },
     {
@@ -117,6 +128,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Messages', path: '/messages', icon: MessageSquare, badgeKey: 'messages', keywords: 'chat inbox' },
             { name: 'Notifications', path: '/notifications', icon: Bell, badgeKey: 'notifications', keywords: 'alerts' },
             { name: 'Settings', path: '/settings', icon: Settings, keywords: 'preferences profile theme' },
+            { name: 'Prescription Settings', path: '/settings/prescription', icon: ClipboardList, keywords: 'rx template letterhead signature print branding' },
             { name: 'Support', path: '/support', icon: HelpCircle, keywords: 'help tickets' },
         ],
     },
@@ -131,7 +143,7 @@ export function allNavItems(role: AuthUserSession['role']): NavItem[] {
 }
 
 /** Routes that render full-bleed without the sidebar/header chrome. */
-export const CHROMELESS_ROUTES = ['/display', '/kiosk', '/login'];
+export const CHROMELESS_ROUTES = ['/display', '/kiosk', '/login', '/home', '/business'];
 
 export function isChromeless(pathname: string): boolean {
     return CHROMELESS_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'));
@@ -141,13 +153,14 @@ export function isChromeless(pathname: string): boolean {
 
 type Role = AuthUserSession['role'];
 
-const CLINICAL_ROLES: Role[] = ['PHYSICIAN', 'NURSE', 'RADIOLOGIST', 'LAB_TECH', 'PHARMACIST', 'SUPER_ADMIN'];
+export const CLINICAL_ROLES: Role[] = ['PHYSICIAN', 'NURSE', 'RADIOLOGIST', 'LAB_TECH', 'PHARMACIST', 'SUPER_ADMIN'];
 
 /** Route-prefix access rules, checked longest-prefix-first. Unlisted routes are open to all roles. */
 const ROUTE_ACCESS: Array<{ prefix: string; roles: Role[] }> = [
     { prefix: '/admin', roles: ['SUPER_ADMIN'] },
     { prefix: '/teleradiology', roles: ['RADIOLOGIST', 'PHYSICIAN', 'SUPER_ADMIN'] },
     { prefix: '/reception', roles: ['SUPER_ADMIN'] },
+    { prefix: '/health-records/dashboard', roles: CLINICAL_ROLES },
     { prefix: '/emr', roles: CLINICAL_ROLES },
     { prefix: '/dashboard', roles: CLINICAL_ROLES },
     { prefix: '/doctor', roles: CLINICAL_ROLES },
@@ -162,6 +175,7 @@ const ROUTE_ACCESS: Array<{ prefix: string; roles: Role[] }> = [
     { prefix: '/bed-management', roles: CLINICAL_ROLES },
     { prefix: '/emergency', roles: CLINICAL_ROLES },
     { prefix: '/ems', roles: CLINICAL_ROLES },
+    { prefix: '/nearby/provider', roles: CLINICAL_ROLES },
 ];
 
 export function canAccessRoute(role: Role, pathname: string): boolean {

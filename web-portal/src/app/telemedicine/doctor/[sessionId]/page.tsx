@@ -33,7 +33,7 @@ export default function DoctorConsultationWorkspace({ params }: { params: Promis
 
   const endMutation = useMutation({
     mutationFn: () =>
-      fetch('http://localhost:5000/api/telemedicine/end', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/telemedicine/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, aiSummary })

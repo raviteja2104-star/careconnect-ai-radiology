@@ -20,7 +20,7 @@ export const WeeklyPlanner = ({ doctorId }: { doctorId: string | null }) => {
   // 1. Fetch Schedule from Backend
   const { data: scheduleData, isLoading } = useQuery({
     queryKey: ['schedule', doctorId],
-    queryFn: () => fetch(`http://localhost:5000/api/schedules/${doctorId}`).then(res => res.json()),
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/schedules/${doctorId}`).then(res => res.json()),
     enabled: !!doctorId
   });
 
@@ -34,7 +34,7 @@ export const WeeklyPlanner = ({ doctorId }: { doctorId: string | null }) => {
   // 2. Mutation to Save Schedule
   const saveMutation = useMutation({
     mutationFn: (newSchedule: any) =>
-      fetch(`http://localhost:5000/api/schedules`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/schedules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -47,6 +47,13 @@ const billingRoutes = require('./routes/billingRoutes');
 const systemRoutes = require('./routes/systemRoutes');
 const emrRoutes = require('./routes/emrRoutes');
 const auditRoutes = require('./routes/auditRoutes');
+const billableRoutes = require('./routes/billableRoutes');
+const lisRoutes = require('./routes/lisRoutes');
+const nearbyRoutes = require('./routes/nearbyRoutes');
+const healthRecordRoutes = require('./routes/healthRecordRoutes');
+const providerEnquiryRoutes = require('./routes/providerEnquiryRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const providerRegistrationRoutes = require('./routes/providerRegistrationRoutes');
 
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
@@ -55,6 +62,11 @@ require('./services/EmergencyOrchestrator');
 require('./services/TelemedicineSaga');
 require('./services/TeleradiologyIntake').init();
 require('./services/EmrReportSync').init();
+require('./services/BillableMasterService').init();
+require('./services/LabIntake').init();
+require('./services/MasterDataSeedService').init();
+require('./services/NearbySeedService').init();
+require('./services/ClinicalCatalogService').init();
 const OutboxWorker = require('./services/OutboxWorker');
 
 const app = express();
@@ -74,7 +86,12 @@ app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) return next();
     helmet({ crossOriginResourcePolicy: false })(req, res, next);
 });
-app.use(cors());
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+        : ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+}));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -110,7 +127,7 @@ app.get('/api/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development',
         services: {
             database: 'connected',
-            ai: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+            ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
         },
     });
 });
@@ -205,6 +222,16 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/emr', emrRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/masters/billables', billableRoutes);
+app.use('/api/lis', lisRoutes);
+app.use('/api/nearby', nearbyRoutes);
+app.use('/api/health-records', healthRecordRoutes);
+app.use('/api/provider-enquiry', providerEnquiryRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/provider', providerRegistrationRoutes);
+
+const userSearchRoutes = require('./routes/userSearchRoutes');
+app.use('/api/users', userSearchRoutes);
 
 // AI proxy route
 app.post('/api/ai/analyze-scan', async (req, res) => {
@@ -254,7 +281,7 @@ const forwardToAiService = (method) => async (req, res) => {
     }
 };
 aiClinicalProxy.get('/health', forwardToAiService('get'));
-['soap-draft', 'discharge-summary', 'radiology-draft', 'explain', 'differentials']
+['soap-draft', 'discharge-summary', 'radiology-draft', 'explain', 'differentials', 'medication-suggestions']
     .forEach((route) => aiClinicalProxy.post(`/${route}`, forwardToAiService('post')));
 app.use('/api/ai', aiClinicalProxy);
 
@@ -276,7 +303,10 @@ app.use(errorHandler);
 if (!process.env.VERCEL) {
     const { Server } = require('socket.io');
     const server = http.createServer(app);
-    const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+    const wsOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+        : ['http://localhost:3000', 'http://localhost:3001'];
+    const io = new Server(server, { cors: { origin: wsOrigins, methods: ['GET', 'POST'], credentials: true } });
     const { setupWebSocket } = require('./websocket/socketHandler');
     setupWebSocket(io);
     app.set('io', io);

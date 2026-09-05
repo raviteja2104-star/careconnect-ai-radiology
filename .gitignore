@@ -17,6 +17,7 @@ build/
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # OS
 .DS_Store
@@ -31,6 +32,11 @@ frontend/web-build/
 # Uploads (large binary files)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Health Record Capture — private document storage, deliberately NOT under
+# backend/uploads/ (which server.js serves publicly via express.static).
+# Never commit real patient documents.
+backend/uploads-secure/
 
 # Logs
 *.log

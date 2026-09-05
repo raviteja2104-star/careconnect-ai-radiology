@@ -24,6 +24,24 @@ const ConsentDocument = tryRequire('../models/ConsentDocument');
 
 const traceOf = (req) => req.headers['x-trace-id'] || uuidv4();
 
+/* ─────────────────── Clinical catalog (typeahead) ────────────────── */
+
+// GET /api/emr/catalog?kind=medication|complaint|diagnosis|lab_test&q=…
+exports.searchCatalog = async (req, res) => {
+    try {
+        const { kind, q } = req.query;
+        const allowed = ['medication', 'complaint', 'diagnosis', 'lab_test', 'duration', 'instruction'];
+        if (!allowed.includes(kind)) {
+            return res.status(400).json({ message: `kind must be one of ${allowed.join(', ')}` });
+        }
+        const ClinicalCatalog = require('../services/ClinicalCatalogService');
+        const suggestions = await ClinicalCatalog.search(kind, q, 12);
+        res.json({ suggestions });
+    } catch (err) {
+        res.status(500).json({ message: 'Catalog search failed', error: err.message });
+    }
+};
+
 async function safeFind(model, query, limit = 50) {
     if (!model) return [];
     try {
@@ -101,6 +119,91 @@ exports.getPatient360 = async (req, res) => {
     } catch (err) {
         console.error('[EMR] getPatient360 failed:', err.message);
         res.status(500).json({ message: 'Failed to build patient 360', error: err.message });
+    }
+};
+
+/* ──────────────── AI medication suggestions (CDS) ────────────────── */
+
+// POST /api/emr/ai/medication-suggestions
+// Decision support ONLY — never prescribes. Tries the Claude AI service
+// first; falls back to the curated first-line reference when unavailable.
+// Every suggestion is screened against the supplied patient context
+// (allergies, current medications, renal/pregnancy) before returning.
+exports.suggestMedications = async (req, res) => {
+    try {
+        const { diagnoses = [], symptoms = '', patient = {}, exclude = [] } = req.body || {};
+
+        if (!Array.isArray(diagnoses) || diagnoses.filter((d) => String(d).trim()).length === 0) {
+            return res.json({
+                source: 'insufficient',
+                suggestions: [],
+                notice: 'Additional patient information may be required before generating a reliable medication suggestion. Add at least one diagnosis.',
+            });
+        }
+
+        let source = 'reference';
+        let suggestions = [];
+        let notice = '';
+
+        // 1) Claude AI service (honest 503 when no key / unreachable).
+        try {
+            const axios = require('axios');
+            const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+            const { data } = await axios.post(
+                `${aiUrl}/api/ai/medication-suggestions`,
+                { diagnoses, symptoms, patient, exclude },
+                { timeout: 60000 }
+            );
+            if (data && data.needsMoreInfo) {
+                return res.json({
+                    source: 'ai',
+                    suggestions: [],
+                    notice: 'Additional patient information may be required before generating a reliable medication suggestion.'
+                        + (Array.isArray(data.missingInfo) && data.missingInfo.length ? ` Missing: ${data.missingInfo.join(', ')}.` : ''),
+                });
+            }
+            if (data && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+                source = 'ai';
+                suggestions = data.suggestions;
+                notice = data.note || '';
+            }
+        } catch {
+            // AI unavailable — fall through to the reference list.
+        }
+
+        // 2) Curated first-line reference fallback.
+        if (suggestions.length === 0) {
+            const TreatmentReference = require('../services/TreatmentReference');
+            suggestions = TreatmentReference.suggestFor(diagnoses, exclude);
+            source = 'reference';
+            notice = suggestions.length
+                ? 'Standard first-line reference options — verify against current guidelines and this patient\'s full context.'
+                : 'No reference suggestions available for the entered diagnoses. AI suggestions require the AI service to be configured.';
+        }
+
+        // 3) Per-patient safety screening on every suggestion.
+        const context = {
+            currentMedications: patient.currentMedications || [],
+            allergies: patient.allergies || [],
+            renalImpairment: Boolean(patient.renalImpairment),
+            pregnant: Boolean(patient.pregnant),
+        };
+        const screened = suggestions.map((s) => {
+            const flags = PrescriptionSafety.screen(
+                [{ name: s.generic || s.name, dose: s.dosage }],
+                context
+            );
+            return { ...s, warnings: flags };
+        });
+
+        res.json({
+            source,
+            suggestions: screened,
+            notice,
+            disclaimer: 'Clinical decision support only. The doctor must review, modify, and explicitly approve every medication. AI assists the doctor — the doctor makes the decision.',
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Medication suggestion failed', error: err.message });
     }
 };
 

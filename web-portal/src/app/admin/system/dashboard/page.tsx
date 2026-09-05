@@ -17,13 +17,13 @@ import {
 export default function ProductionDashboard() {
   const { data: healthRes } = useQuery({
     queryKey: ['system_health'],
-    queryFn: () => fetch('http://localhost:5000/api/system/health').then(res => res.json()),
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/system/health`).then(res => res.json()),
     refetchInterval: 5000
   });
 
   const { data: perfRes } = useQuery({
     queryKey: ['system_performance'],
-    queryFn: () => fetch('http://localhost:5000/api/system/performance').then(res => res.json()),
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/system/performance`).then(res => res.json()),
     refetchInterval: 5000
   });
 

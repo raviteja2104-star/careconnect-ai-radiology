@@ -19,6 +19,11 @@ import {
   Gauge,
   Footprints,
   MoonStar,
+  ScanLine,
+  Upload,
+  FlaskConical,
+  ClipboardList,
+  FileScan,
 } from 'lucide-react';
 import {
   LineChart,
@@ -71,6 +76,14 @@ const assistantActions = [
   { label: 'Check my symptoms', icon: Search, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400' },
   { label: 'Explain my lab report', icon: FileText, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
   { label: 'Suggest healthy habits', icon: Pill, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
+];
+
+const healthRecordCaptureActions = [
+  { label: 'Scan Prescription', href: '/health-records/capture?type=HANDWRITTEN_PRESCRIPTION', icon: ScanLine, tone: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400' },
+  { label: 'Upload Report', href: '/health-records/capture?type=DIAGNOSTIC_REPORT', icon: Upload, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400' },
+  { label: 'Add Lab Report', href: '/health-records/capture?type=LAB_REPORT', icon: FlaskConical, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
+  { label: 'Add Discharge Summary', href: '/health-records/capture?type=DISCHARGE_SUMMARY', icon: ClipboardList, tone: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400' },
+  { label: 'Upload Medical Document', href: '/health-records/capture', icon: FileScan, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
 ];
 
 const fadeUp = (delay = 0) => ({
@@ -254,6 +267,37 @@ export default function Home() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Add Health Record */}
+      <motion.div {...fadeUp(0.22)}>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Add Health Record</CardTitle>
+              <CardDescription>Photograph or upload a paper document — Claude reads it, you review and confirm every field.</CardDescription>
+            </div>
+            <Link href="/health-records">
+              <Button variant="link" size="sm">View All Records</Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {healthRecordCaptureActions.map((a) => (
+                <button
+                  key={a.label}
+                  onClick={() => router.push(a.href)}
+                  className="group flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card p-4 text-center shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-float"
+                >
+                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${a.tone}`}>
+                    <a.icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="text-xs font-medium leading-tight text-foreground">{a.label}</span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Recent consultations + medications */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

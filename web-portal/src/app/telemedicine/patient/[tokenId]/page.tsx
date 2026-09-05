@@ -26,7 +26,7 @@ export default function PatientVirtualWaitingRoom({ params }: { params: Promise<
 
   const joinMutation = useMutation({
     mutationFn: () =>
-      fetch('http://localhost:5000/api/telemedicine/join', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api/telemedicine/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokenId })
@@ -42,7 +42,7 @@ export default function PatientVirtualWaitingRoom({ params }: { params: Promise<
     joinMutation.mutate();
 
     // Listen for doctor start
-    const socket = io('http://localhost:5000');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000');
     socket.on('CONSULTATION_STARTED', (data) => {
       if (data.tokenId === tokenId) {
         setStatus('IN_CONSULTATION');

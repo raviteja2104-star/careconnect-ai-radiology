@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // Keep verification builds out of the dev server's .next — a production
+  // build while `next dev` runs otherwise clobbers its cache and live routes
+  // start 404ing until the dev server restarts.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
 };
 
 export default nextConfig;

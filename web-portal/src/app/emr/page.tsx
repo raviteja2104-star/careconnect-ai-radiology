@@ -20,6 +20,8 @@ import {
 } from '@/services/prescriptionTranslationService';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { DispatchRxModal } from '@/components/DispatchRxModal';
+import { SuggestInput } from './_components/SuggestInput';
+import { buildPrescriptionHtml, openPrescriptionPrintWindow } from '@/components/prescriptionSheet';
 import { ALL_SPECIALTIES, Specialty } from '@/services/specialtyService';
 import { SpecialtySelectorModal } from '@/components/specialty/SpecialtySelectorModal';
 import { PediatricsWidget } from '@/components/specialty/PediatricsWidget';
@@ -110,6 +112,9 @@ export default function EMRDashboard() {
   const [translationVersion, setTranslationVersion] = useState<number>(1);
 
   const handlePrintRx = () => {
+    // Data-driven, self-contained document — styled offline, no CDN needed.
+    if (openPrescriptionPrintWindow(rxSheetHtml)) return;
+
     const printContent = document.getElementById('printable-rx-area');
     if (!printContent) {
       window.print();
@@ -178,6 +183,17 @@ export default function EMRDashboard() {
   // Mock Drug Database
   const drugDatabase = ['Atorvastatin', 'Amoxicillin', 'Lisinopril', 'Omeprazole', 'Azithromycin', 'Paracetamol', 'Ibuprofen', 'Pantoprazole', 'Telmisartan', 'Amlodipine'];
   const filteredDrugs = drugDatabase.filter(d => d.toLowerCase().includes(newDrug.name.toLowerCase()));
+
+  // Complete prescription document (self-contained HTML) built from the live
+  // consultation state — used for the dispatch preview, print, and PDF.
+  const rxSheetHtml = React.useMemo(() => buildPrescriptionHtml({
+    settings: rxSettings,
+    patient: { name: 'Rohit Sharma', ageSex: '32y / M', id: 'PT-0001234', mobile: '+91 98765 43210' },
+    symptoms: chiefComplaint,
+    diagnosis: assessment,
+    advice: plan,
+    drugs: prescriptions,
+  }), [rxSettings, chiefComplaint, assessment, plan, prescriptions]);
 
   const handleAddPrescription = () => {
     if (!newDrug.name) return;
@@ -300,6 +316,11 @@ export default function EMRDashboard() {
                   <Button variant="outline" title="Print Prescription (Rx)" onClick={() => setShowPrescriptionModal(true)}>
                     <Printer className="h-4 w-4 text-primary" aria-hidden /> Preview Rx
                   </Button>
+                  <Link href="/settings/prescription">
+                    <Button variant="outline" title="Configure prescription template, letterhead, signature & branding">
+                      <Settings className="h-4 w-4 text-primary" aria-hidden /> Prescription Settings
+                    </Button>
+                  </Link>
                   <Button onClick={() => router.push('/consultations')}>
                     <Plus className="h-4 w-4" aria-hidden /> New Consultation
                   </Button>
@@ -606,29 +627,22 @@ export default function EMRDashboard() {
                   <div className="flex flex-col gap-6 xl:flex-row">
                     {/* Form side */}
                     <div className="flex-1 space-y-4">
-                      <div className="relative">
+                      <div>
                         <Label htmlFor="emr-drug-name">Drug Name</Label>
-                        <Input
+                        <SuggestInput
                           id="emr-drug-name"
-                          icon={<Search />}
-                          type="text"
-                          placeholder="Search medication…"
+                          kind="medication"
                           value={newDrug.name}
-                          onChange={(e) => {
-                            setNewDrug({ ...newDrug, name: e.target.value });
-                            setShowDrugSuggestions(true);
-                          }}
-                          onBlur={() => setTimeout(() => setShowDrugSuggestions(false), 200)}
+                          onChange={(v) => setNewDrug({ ...newDrug, name: v })}
+                          onSelect={(item) => setNewDrug({
+                            ...newDrug,
+                            name: item.meta?.generic
+                              ? `${item.meta.brand || item.meta.generic}${item.meta.brand && item.meta.generic ? ` (${item.meta.generic})` : ''}`
+                              : (item.meta?.brand || item.label),
+                            dose: newDrug.dose || item.meta?.strength || '',
+                          })}
+                          placeholder="Start typing — e.g. Dolo, Monticope, Metf…"
                         />
-                        {showDrugSuggestions && newDrug.name && (
-                          <SuggestionPopover
-                            items={filteredDrugs}
-                            onSelect={(drug) => {
-                              setNewDrug({ ...newDrug, name: drug });
-                              setShowDrugSuggestions(false);
-                            }}
-                          />
-                        )}
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
@@ -656,23 +670,24 @@ export default function EMRDashboard() {
                         </div>
                         <div>
                           <Label htmlFor="emr-drug-duration">Duration</Label>
-                          <Input
+                          <SuggestInput
                             id="emr-drug-duration"
-                            type="text"
-                            placeholder="e.g. 5 days"
+                            kind="duration"
                             value={newDrug.duration}
-                            onChange={(e) => setNewDrug({ ...newDrug, duration: e.target.value })}
+                            onChange={(v) => setNewDrug({ ...newDrug, duration: v })}
+                            placeholder="e.g. 5 days"
                           />
                         </div>
                       </div>
                       <div>
                         <Label htmlFor="emr-drug-instructions">Instructions</Label>
-                        <Input
+                        <SuggestInput
                           id="emr-drug-instructions"
-                          type="text"
-                          placeholder="e.g. After meals"
+                          kind="instruction"
+                          commaSeparated
                           value={newDrug.instructions}
-                          onChange={(e) => setNewDrug({ ...newDrug, instructions: e.target.value })}
+                          onChange={(v) => setNewDrug({ ...newDrug, instructions: v })}
+                          placeholder="e.g. After Breakfast (comma-separate multiple)"
                         />
                       </div>
                       <Button
@@ -2180,6 +2195,7 @@ export default function EMRDashboard() {
         isOpen={showDispatchModal}
         onClose={() => setShowDispatchModal(false)}
         patientName="Rohit Sharma"
+        sheetHtml={rxSheetHtml}
         patientPhone="+91 98765 43210"
         patientEmail="rohit.sharma@example.com"
         selectedLanguage={preferredLanguage}
