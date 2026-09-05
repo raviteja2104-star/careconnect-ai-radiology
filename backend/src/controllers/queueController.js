@@ -64,6 +64,27 @@ exports.getDepartmentQueue = async (req, res) => {
   }
 };
 
+// @desc    Complete a consultation (close the token)
+// @route   POST /api/queue/complete/:id
+exports.completeToken = async (req, res) => {
+  try {
+    const token = await QueueToken.findById(req.params.id);
+    if (!token) return res.status(404).json({ success: false, error: 'Token not found' });
+
+    token.status = 'COMPLETED';
+    token.completedAt = Date.now();
+    await token.save();
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('QUEUE_UPDATED', { department: token.department });
+    }
+
+    res.json({ success: true, data: token });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Call a token
 // @route   POST /api/queue/call/:id
 exports.callToken = async (req, res) => {

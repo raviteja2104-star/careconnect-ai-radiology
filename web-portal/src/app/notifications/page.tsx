@@ -1,9 +1,10 @@
 'use client';
 import React, { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, BellOff, CalendarClock, FlaskConical, Pill, CreditCard,
-  ShieldCheck, Check, CheckCheck, type LucideIcon,
+  ShieldCheck, Check, CheckCheck, AlertTriangle, Activity, type LucideIcon,
 } from 'lucide-react';
 import {
   PageHeader,
@@ -15,18 +16,25 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  SkeletonCard,
 } from '@/components/ui';
 
-type NotificationCategory = 'appointment' | 'lab' | 'medication' | 'billing' | 'security';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+type NotificationCategory = 'appointment' | 'lab' | 'medication' | 'billing' | 'security' | 'system' | 'general';
 
 interface AppNotification {
   id: string;
+  _id?: string;
   category: NotificationCategory;
   title: string;
   body: string;
+  message?: string;
   time: string;
+  createdAt?: string;
   group: 'Today' | 'Yesterday' | 'Earlier';
   read: boolean;
+  isRead?: boolean;
 }
 
 const CATEGORY_CFG: Record<NotificationCategory, { icon: LucideIcon; tile: string; label: string }> = {
@@ -35,36 +43,92 @@ const CATEGORY_CFG: Record<NotificationCategory, { icon: LucideIcon; tile: strin
   medication:  { icon: Pill, tile: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400', label: 'Medication' },
   billing:     { icon: CreditCard, tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400', label: 'Billing' },
   security:    { icon: ShieldCheck, tile: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400', label: 'Security' },
+  system:      { icon: Activity, tile: 'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400', label: 'System' },
+  general:     { icon: Bell, tile: 'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400', label: 'Notification' },
 };
 
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  { id: 'NTF-001', category: 'appointment', title: 'Appointment confirmed', body: 'Your teleconsultation with Dr. Sunita Sharma (Cardiology) is confirmed for 12 Aug 2026, 10:30 AM.', time: '9:42 AM', group: 'Today', read: false },
-  { id: 'NTF-002', category: 'lab', title: 'Lab report ready', body: 'Your Complete Blood Count (CBC) report LR-2026-8812 is now available to view and download.', time: '8:15 AM', group: 'Today', read: false },
-  { id: 'NTF-003', category: 'medication', title: 'Refill reminder', body: 'Lisinopril 10mg has 0 refills remaining. Request a refill before 10 Aug 2026 to avoid missed doses.', time: '7:00 AM', group: 'Today', read: false },
-  { id: 'NTF-004', category: 'billing', title: 'Payment received', body: 'We received your payment of ₹1,250 for invoice INV-2026-0781 (Central Pathology).', time: '6:20 PM', group: 'Yesterday', read: true },
-  { id: 'NTF-005', category: 'security', title: 'New sign-in detected', body: 'A new sign-in to your account from Chrome on Windows was detected in Hyderabad, IN.', time: '2:05 PM', group: 'Yesterday', read: false },
-  { id: 'NTF-006', category: 'appointment', title: 'Visit summary available', body: 'The visit summary for your Endocrinology consultation on 12 Jun 2026 has been added to your records.', time: '13 Jun 2026', group: 'Earlier', read: true },
-  { id: 'NTF-007', category: 'lab', title: 'Sample collected', body: 'Your Metabolic Panel (BMP) sample was collected. Results are expected within 48 hours.', time: '29 Jul 2026', group: 'Earlier', read: true },
-];
+function getGroup(createdAt?: string): AppNotification['group'] {
+  if (!createdAt) return 'Earlier';
+  const d = new Date(createdAt);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 86400000 && d.getDate() === now.getDate()) return 'Today';
+  if (diff < 172800000) return 'Yesterday';
+  return 'Earlier';
+}
+
+function formatTime(createdAt?: string): string {
+  if (!createdAt) return '—';
+  const d = new Date(createdAt);
+  const group = getGroup(createdAt);
+  if (group === 'Today' || group === 'Yesterday') {
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function mapNotification(n: any): AppNotification {
+  const category = (n.category || n.type || 'general').toLowerCase() as NotificationCategory;
+  return {
+    id: n._id || n.id,
+    _id: n._id || n.id,
+    category: CATEGORY_CFG[category] ? category : 'general',
+    title: n.title || n.subject || 'Notification',
+    body: n.body || n.message || n.description || '',
+    time: formatTime(n.createdAt || n.timestamp),
+    createdAt: n.createdAt || n.timestamp,
+    group: getGroup(n.createdAt || n.timestamp),
+    read: !!(n.read || n.isRead),
+  };
+}
 
 const GROUPS: AppNotification['group'][] = ['Today', 'Yesterday', 'Earlier'];
 
-export default function notificationsPage() {
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
+export default function NotificationsPage() {
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  const getAuthHeader = (): Record<string, string> => {
+    if (typeof window === 'undefined') return {};
+    const token = localStorage.getItem('token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
+  const { data: raw, isLoading } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/notifications`, { headers: getAuthHeader() })
+        .then(r => r.json()),
+    refetchInterval: 30000,
+  });
+
+  const notifications: AppNotification[] = useMemo(() => {
+    const list = raw?.data || raw?.notifications || [];
+    return Array.isArray(list) ? list.map(mapNotification) : [];
+  }, [raw]);
+
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`${API_BASE}/api/notifications/${id}/read`, {
+        method: 'PUT',
+        headers: getAuthHeader(),
+      }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${API_BASE}/api/notifications/read-all`, {
+        method: 'PUT',
+        headers: getAuthHeader(),
+      }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markRead = (id: string) => {
-    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
-  };
-
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
   const visible = useMemo(
-    () => (filter === 'unread' ? notifications.filter(n => !n.read) : notifications),
+    () => filter === 'unread' ? notifications.filter(n => !n.read) : notifications,
     [notifications, filter]
   );
 
@@ -75,7 +139,12 @@ export default function notificationsPage() {
         description="Updates about your appointments, reports, medications and account."
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Notifications' }]}
         actions={
-          <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
+          <Button
+            variant="outline"
+            onClick={() => markAllReadMutation.mutate()}
+            disabled={unreadCount === 0 || markAllReadMutation.isPending}
+            loading={markAllReadMutation.isPending}
+          >
             <CheckCheck className="h-4 w-4" aria-hidden /> Mark all as read
           </Button>
         }
@@ -92,11 +161,13 @@ export default function notificationsPage() {
           </TabsList>
         </Tabs>
         <span className="text-sm text-muted-foreground tabular-nums">
-          {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+          {isLoading ? 'Loading…' : unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
         </span>
       </div>
 
-      {visible.length === 0 ? (
+      {isLoading ? (
+        <SkeletonCard />
+      ) : visible.length === 0 ? (
         <Card>
           <CardContent className="p-6">
             <EmptyState
@@ -128,7 +199,7 @@ export default function notificationsPage() {
                 <ul className="divide-y divide-border">
                   <AnimatePresence initial={false}>
                     {items.map((n, i) => {
-                      const cfg = CATEGORY_CFG[n.category];
+                      const cfg = CATEGORY_CFG[n.category] || CATEGORY_CFG.general;
                       const Icon = cfg.icon;
                       return (
                         <motion.li
@@ -160,7 +231,8 @@ export default function notificationsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={() => markRead(n.id)}
+                                onClick={() => markReadMutation.mutate(n.id)}
+                                disabled={markReadMutation.isPending}
                                 aria-label={`Mark "${n.title}" as read`}
                                 title="Mark as read"
                               >

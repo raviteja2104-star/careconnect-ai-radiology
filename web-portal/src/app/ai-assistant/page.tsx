@@ -18,13 +18,7 @@ const SUGGESTIONS = [
   { icon: Stethoscope, label: 'What do my radiology findings mean?' },
 ];
 
-// Mock canned responses — no backend is wired up yet.
-const MOCK_REPLIES = [
-  'I can help with that. Based on your records, everything in your most recent visit looks stable. Would you like a plain-language summary or the full clinical detail?',
-  'Here is what I found in your health record. Your last three results are within normal ranges, and there are no pending action items from your care team.',
-  'Good question. I have flagged this for context from your care history — in the full release I will pull the exact documents and walk you through them line by line.',
-  'I have noted that. You can also ask me about appointments, prescriptions, lab results, or imaging reports any time.',
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
 export default function aiassistantPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -38,7 +32,6 @@ export default function aiassistantPage() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const nextId = useRef(2);
-  const replyIndex = useRef(0);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,18 +39,36 @@ export default function aiassistantPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, isTyping]);
 
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isTyping) return;
-    setMessages((prev) => [...prev, { id: nextId.current++, role: 'user', content: trimmed }]);
+    const userMsg: ChatMessage = { id: nextId.current++, role: 'user', content: trimmed };
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
-    const reply = MOCK_REPLIES[replyIndex.current % MOCK_REPLIES.length];
-    replyIndex.current += 1;
-    setTimeout(() => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_BASE}/api/ai/health`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ question: trimmed, context: 'patient-health-assistant' }),
+      });
+      const json = await res.json();
+      const reply: string = json?.data?.answer ?? json?.answer ?? json?.message
+        ?? (res.ok ? 'I received your question. Please check back shortly.' : 'The AI service is currently unavailable. Please try again later or contact your care team directly.');
       setMessages((prev) => [...prev, { id: nextId.current++, role: 'assistant', content: reply }]);
+    } catch {
+      setMessages((prev) => [...prev, {
+        id: nextId.current++,
+        role: 'assistant',
+        content: 'I am unable to connect to the AI service right now. Please try again in a moment, or contact your care team directly for urgent questions.',
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 1100);
+    }
   };
 
   const showSuggestions = messages.length <= 1 && !isTyping;

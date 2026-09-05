@@ -133,12 +133,12 @@ export default function DoctorQueueWorkspace() {
                   <Button
                     size="lg"
                     className="flex-1"
-                    onClick={() => {
-                      // Complete logic here
-                      queryClient.invalidateQueries({ queryKey: ['queue', department] });
-                    }}
+                    disabled={completeMutation.isPending}
+                    loading={completeMutation.isPending}
+                    onClick={() => completeMutation.mutate(activeToken._id)}
                   >
-                    <CheckCircle className="h-5 w-5" aria-hidden /> Complete Consultation
+                    <CheckCircle className="h-5 w-5" aria-hidden />
+                    {completeMutation.isPending ? 'Completing…' : 'Complete Consultation'}
                   </Button>
                   <Button size="lg" variant="secondary" onClick={() => setShowTransferModal(true)}>
                     <ArrowRight className="h-5 w-5" aria-hidden /> Transfer Patient

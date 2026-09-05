@@ -44,35 +44,64 @@ router.get('/overview', protect, async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
-// ── GET /activity — live activity feed ────────────────────────────────────────
+// ── GET /activity — live activity feed from audit log ────────────────────────
 router.get('/activity', protect, async (req, res, next) => {
     try {
-        res.json({
-            success: true,
-            data: [
-                { time: '2 min ago', event: 'CT Head scan uploaded for Emma Grey', type: 'RADIOLOGY', icon: 'x-ray', color: 'blue' },
-                { time: '5 min ago', event: 'AI flagged hemorrhage — 96% confidence', type: 'AI ALERT', icon: 'brain', color: 'red' },
-                { time: '8 min ago', event: 'Prescription generated for Ravi Teja', type: 'EMR', icon: 'file-prescription', color: 'teal' },
-                { time: '12 min ago', event: 'Wallet recharged ₹5,000 — CareConnect Hub', type: 'BILLING', icon: 'wallet', color: 'emerald' },
-                { time: '18 min ago', event: 'Lab results ready — CBC Panel (Kabir Das)', type: 'LAB', icon: 'vial', color: 'purple' },
-                { time: '25 min ago', event: 'SOS dispatched — Ambulance en route to Banjara Hills', type: 'EMERGENCY', icon: 'truck-medical', color: 'red' },
-                { time: '30 min ago', event: 'ABDM consent granted by Anita Sharma', type: 'COMPLIANCE', icon: 'fingerprint', color: 'orange' },
-            ]
+        if (!isDB()) {
+            return res.json({ success: true, data: [] });
+        }
+        const AuditLog = require('../models/AuditLog');
+        const logs = await AuditLog.find({})
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .lean();
+        const data = logs.map(log => {
+            const ageMs = Date.now() - new Date(log.createdAt).getTime();
+            const ageMins = Math.floor(ageMs / 60000);
+            const time = ageMins < 1 ? 'just now'
+                : ageMins < 60 ? `${ageMins} min ago`
+                : ageMins < 1440 ? `${Math.floor(ageMins / 60)}h ago`
+                : new Date(log.createdAt).toLocaleDateString('en-IN');
+            return {
+                time,
+                event: `${log.action} on ${log.resource}`,
+                type: (log.resource || 'SYSTEM').toUpperCase(),
+                icon: 'activity',
+                color: log.result === 'failure' ? 'red' : 'teal',
+                actorId: log.actorId,
+            };
         });
+        res.json({ success: true, data });
     } catch (err) { next(err); }
 });
 
-// ── GET /appointments — upcoming appointments ─────────────────────────────────
+// ── GET /appointments — today's upcoming appointments ─────────────────────────
 router.get('/appointments', protect, async (req, res, next) => {
     try {
-        res.json({
-            success: true,
-            data: [
-                { name: 'Priya Sharma', type: 'Follow-Up', time: '11:30 AM', avatar: 'P' },
-                { name: 'Kabir Das', type: 'Radiology Review', time: '12:00 PM', avatar: 'K' },
-                { name: 'Sanjay Gupta', type: 'New Consultation', time: '02:30 PM', avatar: 'S' },
-            ]
-        });
+        if (!isDB()) {
+            return res.json({ success: true, data: [] });
+        }
+        const Appointment = require('../models/Appointment');
+        const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(); dayEnd.setHours(23, 59, 59, 999);
+        const filter = { scheduledAt: { $gte: dayStart, $lte: dayEnd }, status: { $ne: 'cancelled' } };
+        if (req.user.role === 'doctor') filter.doctor = req.user._id;
+        const appts = await Appointment.find(filter)
+            .sort({ scheduledAt: 1 })
+            .limit(10)
+            .populate('patient', 'name')
+            .lean();
+        const data = appts.map(a => ({
+            _id: a._id,
+            name: a.patient?.name || a.patientName || 'Unknown',
+            type: a.type || 'Consultation',
+            time: a.scheduledAt
+                ? new Date(a.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                : '—',
+            avatar: (a.patient?.name || 'U').charAt(0).toUpperCase(),
+            status: a.status,
+        }));
+        res.json({ success: true, data });
     } catch (err) { next(err); }
 });
 

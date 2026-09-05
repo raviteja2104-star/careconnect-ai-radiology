@@ -4,13 +4,15 @@ const { protect, authorize } = require('../middleware/auth');
 const {
   generateToken,
   getDepartmentQueue,
-  callToken
+  callToken,
+  completeToken
 } = require('../controllers/queueController');
 
 // Staff-only queue mutations (no dedicated 'reception' role exists; front-desk
 // flows are gated to 'admin'/'doctor').
 router.route('/token').post(protect, authorize('admin', 'doctor', 'reception'), generateToken);
 router.route('/call/:id').post(protect, authorize('admin', 'doctor', 'reception'), callToken);
+router.route('/complete/:id').post(protect, authorize('admin', 'doctor', 'reception'), completeToken);
 
 // PUBLIC: read-only department queue consumed by the unauthenticated waiting-room
 // TV board (web-portal/src/app/display/page.tsx fetches GET /api/queue/OPD).
