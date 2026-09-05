@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSession } from '@/components/providers/SessionProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     HeartPulse, Search, MapPin, Stethoscope, FlaskConical, Building2,
@@ -141,6 +142,8 @@ const stagger = {
 /* ─── component ──────────────────────────────────────────────────────── */
 export default function HomePage() {
     const router = useRouter();
+    const { isAuthenticated } = useSession();
+    const ctaHref = isAuthenticated ? '/nearby' : '/login/patient';
     const [activeTab, setActiveTab]       = useState<SearchCategory>('doctor');
     const [searchQuery, setSearchQuery]   = useState('');
     const [location, setLocation]         = useState('');
@@ -187,7 +190,7 @@ export default function HomePage() {
                                 className="hidden sm:inline-flex text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-50">
                                 Sign In
                             </Link>
-                            <Link href="/login/patient"
+                            <Link href={ctaHref}
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-all">
                                 Get Started <ArrowRight className="h-3.5 w-3.5" />
                             </Link>
@@ -216,7 +219,7 @@ export default function HomePage() {
                             </nav>
                             <div className="flex gap-2 pt-3 border-t border-gray-100">
                                 <Link href="/login" className="flex-1 text-center rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Sign In</Link>
-                                <Link href="/login/patient" className="flex-1 text-center rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Get Started</Link>
+                                <Link href={ctaHref} className="flex-1 text-center rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Get Started</Link>
                             </div>
                         </motion.div>
                     )}
@@ -419,7 +422,7 @@ export default function HomePage() {
 
                     <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
                         className="mt-14 text-center">
-                        <Link href="/login/patient"
+                        <Link href={ctaHref}
                             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm">
                             Start Your Healthcare Journey <ArrowRight className="h-4 w-4" />
                         </Link>
@@ -786,9 +789,9 @@ export default function HomePage() {
                             Join thousands of patients who find, book and manage their complete healthcare journey on CareConnect.
                         </p>
                         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                            <Link href="/login/patient"
+                            <Link href={ctaHref}
                                 className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-black text-blue-700 shadow-xl hover:bg-blue-50 active:scale-[0.98] transition-all">
-                                Create Free Account <ArrowRight className="h-5 w-5" />
+                                {isAuthenticated ? 'Find Healthcare' : 'Create Free Account'} <ArrowRight className="h-5 w-5" />
                             </Link>
                             <Link href="/nearby"
                                 className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/12 px-8 py-4 text-base font-bold text-white backdrop-blur-sm hover:bg-white/22 transition-all">
