@@ -1,8 +1,6 @@
 {
-  "version": 2,
   "framework": "nextjs",
-  "buildCommand": "cd .. && npm run build --workspace=web-portal",
-  "outputDirectory": "web-portal/.next",
+  "installCommand": "npm install --legacy-peer-deps",
   "headers": [
     {
       "source": "/(.*)",
