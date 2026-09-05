@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Routes accessible without a session
-const PUBLIC_PATHS = new Set(['/login', '/home', '/business', '/display', '/kiosk']);
+const PUBLIC_PATHS = new Set(['/', '/login', '/home', '/business', '/display', '/kiosk']);
 
 // Prefixes that are always allowed through
 const PUBLIC_PREFIXES = ['/api/', '/_next/', '/favicon', '/.well-known/'];
