@@ -189,7 +189,7 @@ export function canAccessRoute(role: Role, pathname: string): boolean {
  *  clinical roles arriving there are redirected to their own workspace. */
 export function homeForRole(role: Role): string {
     switch (role) {
-        case 'PATIENT': return '/';
+        case 'PATIENT': return '/nearby';
         case 'RADIOLOGIST': return '/teleradiology/worklist';
         case 'SUPER_ADMIN': return '/admin';
         default: return '/dashboard';

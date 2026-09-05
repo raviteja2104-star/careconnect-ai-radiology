@@ -23,7 +23,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // App separation: each role lives in its own app. Blocked routes redirect
     // to the role's home (patients can never see clinical/admin surfaces, and
     // clinicians land on their workspace instead of the patient portal).
-    const blocked = hydrated && (
+    // Chromeless routes (/, /home, /login, /business, …) are public surfaces —
+    // never apply role-based redirects there, even in demo mode.
+    const chromeless = isChromeless(pathname);
+    const blocked = hydrated && !chromeless && (
         !canAccessRoute(session.role, pathname) || isPatientOnlyHome(session.role, pathname)
     );
     React.useEffect(() => {

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
     HeartPulse, Mail, Lock, Phone, User, ShieldCheck, Activity, Scan, Sparkles,
@@ -39,6 +39,7 @@ interface WrongPortal {
 
 export function PortalLogin({ portal }: { portal: LoginPortal }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { signIn } = useSession();
     const [tab, setTab] = React.useState('login');
 
@@ -59,9 +60,15 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
     const finishAuth = React.useCallback(
         (user: Parameters<typeof signIn>[0], token: string) => {
             signIn(user, token);
-            router.push(homeForRole(mapBackendRole(user.role)));
+            const next = searchParams.get('next');
+            // Validate next: must be an internal path, not another login page
+            const destination =
+                next && next.startsWith('/') && !next.startsWith('/login')
+                    ? next
+                    : homeForRole(mapBackendRole(user.role));
+            router.push(destination);
         },
-        [signIn, router]
+        [signIn, router, searchParams]
     );
 
     const handleLogin = async (e: React.FormEvent) => {

@@ -24,5 +24,9 @@ export default function PortalLoginPage({ params }: { params: Promise<{ portal: 
         );
     }
 
-    return <PortalLogin portal={portal} />;
+    return (
+        <React.Suspense fallback={null}>
+            <PortalLogin portal={portal} />
+        </React.Suspense>
+    );
 }
