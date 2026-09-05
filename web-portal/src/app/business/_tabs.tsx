@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import type { ReactElement } from 'react';
 
 type TabId = 'doctors' | 'clinics' | 'hospitals' | 'labs' | 'pharmacies' | 'orgs';
 
@@ -27,7 +28,7 @@ function BarChart({ rows }: { rows: [string, number][] }) {
     );
 }
 
-const PANELS: Record<TabId, JSX.Element> = {
+const PANELS: Record<TabId, ReactElement> = {
     doctors: (
         <div className="provider-panel active" id="panel-doctors">
             <div className="pp-content">

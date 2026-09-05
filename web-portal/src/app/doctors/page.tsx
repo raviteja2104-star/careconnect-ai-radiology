@@ -20,6 +20,7 @@ interface Provider {
     openNow?: boolean;
     photo?: string;
     profileImage?: string;
+    resultType?: string;
 }
 
 const SPECIALTIES = [
