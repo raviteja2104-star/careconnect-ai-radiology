@@ -128,11 +128,37 @@ app.get('/metrics', (req, res) => {
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Health check
-app.get('/api/health', (req, res) => {
+// Health check — also attempts a live connection probe so the error is visible
+app.get('/api/health', async (req, res) => {
     const mongoose = require('mongoose');
     const dbState = mongoose.connection.readyState;
     const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+
+    let dbError = null;
+    if (dbState !== 1) {
+        try {
+            await connectDB();
+            const freshState = mongoose.connection.readyState;
+            const freshStatus = freshState === 1 ? 'connected' : freshState === 2 ? 'connecting' : 'disconnected';
+            return res.json({
+                success: true,
+                message: 'CareConnect API is running',
+                version: '1.0.0',
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV || 'development',
+                services: {
+                    database: freshStatus,
+                    mongodb_uri_set: !!process.env.MONGODB_URI,
+                    mongodb_uri_prefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(0, 30) + '...' : null,
+                    jwt_secret_set: !!process.env.JWT_SECRET,
+                    ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
+                },
+            });
+        } catch (err) {
+            dbError = err.message;
+        }
+    }
+
     res.json({
         success: true,
         message: 'CareConnect API is running',
@@ -141,7 +167,9 @@ app.get('/api/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development',
         services: {
             database: dbStatus,
+            database_error: dbError,
             mongodb_uri_set: !!process.env.MONGODB_URI,
+            mongodb_uri_prefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(0, 30) + '...' : null,
             jwt_secret_set: !!process.env.JWT_SECRET,
             ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
         },
