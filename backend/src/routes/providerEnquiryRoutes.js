@@ -1,6 +1,8 @@
 const express = require('express');
 const router  = express.Router();
 const ProviderEnquiry = require('../models/ProviderEnquiry');
+const { protect, authorize } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 
 const isDB = () => {
     const m = require('mongoose');
@@ -44,16 +46,9 @@ router.post('/', async (req, res) => {
 });
 
 // ── GET /api/provider-enquiry  ──────────────────────────────────────────────
-// Admin only (auth via token check)
-router.get('/', async (req, res) => {
+// Admin only — requires authentication and ADMIN.MANAGE_PROVIDERS permission
+router.get('/', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
-        const { protect } = require('../middleware/auth');
-        // Inline auth check rather than chaining middleware to keep routing explicit
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) {
-            return res.status(401).json({ success: false, message: 'Not authorised.' });
-        }
-
         if (!isDB()) {
             return res.json({ success: true, data: [], warning: 'db_unavailable' });
         }
@@ -80,8 +75,8 @@ router.get('/', async (req, res) => {
 });
 
 // ── PATCH /api/provider-enquiry/:id  ─────────────────────────────────────────
-// Update status / assignee (admin)
-router.patch('/:id', async (req, res) => {
+// Update status / assignee — requires authentication and ADMIN.MANAGE_PROVIDERS permission
+router.patch('/:id', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
         if (!isDB()) {
             return res.status(503).json({ success: false, message: 'Database unavailable.' });

@@ -9,6 +9,7 @@ const path = require('path');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const { rateLimit } = require('./middleware/rateLimit');
+const { protect } = require('./middleware/auth');
 const telemetryMiddleware = require('./middleware/telemetry');
 const Telemetry = require('./services/Telemetry');
 
@@ -126,8 +127,8 @@ app.get('/metrics', (req, res) => {
     res.send(Telemetry.prometheusText());
 });
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Serve uploaded files — authentication required; unauthenticated requests → 401
+app.use('/uploads', protect, express.static(path.join(__dirname, '..', 'uploads')));
 
 // Health check — also attempts a live connection probe so the error is visible
 app.get('/api/health', async (req, res) => {
@@ -146,12 +147,8 @@ app.get('/api/health', async (req, res) => {
                 message: 'CareConnect API is running',
                 version: '1.0.0',
                 timestamp: new Date().toISOString(),
-                environment: process.env.NODE_ENV || 'development',
                 services: {
                     database: freshStatus,
-                    mongodb_uri_set: !!process.env.MONGODB_URI,
-                    mongodb_uri_prefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(0, 30) + '...' : null,
-                    jwt_secret_set: !!process.env.JWT_SECRET,
                     ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
                 },
             });
@@ -165,13 +162,8 @@ app.get('/api/health', async (req, res) => {
         message: 'CareConnect API is running',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development',
         services: {
             database: dbStatus,
-            database_error: dbError,
-            mongodb_uri_set: !!process.env.MONGODB_URI,
-            mongodb_uri_prefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(0, 30) + '...' : null,
-            jwt_secret_set: !!process.env.JWT_SECRET,
             ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
         },
     });
@@ -281,8 +273,8 @@ app.use('/api/users', userSearchRoutes);
 const rbacRoutes = require('./routes/rbacRoutes');
 app.use('/api/rbac', rbacRoutes);
 
-// AI proxy route
-app.post('/api/ai/analyze-scan', async (req, res) => {
+// AI proxy route — requires authentication; scan data is PHI
+app.post('/api/ai/analyze-scan', protect, async (req, res) => {
     try {
         const axios = require('axios');
         const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
@@ -302,7 +294,6 @@ app.post('/api/ai/analyze-scan', async (req, res) => {
 // differentials / health). Claude calls can take a while → 60s timeout.
 // 503s from the AI service ({available:false, reason:'no-api-key'}) pass
 // through unchanged so the frontend can fall back to on-device drafting.
-const { protect } = require('./middleware/auth');
 const aiClinicalProxy = express.Router();
 aiClinicalProxy.use(protect);
 const forwardToAiService = (method) => async (req, res) => {
