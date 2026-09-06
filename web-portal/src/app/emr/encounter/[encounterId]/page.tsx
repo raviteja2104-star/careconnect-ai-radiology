@@ -13,6 +13,7 @@ import {
     Skeleton, SkeletonCard, ErrorState,
 } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
+import { usePermissions } from '@/contexts/PermissionContext';
 import {
     fetchEncounterBundle, fetchPatient360, putNote, signNote, amendNote, postDiagnosis,
     postVitals, patientDisplayName, ApiOfflineError,
@@ -81,6 +82,8 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const initialPanel = (searchParams.get('panel') as OrderPanelTab | null) || undefined;
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const { hasPermission } = usePermissions();
+    const canSignNote = hasPermission('DOCTOR.SIGN_CLINICAL_NOTES');
 
     const qBundle = useQuery({
         queryKey: ['emr', 'encounter', encounterId],
@@ -523,7 +526,12 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                                     <p className="text-xs text-muted-foreground">
                                         Signing locks this note permanently. Corrections after signing require a formal amendment.
                                     </p>
-                                    <Button size="lg" onClick={() => setSignOpen(true)}>
+                                    <Button
+                                        size="lg"
+                                        onClick={() => setSignOpen(true)}
+                                        disabled={!canSignNote}
+                                        title={canSignNote ? undefined : 'You do not have permission to sign clinical notes'}
+                                    >
                                         <FileSignature className="h-4 w-4" aria-hidden /> Sign Note
                                     </Button>
                                 </div>
@@ -571,7 +579,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                 footer={
                     <>
                         <Button variant="outline" onClick={() => setSignOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSign} loading={signing}>
+                        <Button onClick={handleSign} loading={signing} disabled={!canSignNote}>
                             <FileSignature className="h-4 w-4" aria-hidden /> Sign &amp; Lock
                         </Button>
                     </>

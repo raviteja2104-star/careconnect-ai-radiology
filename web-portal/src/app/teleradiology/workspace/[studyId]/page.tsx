@@ -17,6 +17,7 @@ import {
     TabsTrigger, Textarea, Timeline, TimelineItem,
 } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
+import { usePermissions } from '@/contexts/PermissionContext';
 import { cn } from '@/lib/utils';
 import {
     ApiHttpError, API_BASE, REPORT_SECTION_KEYS, REPORT_TEMPLATES, STATUS_FLOW,
@@ -72,6 +73,8 @@ function ReadingWorkspace({ studyId }: { studyId: string }) {
     const router = useRouter();
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const { hasPermission } = usePermissions();
+    const canFinalize = hasPermission('RADIOLOGY.FINALIZE_REPORT');
 
     const worklist = useQuery({
         queryKey: ['telerad', 'worklist', 'all'],
@@ -213,7 +216,7 @@ function ReadingWorkspace({ studyId }: { studyId: string }) {
     React.useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (e.ctrlKey && e.key === 'Enter') {
-                if (study && !signed) { e.preventDefault(); setSignOpen(true); }
+                if (study && !signed && canFinalize) { e.preventDefault(); setSignOpen(true); }
                 return;
             }
             const target = e.target as HTMLElement | null;
@@ -588,7 +591,12 @@ function ReadingWorkspace({ studyId }: { studyId: string }) {
                                                 Claim & start reading <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                                             </Button>
                                         ) : nextStatus === 'SIGNED' ? (
-                                            <Button size="sm" onClick={() => setSignOpen(true)}>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => setSignOpen(true)}
+                                                disabled={!canFinalize}
+                                                title={canFinalize ? undefined : 'You do not have permission to sign reports'}
+                                            >
                                                 <FileSignature className="h-4 w-4" aria-hidden /> Sign report
                                             </Button>
                                         ) : nextStatus ? (

@@ -19,7 +19,7 @@ const permit = (...requiredPermissions) => async (req, res, next) => {
         if (!has) {
             return res.status(403).json({
                 success: false,
-                message: `Access denied. Missing required permission(s): ${requiredPermissions.join(', ')}.`,
+                message: 'You do not have permission to perform this action.',
             });
         }
 
@@ -51,7 +51,7 @@ const permitAny = (...candidatePermissions) => async (req, res, next) => {
         if (!ok) {
             return res.status(403).json({
                 success: false,
-                message: `Access denied. Requires one of: ${candidatePermissions.join(', ')}.`,
+                message: 'You do not have permission to perform this action.',
             });
         }
 

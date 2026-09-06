@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Video, CalendarClock, ShieldCheck, Clock,
-  AlertCircle, ExternalLink, ArrowRight, CheckCircle2,
+  AlertCircle, ExternalLink, CheckCircle2,
 } from 'lucide-react';
 import {
   PageHeader, Card, CardContent, CardHeader, CardTitle,
@@ -148,11 +148,7 @@ export default function TelemedicinePage() {
               icon={Video}
               title="No upcoming video consultations"
               description="Book a telemedicine appointment to start a virtual care session."
-              action={
-                <Button size="sm" variant="primary" onClick={() => router.push('/appointments')}>
-                  Book Appointment <ArrowRight className="h-4 w-4" />
-                </Button>
-              }
+              action={{ label: 'Book Appointment', onClick: () => router.push('/appointments') }}
             />
           ) : (
             <div className="divide-y divide-border">
