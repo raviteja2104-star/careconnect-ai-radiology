@@ -1,4 +1,5 @@
 const express = require('express');
+const router = express.Router();
 const {
     getPatients,
     getPatientHistory,
@@ -8,19 +9,25 @@ const {
     viewScanReport,
     getDoctorStats,
 } = require('../controllers/doctorController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 
-const router = express.Router();
-
+// All doctor routes require authentication + doctor-level permissions
 router.use(protect);
-router.use(authorize('doctor'));
 
-router.get('/patients', getPatients);
-router.get('/patients/:patientId/history', getPatientHistory);
-router.get('/consultations', getConsultations);
-router.put('/consultations/:id', updateConsultation);
-router.post('/request-scan', requestScan);
-router.get('/scans/:id', viewScanReport);
-router.get('/stats', getDoctorStats);
+// Patient management
+router.get('/patients',                       permit('DOCTOR.VIEW_PATIENTS'),         getPatients);
+router.get('/patients/:patientId/history',    permit('DOCTOR.VIEW_MEDICAL_RECORDS'),  getPatientHistory);
+
+// Consultations
+router.get('/consultations',                  permit('DOCTOR.VIEW_APPOINTMENTS'),      getConsultations);
+router.put('/consultations/:id',              permit('DOCTOR.EDIT_CLINICAL_NOTES'),    updateConsultation);
+
+// Radiology orders from doctor side
+router.post('/request-scan',                  permit('DOCTOR.ORDER_RADIOLOGY'),        requestScan);
+router.get('/scans/:id',                      permit('RADIOLOGY.VIEW_STUDIES'),        viewScanReport);
+
+// Stats — requires both doctor workspace + stats view
+router.get('/stats',                          permit('DOCTOR.VIEW_PATIENTS'),          getDoctorStats);
 
 module.exports = router;

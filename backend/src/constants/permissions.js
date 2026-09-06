@@ -14,6 +14,7 @@ const PERMISSIONS = {
     'PATIENT.BOOK_APPOINTMENT':         'Book new appointments',
     'PATIENT.CANCEL_APPOINTMENT':       'Cancel own appointments',
     'PATIENT.VIEW_MEDICAL_RECORDS':     'View own medical records',
+    'PATIENT.UPLOAD_DOCUMENT':          'Upload own health documents',
     'PATIENT.DOWNLOAD_MEDICAL_RECORDS': 'Download medical records',
     'PATIENT.USE_TELEMEDICINE':         'Join telemedicine sessions',
     'PATIENT.VIEW_PRESCRIPTIONS':       'View own prescriptions',
@@ -46,6 +47,9 @@ const PERMISSIONS = {
     'RADIOLOGY.FINALIZE_REPORT':        'Sign and finalize radiology reports',
     'RADIOLOGY.ASSIGN_RADIOLOGIST':     'Assign studies to radiologists',
     'RADIOLOGY.VIEW_STATS':             'View radiology throughput statistics',
+
+    // ── Hospital Staff — Records / HIM ───────────────────────────────────────
+    'STAFF.MANAGE_RECORDS':             'Manage patient health record documents',
 
     // ── Hospital Staff — Reception ────────────────────────────────────────────
     'STAFF.RECEPTION':                  'Access front-desk / reception functions',
@@ -123,7 +127,7 @@ const DEFAULT_ROLES = [
         permissions: [
             'PATIENT.VIEW_PROFILE', 'PATIENT.EDIT_PROFILE',
             'PATIENT.VIEW_APPOINTMENTS', 'PATIENT.BOOK_APPOINTMENT', 'PATIENT.CANCEL_APPOINTMENT',
-            'PATIENT.VIEW_MEDICAL_RECORDS', 'PATIENT.DOWNLOAD_MEDICAL_RECORDS',
+            'PATIENT.VIEW_MEDICAL_RECORDS', 'PATIENT.UPLOAD_DOCUMENT', 'PATIENT.DOWNLOAD_MEDICAL_RECORDS',
             'PATIENT.USE_TELEMEDICINE',
             'PATIENT.VIEW_PRESCRIPTIONS',
             'PATIENT.VIEW_BILLING',
@@ -167,7 +171,7 @@ const DEFAULT_ROLES = [
         workspaces: ['HOSPITAL_STAFF'],
         isSystem: true,
         permissions: [
-            'STAFF.RECEPTION',
+            'STAFF.RECEPTION', 'STAFF.MANAGE_RECORDS',
             'STAFF.VIEW_APPOINTMENTS', 'STAFF.CREATE_APPOINTMENTS', 'STAFF.CHECKIN_PATIENTS',
         ],
     },
@@ -214,6 +218,7 @@ const DEFAULT_ROLES = [
             'ADMIN.VIEW_AUDIT_LOG', 'ADMIN.VIEW_DASHBOARD', 'ADMIN.VIEW_ANALYTICS',
             'ADMIN.MANAGE_SYSTEM_SETTINGS', 'ADMIN.MANAGE_PROVIDERS',
             'STAFF.VIEW_APPOINTMENTS', 'STAFF.CREATE_APPOINTMENTS',
+            'STAFF.MANAGE_RECORDS',
             'STAFF.VIEW_LAB_ORDERS', 'STAFF.VIEW_PRESCRIPTIONS',
             'STAFF.BILLING', 'STAFF.CREATE_INVOICE', 'STAFF.PROCESS_PAYMENT', 'STAFF.VIEW_REVENUE',
         ],

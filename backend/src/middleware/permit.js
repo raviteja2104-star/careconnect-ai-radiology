@@ -1,14 +1,13 @@
-const { userHasPermissions } = require('../services/PermissionService');
+const { userHasPermissions, getEffectivePermissions } = require('../services/PermissionService');
 
 /**
- * permit(...requiredPermissions)
+ * permit(...requiredPermissions) — ALL permissions required (AND logic).
  *
- * Express middleware factory. Must be used AFTER `protect` (which sets req.user).
- * Denies requests where the authenticated user lacks ANY of the required permissions.
+ * Must be used AFTER `protect`. Denies requests where the user lacks
+ * ANY of the listed permissions.
  *
  * Usage:
  *   router.get('/path', protect, permit('ADMIN.VIEW_USERS'), handler);
- *   router.post('/path', protect, permit('ADMIN.MANAGE_ROLES', 'ADMIN.MANAGE_PERMISSIONS'), handler);
  */
 const permit = (...requiredPermissions) => async (req, res, next) => {
     try {
@@ -30,4 +29,36 @@ const permit = (...requiredPermissions) => async (req, res, next) => {
     }
 };
 
-module.exports = { permit };
+/**
+ * permitAny(...candidatePermissions) — at least one permission required (OR logic).
+ *
+ * Useful for multi-audience routes (e.g. patient reading own record OR doctor
+ * reading an assigned patient's record).
+ *
+ * Usage:
+ *   router.get('/path', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'DOCTOR.VIEW_MEDICAL_RECORDS'), handler);
+ */
+const permitAny = (...candidatePermissions) => async (req, res, next) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: 'Authentication required.' });
+        }
+
+        const { permissions } = await getEffectivePermissions(req.user._id);
+        const permSet = new Set(permissions);
+        const ok = candidatePermissions.some(p => permSet.has(p));
+
+        if (!ok) {
+            return res.status(403).json({
+                success: false,
+                message: `Access denied. Requires one of: ${candidatePermissions.join(', ')}.`,
+            });
+        }
+
+        next();
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { permit, permitAny };

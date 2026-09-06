@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 const AuditLog = require('../models/AuditLog');
 
 // Admin-only: the audit trail spans every tenant/actor and includes PHI paths.
 router.use(protect);
 router.use(authorize('admin'));
+router.use(permit('ADMIN.VIEW_AUDIT_LOG'));
 
 /**
  * GET /?page=&limit=&actorId=&resource=&action=&from=&to=

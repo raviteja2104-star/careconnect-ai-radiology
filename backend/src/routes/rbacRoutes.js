@@ -6,7 +6,7 @@ const {
     listRoles, getRole, createRole, updateRole,
     getUserRoles, assignRole, revokeRole,
     getUserOverrides, setPermissionOverride, deletePermissionOverride,
-    getEffective,
+    getEffective, simulateAccess,
     getPermissionCatalogue,
     listUsersWithRoles,
 } = require('../controllers/rbacController');
@@ -36,7 +36,8 @@ router.get('/users/:userId/overrides',      permit('ADMIN.MANAGE_PERMISSIONS'), 
 router.post('/users/override',              permit('ADMIN.MANAGE_PERMISSIONS'), setPermissionOverride);
 router.delete('/overrides/:overrideId',     permit('ADMIN.MANAGE_PERMISSIONS'), deletePermissionOverride);
 
-// ── Effective permissions view ────────────────────────────────────────────────
+// ── Effective permissions view + access simulator ─────────────────────────────
 router.get('/users/:userId/effective',  permit('ADMIN.VIEW_USERS'), getEffective);
+router.post('/simulate',               permit('ADMIN.VIEW_USERS'), simulateAccess);
 
 module.exports = router;

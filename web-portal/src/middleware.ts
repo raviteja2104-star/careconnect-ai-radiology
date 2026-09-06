@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ * Next.js Edge Middleware — navigation guard only.
+ *
+ * SECURITY MODEL:
+ *   This middleware is a UX convenience layer that redirects unauthenticated
+ *   or out-of-workspace browsers before they render a page.
+ *
+ *   It is NOT the security boundary.
+ *
+ *   The security boundary is the Express backend:
+ *     protect()  — verifies the JWT and loads req.user from MongoDB
+ *     permit()   — verifies effective permissions via PermissionService
+ *     ownership  — controllers verify the resource belongs to req.user
+ *
+ *   The `cc-workspaces` cookie used below is set by the frontend after a real
+ *   backend login, but it is client-readable and must never be treated as
+ *   authoritative for access-control decisions.  A user who manipulates it in
+ *   DevTools will reach a Next.js page, but every API call that page makes will
+ *   be independently rejected with 403 by the backend.
+ */
+
 // Routes accessible without a session
 const PUBLIC_PATHS = new Set(['/', '/login', '/home', '/business', '/display', '/kiosk']);
 

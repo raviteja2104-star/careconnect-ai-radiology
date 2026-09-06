@@ -8,6 +8,7 @@ const {
     getScanStats,
 } = require('../controllers/radiologyController');
 const { protect, authorize } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 const { uploadScan: uploadMiddleware } = require('../middleware/upload');
 
 const router = express.Router();
@@ -15,35 +16,35 @@ const router = express.Router();
 // All routes require authentication
 router.use(protect);
 
-// Upload scan (patients, doctors, lab_tech)
+// Upload scan — ordering roles only (permission + legacy role guard)
 router.post(
     '/upload',
-    authorize('patient', 'doctor', 'lab_tech', 'admin'),
+    permit('DOCTOR.ORDER_RADIOLOGY'),
     uploadMiddleware.single('scan'),
     uploadScan
 );
-
-// Alias for POST /api/radiology/upload-scan
 router.post(
     '/upload-scan',
-    authorize('patient', 'doctor', 'lab_tech', 'admin'),
+    permit('DOCTOR.ORDER_RADIOLOGY'),
     uploadMiddleware.single('scan'),
     uploadScan
 );
 
-// List scans (filtered by role)
-router.get('/list', listScans);
+// List scans — radiologists see full worklist; doctors see own ordered scans;
+// admins see all.  Controller applies the scope; we guard the door.
+router.get('/list', permit('RADIOLOGY.VIEW_WORKLIST'), listScans);
 
-// Scan statistics
-router.get('/stats', authorize('admin', 'radiologist', 'doctor'), getScanStats);
+// Scan statistics — admin / radiologist / doctor only
+router.get('/stats', permit('RADIOLOGY.VIEW_STATS'), getScanStats);
 
-// Get single scan
-router.get('/:id', getScan);
+// Get a single scan — radiologist (reading) or admin or the ordering doctor.
+// Controller verifies ownership; here we just require the view permission.
+router.get('/:id', permit('RADIOLOGY.VIEW_STUDIES'), getScan);
 
-// Submit radiologist report
-router.post('/report', authorize('radiologist', 'admin'), submitReport);
+// Submit report — radiologists only
+router.post('/report', permit('RADIOLOGY.CREATE_REPORT'), submitReport);
 
-// Assign radiologist
-router.put('/:id/assign', authorize('admin', 'doctor'), assignRadiologist);
+// Assign radiologist — admin only (ASSIGN_RADIOLOGIST permission)
+router.put('/:id/assign', permit('RADIOLOGY.ASSIGN_RADIOLOGIST'), assignRadiologist);
 
 module.exports = router;

@@ -1,47 +1,50 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
 const { cacheSeconds } = require('../middleware/cache');
 const audit = require('../middleware/audit');
 const emr = require('../controllers/emrController');
 
 // Clinical catalog typeahead — PUBLIC reference data (drug names, complaint
-// terms, ICD labels, lab tests). Contains no patient data; deliberately
-// mounted before `protect` so demo-mode users get suggestions too. Global
-// rate limiting still applies.
+// terms, ICD labels, lab tests). Contains no patient data.
 router.get('/catalog', emr.searchCatalog);
 
 // Every other EMR route requires an authenticated session.
 router.use(protect);
-// Hash-chained audit trail for every authenticated EMR access (fire-and-forget).
 router.use(audit('EMR'));
 
-const clinicians = authorize('doctor', 'admin');
+// Patient 360 summary — OR logic: the patient reads their own record, or a
+// doctor reads an assigned patient's record. The controller enforces ownership
+// (a patient's patientId param must match req.user._id).
+router.get(
+    '/patients/:patientId/summary',
+    permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'DOCTOR.VIEW_MEDICAL_RECORDS'),
+    cacheSeconds(30),
+    emr.getPatient360
+);
 
-// Patient 360 — clinicians, or the patient reading their own record
-// (self-access is enforced inside the controller).
-// Cached 30s per user in Redis; mutations don't invalidate yet — the short
-// TTL bounds staleness.
-router.get('/patients/:patientId/summary', cacheSeconds(30), emr.getPatient360);
+// Encounter creation — doctors only
+router.post('/encounters', permit('DOCTOR.CREATE_ENCOUNTER'), emr.createEncounter);
 
-// Encounters
-router.post('/encounters', clinicians, emr.createEncounter);
-router.get('/encounters', emr.listEncounters);
-router.get('/encounters/:id', emr.getEncounter);
-router.post('/encounters/:id/vitals', authorize('doctor', 'admin'), emr.addVitals);
-router.post('/encounters/:id/diagnoses', clinicians, emr.addDiagnosis);
+// Reading encounters — clinicians (DOCTOR.VIEW_PATIENTS) or patient's own (PATIENT.VIEW_MEDICAL_RECORDS)
+// Controller scopes results to caller for patients.
+router.get('/encounters',     permitAny('DOCTOR.VIEW_PATIENTS', 'PATIENT.VIEW_MEDICAL_RECORDS'), emr.listEncounters);
+router.get('/encounters/:id', permitAny('DOCTOR.VIEW_PATIENTS', 'PATIENT.VIEW_MEDICAL_RECORDS'), emr.getEncounter);
 
-// Clinical notes (versioned, signed notes immutable)
-router.put('/encounters/:id/note', clinicians, emr.saveNote);
-router.post('/notes/:noteId/sign', clinicians, emr.signNote);
-router.post('/notes/:noteId/amend', clinicians, emr.amendNote);
+// Clinical documentation — explicit doctor permission on each action
+router.post('/encounters/:id/vitals',    permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.addVitals);
+router.post('/encounters/:id/diagnoses', permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.addDiagnosis);
+router.put('/encounters/:id/note',       permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.saveNote);
+router.post('/notes/:noteId/sign',       permit('DOCTOR.SIGN_CLINICAL_NOTES'), emr.signNote);
+router.post('/notes/:noteId/amend',      permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.amendNote);
 
-// AI medication suggestions — clinicians only, audited, decision support only.
-router.post('/ai/medication-suggestions', clinicians, emr.suggestMedications);
+// AI medication suggestions — only users who can prescribe
+router.post('/ai/medication-suggestions', permit('DOCTOR.CREATE_PRESCRIPTION'), emr.suggestMedications);
 
-// Unified orders
-router.post('/encounters/:id/orders', clinicians, emr.createOrder);
-router.get('/orders', emr.listOrders);
-router.patch('/orders/:orderId/status', clinicians, emr.updateOrderStatus);
+// Orders
+router.post('/encounters/:id/orders',   permit('DOCTOR.ORDER_LAB'), emr.createOrder);
+router.get('/orders',                   permitAny('DOCTOR.VIEW_PATIENTS', 'PATIENT.VIEW_LAB_RESULTS'), emr.listOrders);
+router.patch('/orders/:orderId/status', permit('DOCTOR.ORDER_LAB'), emr.updateOrderStatus);
 
 module.exports = router;

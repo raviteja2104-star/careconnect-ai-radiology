@@ -1,21 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   getRevenueDashboard,
   createInvoice,
   getInvoices,
   processPayment
 } = require('../controllers/billingController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
 const audit = require('../middleware/audit');
 
-// All billing endpoints require an authenticated session; writes are admin-only.
 router.use(protect);
-// Hash-chained audit trail for every billing access (fire-and-forget).
 router.use(audit('Billing'));
 
-router.route('/dashboard').get(getRevenueDashboard);
-router.route('/invoices').get(getInvoices).post(authorize('admin'), createInvoice);
-router.route('/payments').post(authorize('admin'), processPayment);
+// Revenue dashboard — admin/billing staff only
+router.get('/dashboard', permit('STAFF.VIEW_REVENUE'), getRevenueDashboard);
+
+// Invoices — patients see own invoices; billing staff see all.
+// Controller scopes results to req.user for patient role.
+router.get('/invoices',  permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), getInvoices);
+router.post('/invoices', permit('STAFF.CREATE_INVOICE'), createInvoice);
+
+// Payments — billing staff only
+router.post('/payments', permit('STAFF.PROCESS_PAYMENT'), processPayment);
 
 module.exports = router;
