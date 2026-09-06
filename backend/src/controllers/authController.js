@@ -3,6 +3,7 @@ const { generateToken } = require('../middleware/auth');
 const connectDB = require('../config/database');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { ensureUserHasRole, getEffectivePermissions } = require('../services/PermissionService');
 
 // In-memory OTP store for demonstration
 const otpStore = new Map();
@@ -85,7 +86,12 @@ const login = async (req, res, next) => {
         if (!user.isActive) return res.status(401).json({ success: false, message: 'Account deactivated.' });
 
         const token = generateToken(user._id);
-        res.json({ success: true, message: 'Login successful.', data: { user, token } });
+
+        // Auto-assign RBAC role if user has none, then resolve effective permissions
+        await ensureUserHasRole(user).catch(() => {});
+        const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
+
+        res.json({ success: true, message: 'Login successful.', data: { user, token, permissions, workspaces } });
     } catch (error) {
         next(error);
     }
@@ -211,7 +217,8 @@ const getMe = async (req, res, next) => {
     try {
         if (!isDBConnected()) return res.json({ success: true, data: req.user });
         const user = await User.findById(req.user._id);
-        res.json({ success: true, data: user });
+        const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
+        res.json({ success: true, data: { ...user.toObject(), permissions, workspaces } });
     } catch (error) {
         next(error);
     }

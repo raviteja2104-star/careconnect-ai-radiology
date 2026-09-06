@@ -7,6 +7,7 @@ import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import { TourProvider } from "@/components/tour/TourProvider";
 import { AppShell } from "@/components/shell/AppShell";
+import { PermissionProvider } from "@/contexts/PermissionContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,13 +36,15 @@ export default function RootLayout({
       <body className={`${inter.variable} ${mono.variable} antialiased`}>
         <ThemeProvider>
           <SessionProvider>
-            <QueryProvider>
-              <ToastProvider>
-                <TourProvider>
-                  <AppShell>{children}</AppShell>
-                </TourProvider>
-              </ToastProvider>
-            </QueryProvider>
+            <PermissionProvider>
+              <QueryProvider>
+                <ToastProvider>
+                  <TourProvider>
+                    <AppShell>{children}</AppShell>
+                  </TourProvider>
+                </ToastProvider>
+              </QueryProvider>
+            </PermissionProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

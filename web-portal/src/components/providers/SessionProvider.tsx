@@ -19,7 +19,7 @@ interface SessionContextValue {
     /** True when the session is backed by a real backend JWT (not a demo persona). */
     isAuthenticated: boolean;
     /** Persist a real backend login and swap the session to it. */
-    signIn: (user: BackendUser, token: string) => AuthUserSession;
+    signIn: (user: BackendUser, token: string, permissions?: string[], workspaces?: string[]) => AuthUserSession;
     /** Clear the JWT + stored user, fall back to the demo persona, go to /login. */
     logout: () => void;
 }
@@ -69,9 +69,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setSession(persona);
     }, [isAuthenticated]);
 
-    const signIn = React.useCallback((user: BackendUser, token: string) => {
-        persistAuth(user, token);
-        const real = sessionFromBackendUser(user, token);
+    const signIn = React.useCallback((user: BackendUser, token: string, permissions?: string[], workspaces?: string[]) => {
+        persistAuth(user, token, workspaces);
+        const real = sessionFromBackendUser(user, token, permissions, workspaces);
         authService.setActiveSession(real);
         setSession(real);
         setIsAuthenticated(true);

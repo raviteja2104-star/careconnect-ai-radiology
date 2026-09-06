@@ -11,6 +11,7 @@ export interface AuthUserSession {
   tenantId: string;
   hospitalName: string;
   permissions: string[];
+  workspaces: string[];
   mfaVerified: boolean;
   accessToken: string;
   tokenExpiresAt: string;
@@ -33,6 +34,7 @@ export const DEMO_USER_SESSION: AuthUserSession = {
   tenantId: 'tenant-apollo-main',
   hospitalName: 'Apollo CareConnect Super Specialty',
   permissions: ['read:all', 'write:all', 'manage:workflow', 'manage:masterdata', 'manage:ai', 'manage:developer', 'manage:data'],
+  workspaces: ['ADMINISTRATION', 'HOSPITAL_STAFF', 'DOCTOR', 'RADIOLOGY', 'PATIENT'],
   mfaVerified: true,
   accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_production_jwt_token',
   tokenExpiresAt: '2026-07-26T23:59:59Z'
@@ -54,6 +56,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
     tenantId: 'tenant-apollo-main',
     hospitalName: 'Apollo CareConnect Super Specialty',
     permissions: ['read:clinical', 'write:clinical', 'sign:notes', 'order:all'],
+    workspaces: ['DOCTOR'],
     mfaVerified: true,
     accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_demo_physician',
     tokenExpiresAt: '2026-12-31T23:59:59Z',
@@ -66,6 +69,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
     tenantId: 'tenant-apollo-main',
     hospitalName: 'Apollo CareConnect Super Specialty',
     permissions: ['read:imaging', 'write:reports', 'sign:reports'],
+    workspaces: ['RADIOLOGY'],
     mfaVerified: true,
     accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_demo_radiologist',
     tokenExpiresAt: '2026-12-31T23:59:59Z',
@@ -78,6 +82,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
     tenantId: 'tenant-apollo-main',
     hospitalName: 'Apollo CareConnect Super Specialty',
     permissions: ['read:self', 'book:appointments'],
+    workspaces: ['PATIENT'],
     mfaVerified: true,
     accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_demo_patient',
     tokenExpiresAt: '2026-12-31T23:59:59Z',
@@ -111,6 +116,8 @@ export interface BackendUser {
   phone?: string;
   role?: string;
   hospital?: string;
+  permissions?: string[];
+  workspaces?: string[];
   [key: string]: unknown;
 }
 
@@ -153,9 +160,21 @@ export function backendUserDisplayName(user: BackendUser): string {
   return name || user.email || 'CareConnect User';
 }
 
-/** Build a full frontend session from a real backend user + JWT. */
-export function sessionFromBackendUser(user: BackendUser, token: string): AuthUserSession {
+/** Build a full frontend session from a real backend user + JWT.
+ *  If the backend returned real RBAC permissions, those are preferred;
+ *  the legacy hardcoded list is the fallback only when the backend
+ *  hasn't been updated yet. */
+export function sessionFromBackendUser(
+  user: BackendUser,
+  token: string,
+  extraPermissions?: string[],
+  extraWorkspaces?: string[],
+): AuthUserSession {
   const role = mapBackendRole(user.role);
+  const permissions = (extraPermissions ?? user.permissions ?? []).length > 0
+    ? (extraPermissions ?? user.permissions ?? [])
+    : ROLE_PERMISSIONS[role];
+  const workspaces = extraWorkspaces ?? user.workspaces ?? [];
   return {
     userId: user._id,
     name: backendUserDisplayName(user),
@@ -163,7 +182,8 @@ export function sessionFromBackendUser(user: BackendUser, token: string): AuthUs
     role,
     tenantId: 'tenant-apollo-main',
     hospitalName: (typeof user.hospital === 'string' && user.hospital) || 'Apollo CareConnect Super Specialty',
-    permissions: ROLE_PERMISSIONS[role],
+    permissions,
+    workspaces,
     mfaVerified: true,
     accessToken: token,
     tokenExpiresAt: '',
@@ -173,6 +193,8 @@ export function sessionFromBackendUser(user: BackendUser, token: string): AuthUs
 export interface AuthApiResult {
   user: BackendUser;
   token: string;
+  permissions?: string[];
+  workspaces?: string[];
 }
 
 /** Raised for auth failures that carry a user-facing message from the API. */
@@ -202,7 +224,7 @@ async function authRequest(path: string, body: Record<string, unknown>): Promise
   } catch {
     throw new AuthApiError(0, 'Cannot reach the CareConnect server. Check your internet connection or try again in a moment.');
   }
-  let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string } } = {};
+  let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string; permissions?: string[]; workspaces?: string[] } } = {};
   try {
     payload = await res.json();
   } catch {
@@ -211,7 +233,12 @@ async function authRequest(path: string, body: Record<string, unknown>): Promise
   if (!res.ok || !payload?.data?.token || !payload?.data?.user) {
     throw new AuthApiError(res.status, payload?.message || `Authentication failed (${res.status || 'network'})`);
   }
-  return { user: payload.data.user, token: payload.data.token };
+  return {
+    user: payload.data.user,
+    token: payload.data.token,
+    permissions: payload.data.permissions,
+    workspaces:  payload.data.workspaces,
+  };
 }
 
 /** POST /api/auth/login → { user, token }. Throws AuthApiError on failure. */
@@ -249,13 +276,16 @@ export function readStoredAuth(): { user: BackendUser; token: string } | null {
   }
 }
 
-export function persistAuth(user: BackendUser, token: string): void {
+export function persistAuth(user: BackendUser, token: string, workspaces?: string[]): void {
   try {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    // Signal to Next.js middleware that a session exists
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    // cc-session: signals to Next.js middleware that a session exists
     document.cookie = `cc-session=1; path=/; max-age=86400; SameSite=Lax${secure}`;
+    // cc-workspaces: comma-separated list used by middleware for workspace routing
+    const ws = (workspaces ?? []).join(',');
+    document.cookie = `cc-workspaces=${encodeURIComponent(ws)}; path=/; max-age=86400; SameSite=Lax${secure}`;
   } catch {
     /* storage unavailable */
   }
@@ -266,6 +296,7 @@ export function clearStoredAuth(): void {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(USER_STORAGE_KEY);
     document.cookie = 'cc-session=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'cc-workspaces=; path=/; max-age=0; SameSite=Lax';
   } catch {
     /* storage unavailable */
   }

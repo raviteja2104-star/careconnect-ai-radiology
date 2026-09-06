@@ -58,8 +58,8 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
     const [registering, setRegistering] = React.useState(false);
 
     const finishAuth = React.useCallback(
-        (user: Parameters<typeof signIn>[0], token: string) => {
-            signIn(user, token);
+        (user: Parameters<typeof signIn>[0], token: string, permissions?: string[], workspaces?: string[]) => {
+            signIn(user, token, permissions, workspaces);
             const next = searchParams.get('next');
             // Validate next: must be an internal path, not another login page
             const destination =
@@ -83,7 +83,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
 
         setLoggingIn(true);
         try {
-            const { user, token } = await loginWithPassword(email.trim(), password);
+            const { user, token, permissions, workspaces } = await loginWithPassword(email.trim(), password);
             // Portal separation: only roles this door serves may pass. The
             // credentials were valid — we simply do not start the session here.
             if (!portal.roles.includes(user.role as BackendRole)) {
@@ -91,7 +91,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                 setLoggingIn(false);
                 return;
             }
-            finishAuth(user, token);
+            finishAuth(user, token, permissions, workspaces);
         } catch (err) {
             setLoginErrors({ form: err instanceof AuthApiError ? err.message : 'Something went wrong. Please try again.' });
             setLoggingIn(false);

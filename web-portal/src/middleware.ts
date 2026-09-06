@@ -4,8 +4,40 @@ import { NextRequest, NextResponse } from 'next/server';
 const PUBLIC_PATHS = new Set(['/', '/login', '/home', '/business', '/display', '/kiosk']);
 
 // Prefixes that are always allowed through.
-// /login/ covers all portal sign-in pages: /login/patient, /login/doctor, etc.
 const PUBLIC_PREFIXES = ['/api/', '/_next/', '/favicon', '/.well-known/', '/login/'];
+
+/**
+ * Map a workspace name to the route prefixes it unlocks.
+ * Must stay in sync with WORKSPACE_ROUTES in backend/src/constants/permissions.js
+ */
+const WORKSPACE_ROUTES: Record<string, string[]> = {
+    PATIENT:        ['/dashboard', '/appointments', '/telemedicine', '/health-records', '/medications', '/lab', '/billing'],
+    DOCTOR:         ['/doctor', '/consultations', '/emr'],
+    RADIOLOGY:      ['/teleradiology'],
+    HOSPITAL_STAFF: ['/reception', '/ems', '/icu', '/bed-management', '/lab-orders'],
+    ADMINISTRATION: ['/admin'],
+};
+
+/** Routes that belong to at least one workspace (checked for access enforcement). */
+const WORKSPACE_GUARDED_PREFIXES = Object.values(WORKSPACE_ROUTES).flat();
+
+function isWorkspaceGuarded(pathname: string): string | null {
+    for (const prefix of WORKSPACE_GUARDED_PREFIXES) {
+        if (pathname.startsWith(prefix)) return prefix;
+    }
+    return null;
+}
+
+function userHasWorkspaceFor(pathname: string, workspaces: string[]): boolean {
+    for (const [workspace, prefixes] of Object.entries(WORKSPACE_ROUTES)) {
+        for (const prefix of prefixes) {
+            if (pathname.startsWith(prefix) && workspaces.includes(workspace)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
@@ -20,7 +52,7 @@ export function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // Check for session cookie (set by persistAuth after login)
+    // Require a session cookie for all protected paths
     const hasSession = req.cookies.has('cc-session');
     if (!hasSession) {
         const loginUrl = req.nextUrl.clone();
@@ -29,10 +61,27 @@ export function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
+    // Workspace enforcement: if the route belongs to a specific workspace,
+    // only users whose cc-workspaces cookie lists that workspace may access it.
+    const guardedPrefix = isWorkspaceGuarded(pathname);
+    if (guardedPrefix) {
+        const rawWorkspaces = req.cookies.get('cc-workspaces')?.value ?? '';
+        const workspaces = decodeURIComponent(rawWorkspaces).split(',').filter(Boolean);
+
+        // If the cookie is present but empty, the backend hasn't granted any
+        // workspaces yet — redirect to the home page instead of /login.
+        if (workspaces.length === 0) {
+            return NextResponse.redirect(new URL('/home', req.url));
+        }
+
+        if (!userHasWorkspaceFor(pathname, workspaces)) {
+            return NextResponse.redirect(new URL('/home', req.url));
+        }
+    }
+
     return NextResponse.next();
 }
 
 export const config = {
-    // Run on all paths except Next.js internals
     matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

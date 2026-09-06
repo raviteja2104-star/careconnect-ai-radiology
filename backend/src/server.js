@@ -67,6 +67,7 @@ require('./services/LabIntake').init();
 require('./services/MasterDataSeedService').init();
 require('./services/NearbySeedService').init();
 require('./services/ClinicalCatalogService').init();
+require('./seeds/rbacSeed').init();
 const OutboxWorker = require('./services/OutboxWorker');
 
 const app = express();
@@ -276,6 +277,9 @@ app.use('/api/provider', providerRegistrationRoutes);
 
 const userSearchRoutes = require('./routes/userSearchRoutes');
 app.use('/api/users', userSearchRoutes);
+
+const rbacRoutes = require('./routes/rbacRoutes');
+app.use('/api/rbac', rbacRoutes);
 
 // AI proxy route
 app.post('/api/ai/analyze-scan', async (req, res) => {
