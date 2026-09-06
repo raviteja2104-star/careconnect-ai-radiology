@@ -41,7 +41,8 @@ router.get('/worklist', protect, async (req, res, next) => {
 });
 
 // ── POST /submit  — diagnostic center upload ──────────────────────────────────
-router.post('/submit', protect, async (req, res, next) => {
+// Restricted to clinical staff: patients must not be able to inject fake cases.
+router.post('/submit', protect, authorize('doctor', 'admin', 'radiologist'), async (req, res, next) => {
     try {
         const {
             patientFirstName, patientLastName, patientAge, patientGender, patientPhone, abhaId,
