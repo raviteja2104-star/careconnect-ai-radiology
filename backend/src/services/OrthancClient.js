@@ -99,7 +99,8 @@ async function proxyToOrthanc(req, res, targetPath) {
     for (const h of ['content-type', 'content-length', 'etag', 'last-modified', 'cache-control']) {
         if (upstream.headers[h]) res.setHeader(h, upstream.headers[h]);
     }
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const orthancOrigin = process.env.OHIF_VIEWER_ORIGIN || process.env.FRONTEND_URL;
+    if (orthancOrigin) res.setHeader('Access-Control-Allow-Origin', orthancOrigin);
 
     upstream.data.pipe(res);
     await new Promise((resolve, reject) => {

@@ -73,7 +73,8 @@ router.use((req, res, next) => {
 // ── Serve OHIF app-config.js ──────────────────────────────────────────────
 router.get('/app-config.js', (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const ohifOrigin = process.env.OHIF_VIEWER_ORIGIN || process.env.FRONTEND_URL;
+    if (ohifOrigin) res.setHeader('Access-Control-Allow-Origin', ohifOrigin);
     res.send(`
 window.config = {
   routerBasename: '/ohif',
