@@ -136,6 +136,7 @@ export function mapBackendRole(role?: string): AuthUserSession['role'] {
     case 'lab_tech': return 'LAB_TECH';
     case 'pharmacist': return 'PHARMACIST';
     case 'nurse': return 'NURSE';
+    case 'biller': return 'BILLER';
     case 'reception':
     case 'emergency':
       return 'PHYSICIAN';

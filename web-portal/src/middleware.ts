@@ -29,22 +29,51 @@ const PUBLIC_PREFIXES = ['/api/', '/_next/', '/favicon', '/.well-known/', '/logi
 
 /**
  * Map a workspace name to the route prefixes it unlocks.
- * Must stay in sync with WORKSPACE_ROUTES in backend/src/constants/permissions.js
+ *
+ * Rules:
+ *   - Prefixes must end without a trailing slash; matchesPrefix() appends "/" before
+ *     startsWith() to prevent false-prefix matches (e.g. /lab ≠ /lab-reports).
+ *   - Patient home is "/" (chromeless, always public). /dashboard is clinical-only.
+ *   - DOCTOR and HOSPITAL_STAFF are intentionally absent. Clinical routes not listed
+ *     here are unguarded at the middleware layer; AppShell's ROUTE_ACCESS (navigation.ts)
+ *     handles clinical-vs-patient separation, and the backend protect()/authorize()
+ *     is the authoritative security boundary. This avoids workspace-key mismatches
+ *     blocking legitimate clinical navigation (e.g. PHYSICIAN reaching /health-records/dashboard
+ *     or /nearby/provider/dashboard).
+ *   - PATIENT uses precise sub-paths (not /health-records or /nearby as a parent prefix)
+ *     so that /health-records/dashboard (clinical) and /nearby/provider/* (clinical) are
+ *     never accidentally caught by PATIENT workspace enforcement.
  */
 const WORKSPACE_ROUTES: Record<string, string[]> = {
-    PATIENT:        ['/dashboard', '/appointments', '/telemedicine', '/health-records', '/medications', '/lab', '/billing'],
-    DOCTOR:         ['/doctor', '/consultations', '/emr'],
+    PATIENT: [
+        '/appointments', '/telemedicine',
+        // Use specific health-records sub-paths, NOT the bare /health-records prefix:
+        // /health-records/dashboard is CLINICAL_ROLES-only and must not be blocked here.
+        '/health-records/capture', '/health-records/caregivers',
+        '/health-records/sharing', '/health-records/documents',
+        '/medications', '/lab-reports', '/billing',
+        // Use specific nearby sub-paths, NOT /nearby itself:
+        // /nearby/provider/* is clinical and must not be blocked here.
+        '/nearby/search', '/nearby/book', '/nearby/lab-booking', '/nearby/my-appointments',
+        '/prescriptions', '/radiology', '/insurance', '/patient',
+        '/family', '/reports', '/ai-assistant',
+    ],
     RADIOLOGY:      ['/teleradiology'],
-    HOSPITAL_STAFF: ['/reception', '/ems', '/icu', '/bed-management', '/lab-orders'],
     ADMINISTRATION: ['/admin'],
+    BILLER:         ['/billing', '/admin/billing'],
 };
 
 /** Routes that belong to at least one workspace (checked for access enforcement). */
 const WORKSPACE_GUARDED_PREFIXES = Object.values(WORKSPACE_ROUTES).flat();
 
+function matchesPrefix(pathname: string, prefix: string): boolean {
+    // Exact match OR path starts with prefix + "/" to prevent /lab matching /lab-reports.
+    return pathname === prefix || pathname.startsWith(prefix.endsWith('/') ? prefix : prefix + '/');
+}
+
 function isWorkspaceGuarded(pathname: string): string | null {
     for (const prefix of WORKSPACE_GUARDED_PREFIXES) {
-        if (pathname.startsWith(prefix)) return prefix;
+        if (matchesPrefix(pathname, prefix)) return prefix;
     }
     return null;
 }
@@ -52,7 +81,7 @@ function isWorkspaceGuarded(pathname: string): string | null {
 function userHasWorkspaceFor(pathname: string, workspaces: string[]): boolean {
     for (const [workspace, prefixes] of Object.entries(WORKSPACE_ROUTES)) {
         for (const prefix of prefixes) {
-            if (pathname.startsWith(prefix) && workspaces.includes(workspace)) {
+            if (matchesPrefix(pathname, prefix) && workspaces.includes(workspace)) {
                 return true;
             }
         }
@@ -89,10 +118,13 @@ export function middleware(req: NextRequest) {
         const rawWorkspaces = req.cookies.get('cc-workspaces')?.value ?? '';
         const workspaces = decodeURIComponent(rawWorkspaces).split(',').filter(Boolean);
 
-        // If the cookie is present but empty, the backend hasn't granted any
-        // workspaces yet — redirect to the home page instead of /login.
+        // If the workspaces cookie is absent or empty, fall through: the session
+        // is valid (cc-session is present) but workspace attribution hasn't been
+        // written yet (backend omitted the field, or this is a first render after
+        // login before persistAuth fires). The backend protect()/authorize() guards
+        // on every API call are the real security boundary — see SECURITY MODEL above.
         if (workspaces.length === 0) {
-            return NextResponse.redirect(new URL('/home', req.url));
+            return NextResponse.next();
         }
 
         if (!userHasWorkspaceFor(pathname, workspaces)) {

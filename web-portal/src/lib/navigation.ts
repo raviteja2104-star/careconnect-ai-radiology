@@ -175,7 +175,14 @@ const ROUTE_ACCESS: Array<{ prefix: string; roles: Role[] }> = [
     { prefix: '/bed-management', roles: CLINICAL_ROLES },
     { prefix: '/emergency', roles: CLINICAL_ROLES },
     { prefix: '/ems', roles: CLINICAL_ROLES },
+    // /nearby is the B2C consumer search experience — patient-only.
+    // /nearby/provider is the clinical provider directory — separate rule above wins
+    // (longest-prefix-first sort ensures /nearby/provider beats /nearby for clinical roles).
+    { prefix: '/nearby', roles: ['PATIENT', 'SUPER_ADMIN'] },
     { prefix: '/nearby/provider', roles: CLINICAL_ROLES },
+    // /lab/ covers /lab/worklist and other clinical lab sub-routes; /lab-reports (patient)
+    // is unaffected because it starts with /lab-r, never /lab/.
+    { prefix: '/lab', roles: CLINICAL_ROLES },
 ];
 
 export function canAccessRoute(role: Role, pathname: string): boolean {
@@ -192,6 +199,7 @@ export function homeForRole(role: Role): string {
         case 'PATIENT': return '/nearby';
         case 'RADIOLOGIST': return '/teleradiology/worklist';
         case 'SUPER_ADMIN': return '/admin';
+        case 'BILLER': return '/billing';
         default: return '/dashboard';
     }
 }
