@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { sendEmail, templates } = require('../services/EmailNotificationService');
 
 let Razorpay;
@@ -122,7 +122,9 @@ router.post('/verify', protect, async (req, res, next) => {
 });
 
 // ── Refund ─────────────────────────────────────────────────────────────────────
-router.post('/refund', protect, async (req, res, next) => {
+// Admin-only: refunds are irreversible financial operations; ownership of the
+// underlying payment is verified by admin staff before calling this endpoint.
+router.post('/refund', protect, authorize('admin'), async (req, res, next) => {
     try {
         const { paymentId, amount } = req.body;
         if (!isLive()) return res.json({ success: true, demo: true, message: 'Refund initiated (demo).' });

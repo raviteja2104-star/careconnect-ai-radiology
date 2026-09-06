@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 const isDB = () => { const m = require('mongoose'); return m.connection.readyState === 1; };
 
@@ -45,7 +45,8 @@ router.get('/overview', protect, async (req, res, next) => {
 });
 
 // ── GET /activity — live activity feed from audit log ────────────────────────
-router.get('/activity', protect, async (req, res, next) => {
+// Audit log contains PHI-adjacent metadata; restrict to admin and clinical staff.
+router.get('/activity', protect, authorize('admin', 'doctor', 'radiologist', 'nurse'), async (req, res, next) => {
     try {
         if (!isDB()) {
             return res.json({ success: true, data: [] });

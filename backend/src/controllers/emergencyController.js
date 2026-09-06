@@ -67,6 +67,17 @@ const getEmergencyStatus = async (req, res, next) => {
             });
         }
 
+        // Ownership/RBAC: the patient who triggered the SOS, or clinical staff.
+        const EMERGENCY_STAFF_ROLES = ['admin', 'doctor', 'emergency', 'nurse', 'radiologist'];
+        const isStaff = EMERGENCY_STAFF_ROLES.includes(req.user?.role);
+        const isOwner = emergency.patientId?._id
+            ? String(emergency.patientId._id) === String(req.user?._id)
+            : String(emergency.patientId) === String(req.user?._id);
+
+        if (!isStaff && !isOwner) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
+
         res.json({
             success: true,
             data: emergency,

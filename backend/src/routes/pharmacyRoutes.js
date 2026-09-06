@@ -6,13 +6,19 @@ const PharmacyOrder = require('../models/PharmacyOrder');
 const isDB = () => { const m = require('mongoose'); return m.connection.readyState === 1; };
 
 // ── GET /orders — list pharmacy orders ─────────────────────────────────────────
+// Patients see only their own orders; pharmacy/admin staff see all.
 router.get('/orders', protect, async (req, res, next) => {
     try {
         if (!isDB()) {
             return res.status(503).json({ success: false, message: 'Database unavailable' });
         }
         const { status, page = 1, limit = 20 } = req.query;
+        const STAFF_ROLES = ['admin', 'doctor', 'nurse', 'pharmacist', 'radiologist'];
         const filter = {};
+        if (!STAFF_ROLES.includes(req.user?.role)) {
+            // Non-staff users may only see their own orders
+            filter.patientId = req.user._id;
+        }
         if (status && status !== 'all') filter.status = status.toLowerCase();
 
         const skip = (Number(page) - 1) * Number(limit);

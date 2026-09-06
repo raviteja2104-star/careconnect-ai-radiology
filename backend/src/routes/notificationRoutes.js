@@ -5,7 +5,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 
 let admin;
@@ -92,7 +92,12 @@ router.get('/', protect, async (req, res, next) => {
 router.put('/:id/read', protect, async (req, res, next) => {
     try {
         if (!isDB()) return res.json({ success: true, message: 'Marked as read (demo).' });
-        await Notification.findByIdAndUpdate(req.params.id, { read: true });
+        // Scope to the calling user's own notifications — prevents IDOR
+        const doc = await Notification.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user._id },
+            { read: true }
+        );
+        if (!doc) return res.status(404).json({ success: false, message: 'Notification not found.' });
         res.json({ success: true, message: 'Marked as read.' });
     } catch (err) { next(err); }
 });
@@ -107,7 +112,7 @@ router.put('/read-all', protect, async (req, res, next) => {
 });
 
 // ── Send test notification (admin) ────────────────────────────────────────────
-router.post('/send', protect, async (req, res, next) => {
+router.post('/send', protect, authorize('admin'), async (req, res, next) => {
     try {
         const { userId, title, body, type = 'system' } = req.body;
         // Store in DB

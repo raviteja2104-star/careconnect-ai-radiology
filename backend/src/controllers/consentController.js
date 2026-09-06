@@ -59,6 +59,14 @@ exports.signConsent = async (req, res) => {
     const consent = await ConsentDocument.findById(id);
     if (!consent) return res.status(404).json({ success: false, error: 'Consent not found' });
 
+    // Ownership check: patients may only sign their own consent documents.
+    // Clinical staff (doctor, admin, nurse) may co-sign as authorised witnesses.
+    const STAFF_ROLES = ['doctor', 'admin', 'nurse', 'radiologist'];
+    const callerIsStaff = STAFF_ROLES.includes(req.user?.role);
+    if (!callerIsStaff && consent.patient.toString() !== req.user?._id?.toString()) {
+      return res.status(403).json({ success: false, error: 'You may only sign your own consent documents.' });
+    }
+
     consent.signatures.push({
       signerType,
       signerName,

@@ -5,7 +5,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 const ABDM_BASE = process.env.ABDM_BASE_URL || 'https://healthidsbx.abdm.gov.in/api';
 const isLive = () => !!process.env.ABDM_CLIENT_ID && !!process.env.ABDM_CLIENT_SECRET;
@@ -32,7 +32,7 @@ const getABDMToken = async () => {
 };
 
 // ── Generate ABHA OTP ─────────────────────────────────────────────────────────
-router.post('/generate-otp', protect, async (req, res, next) => {
+router.post('/generate-otp', protect, authorize('patient', 'admin'), async (req, res, next) => {
     try {
         const { aadhaar, mobile, method = 'aadhaar' } = req.body;
         if (!isLive()) {
@@ -51,7 +51,7 @@ router.post('/generate-otp', protect, async (req, res, next) => {
 });
 
 // ── Verify OTP & Create ABHA ──────────────────────────────────────────────────
-router.post('/verify-otp', protect, async (req, res, next) => {
+router.post('/verify-otp', protect, authorize('patient', 'admin'), async (req, res, next) => {
     try {
         const { txnId, otp } = req.body;
         if (!isLive()) {
@@ -72,7 +72,7 @@ router.post('/verify-otp', protect, async (req, res, next) => {
 });
 
 // ── Fetch ABHA Profile ────────────────────────────────────────────────────────
-router.get('/profile', protect, async (req, res, next) => {
+router.get('/profile', protect, authorize('patient', 'admin', 'doctor'), async (req, res, next) => {
     try {
         if (!isLive()) {
             return res.json({
@@ -96,7 +96,8 @@ router.get('/profile', protect, async (req, res, next) => {
 });
 
 // ── Consent Management — Request records ──────────────────────────────────────
-router.post('/consent/request', protect, async (req, res, next) => {
+// HIU consent request — initiated by a healthcare provider, not the patient
+router.post('/consent/request', protect, authorize('doctor', 'admin'), async (req, res, next) => {
     try {
         const { patientAbha, purpose, dateFrom, dateTo, hiTypes } = req.body;
         if (!isLive()) {
@@ -125,7 +126,7 @@ router.post('/consent/request', protect, async (req, res, next) => {
 });
 
 // ── Share health records via ABDM ─────────────────────────────────────────────
-router.post('/share', protect, async (req, res, next) => {
+router.post('/share', protect, authorize('patient', 'admin', 'doctor'), async (req, res, next) => {
     try {
         const { scanId, recipientAbha } = req.body;
         if (!isLive()) {

@@ -140,9 +140,9 @@ const MOCK_INSTANCES = (studyUID, seriesUID) => {
 };
 
 const setDICOMwebHeaders = (res) => {
+    // CORS for authenticated DICOMweb APIs is handled by the server's global
+    // CORS middleware (configured with specific allowed origins). Never use * here.
     res.setHeader('Content-Type', 'application/dicom+json');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
 };
 
 // ── QIDO-RS: Query studies ─────────────────────────────────────────────────
@@ -207,7 +207,6 @@ router.get('/rs/studies/:studyUID/series/:seriesUID/instances/:sopUID/frames/:fr
     const dicomFile = path.join(dicomDir, `${sopUID}.dcm`);
     if (fs.existsSync(dicomFile)) {
         res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Access-Control-Allow-Origin', '*');
         return res.sendFile(dicomFile);
     }
 
@@ -240,7 +239,7 @@ router.get('/rs/studies/:studyUID/series/:seriesUID/instances/:sopUID/frames/:fr
 
         const boundary = 'myboundary';
         res.setHeader('Content-Type', `multipart/related; type="application/octet-stream"; boundary="${boundary}"`);
-        res.setHeader('Access-Control-Allow-Origin', '*');
+
         const buf = canvas.toBuffer('image/png');
         res.write(`--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`);
         res.write(buf);
@@ -250,7 +249,6 @@ router.get('/rs/studies/:studyUID/series/:seriesUID/instances/:sopUID/frames/:fr
 
     // Fallback: tiny 1x1 pixel response
     res.setHeader('Content-Type', 'multipart/related; type="application/octet-stream"; boundary="myboundary"');
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.end('--myboundary\r\nContent-Type: application/octet-stream\r\n\r\n\r\n--myboundary--');
 });
 
@@ -276,7 +274,7 @@ router.get('/wado', async (req, res) => {
     const dicomFile = path.join(dicomDir, `${objectUID}.dcm`);
     if (fs.existsSync(dicomFile)) {
         res.setHeader('Content-Type', 'application/dicom');
-        res.setHeader('Access-Control-Allow-Origin', '*');
+
         return res.sendFile(dicomFile);
     }
 
@@ -332,7 +330,11 @@ router.post('/rs/studies', authorize('radiologist', 'admin'), (req, res) => {
 
 // ── OHIF config endpoint ───────────────────────────────────────────────────
 router.get('/ohif-config', (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // OHIF viewer origin — must be a specific origin, never wildcard on an
+    // authenticated API. OHIF_VIEWER_ORIGIN (or FRONTEND_URL as fallback) must
+    // be set in .env; omit header rather than falling back to *.
+    const ohifOrigin = process.env.OHIF_VIEWER_ORIGIN || process.env.FRONTEND_URL;
+    if (ohifOrigin) res.setHeader('Access-Control-Allow-Origin', ohifOrigin);
     res.json({
         routerBasename: '/ohif',
         showStudyList: true,
