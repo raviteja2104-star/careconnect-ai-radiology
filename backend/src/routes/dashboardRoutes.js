@@ -52,16 +52,16 @@ router.get('/activity', protect, async (req, res, next) => {
         }
         const AuditLog = require('../models/AuditLog');
         const logs = await AuditLog.find({})
-            .sort({ createdAt: -1 })
+            .sort({ at: -1 })
             .limit(20)
             .lean();
         const data = logs.map(log => {
-            const ageMs = Date.now() - new Date(log.createdAt).getTime();
+            const ageMs = Date.now() - new Date(log.at).getTime();
             const ageMins = Math.floor(ageMs / 60000);
             const time = ageMins < 1 ? 'just now'
                 : ageMins < 60 ? `${ageMins} min ago`
                 : ageMins < 1440 ? `${Math.floor(ageMins / 60)}h ago`
-                : new Date(log.createdAt).toLocaleDateString('en-IN');
+                : new Date(log.at).toLocaleDateString('en-IN');
             return {
                 time,
                 event: `${log.action} on ${log.resource}`,
