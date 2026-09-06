@@ -1,19 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   joinWaitingRoom,
+  getSession,
   startConsultation,
-  endConsultation
+  endConsultation,
 } = require('../controllers/telemedicineController');
 const { protect, authorize } = require('../middleware/auth');
 
 // All telemedicine endpoints require an authenticated session.
 router.use(protect);
 
-// Patients join the waiting room themselves — no role restriction beyond auth.
-router.route('/join').post(joinWaitingRoom);
-// Starting/ending a consultation is a clinician action.
-router.route('/start').post(authorize('doctor', 'admin'), startConsultation);
-router.route('/end').post(authorize('doctor', 'admin'), endConsultation);
+// Patient: join waiting room for a booked appointment
+router.post('/join', joinWaitingRoom);
+// Patient or doctor: retrieve session for an appointment
+router.get('/session/:appointmentId', getSession);
+// Doctor/admin: control the consultation lifecycle
+router.post('/start', authorize('doctor', 'admin'), startConsultation);
+router.post('/end',   authorize('doctor', 'admin'), endConsultation);
 
 module.exports = router;

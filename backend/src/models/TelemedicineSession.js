@@ -1,16 +1,18 @@
 const mongoose = require('mongoose');
 
 const telemedicineSessionSchema = new mongoose.Schema({
+  // queueToken is used for walk-in queue flow; optional for booked telemedicine
   queueToken: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'QueueToken',
-    required: true,
-    index: true
+    index: true,
+    default: null,
   },
   appointment: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointment',
-    required: true
+    required: true,
+    index: true,
   },
   patient: {
     type: mongoose.Schema.Types.ObjectId,
@@ -32,7 +34,8 @@ const telemedicineSessionSchema = new mongoose.Schema({
     enum: ['WebRTC', 'Daily', 'Twilio', 'LiveKit'],
     default: 'WebRTC'
   },
-  roomId: { type: String }, // e.g., daily.co room URL or WebRTC peer ID
+  roomId: { type: String },
+  roomUrl: { type: String }, // Full joinable URL returned to frontend
   startedAt: { type: Date },
   endedAt: { type: Date },
   aiScribeEnabled: { type: Boolean, default: true },

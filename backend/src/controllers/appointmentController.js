@@ -164,12 +164,20 @@ exports.bookAppointment = async (req, res) => {
   }
 };
 
-// @desc    Get user appointments
-// @route   GET /api/appointments
+// @desc    Get user appointments (patient-scoped, auth required)
+// @route   GET /api/appointments?type=video&status=Booked
 exports.getAppointments = async (req, res) => {
   try {
-    // Note: in a real app, query by req.user._id
-    const appointments = await Appointment.find().populate('doctor', 'name profilePicture');
+    const filter = { patient: req.user._id };
+    if (req.query.type === 'video') filter.visitType = 'Video Call';
+    if (req.query.status) filter.status = req.query.status;
+
+    const appointments = await Appointment
+      .find(filter)
+      .populate('doctor', 'firstName lastName email specialization')
+      .sort({ date: 1 })
+      .lean();
+
     res.json({ success: true, data: appointments });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

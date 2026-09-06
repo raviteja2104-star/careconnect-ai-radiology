@@ -1,20 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  getSpecialties, 
-  getDoctors, 
-  getAvailability, 
-  bookAppointment, 
-  getAppointments 
+const {
+  getSpecialties,
+  getDoctors,
+  getAvailability,
+  bookAppointment,
+  getAppointments
 } = require('../controllers/appointmentController');
+const { protect } = require('../middleware/auth');
 
-// In a real scenario, use the auth protect middleware:
-// const { protect } = require('../middleware/auth');
-// router.use(protect);
-
+// Public lookup endpoints (no auth required)
 router.route('/specialties').get(getSpecialties);
 router.route('/doctors').get(getDoctors);
 router.route('/doctors/:id/availability').get(getAvailability);
-router.route('/').get(getAppointments).post(bookAppointment);
+
+// Patient-scoped endpoints require auth
+router.route('/').get(protect, getAppointments).post(protect, bookAppointment);
 
 module.exports = router;
