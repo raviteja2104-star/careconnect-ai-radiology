@@ -56,6 +56,8 @@ const healthRecordRoutes = require('./routes/healthRecordRoutes');
 const providerEnquiryRoutes = require('./routes/providerEnquiryRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const providerRegistrationRoutes = require('./routes/providerRegistrationRoutes');
+const adtRoutes = require('./routes/adtRoutes');
+const consultationRoutes = require('./routes/consultationRoutes');
 
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
@@ -289,6 +291,8 @@ app.use('/api/health-records', healthRecordRoutes);
 app.use('/api/provider-enquiry', providerEnquiryRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/provider', providerRegistrationRoutes);
+app.use('/api/adt', adtRoutes);
+app.use('/api/consultations', consultationRoutes);
 
 const userSearchRoutes = require('./routes/userSearchRoutes');
 app.use('/api/users', userSearchRoutes);

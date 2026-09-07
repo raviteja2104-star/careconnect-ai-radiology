@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   IndianRupee, Users, Activity, Bed, Download, Calendar, Filter,
   CreditCard, FlaskConical, Pill, Building2, Landmark, Banknote, Smartphone,
+  User, Search, Clock, FileText, Heart,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -11,7 +12,7 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, Button, Select, Badge,
-  Progress, EmptyState,
+  Progress, EmptyState, Input,
 } from '@/components/ui';
 import { CHART_COLORS, chartGrid, chartAxis, chartTooltip } from '@/lib/chart-theme';
 
@@ -49,8 +50,138 @@ const PHARMACY_VOLUME = [
   { name: 'Amoxicillin + Clavulanic Acid 625mg', value: '1,940 Strips' },
 ];
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+interface PatientSummary {
+  demographics?: { name?: string; age?: number; gender?: string; bloodGroup?: string; };
+  allergies?: string[];
+  chronicDiseases?: string[];
+  medications?: { name: string; dosage?: string; frequency?: string; }[];
+  surgeries?: string[];
+  documentCounts?: { prescriptions?: number; labReports?: number; documents?: number; diagnosticReports?: number; };
+}
+
+function PatientReportTab() {
+  const [patientId, setPatientId] = useState('');
+  const [summary, setSummary] = useState<PatientSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch_ = useCallback(async () => {
+    if (!patientId.trim()) return;
+    setLoading(true); setError(null); setSummary(null);
+    try {
+      const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+      const r = await fetch(`${API}/api/health-records/patients/${patientId.trim()}/summary`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await r.json();
+      if (!r.ok || !data.success) { setError(data.message || `HTTP ${r.status}`); return; }
+      setSummary(data.data ?? data);
+    } catch (e) { setError('Could not reach server.'); }
+    finally { setLoading(false); }
+  }, [patientId]);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" aria-hidden /> Patient Clinical Summary</CardTitle>
+          <CardDescription>Enter a patient&apos;s database ID to fetch their real clinical health record summary from the backend.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3">
+            <Input
+              placeholder="Patient MongoDB _id"
+              value={patientId}
+              onChange={e => setPatientId(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && fetch_()}
+              className="max-w-sm font-mono text-sm"
+            />
+            <Button onClick={fetch_} disabled={!patientId.trim() || loading}>
+              <Search className="h-4 w-4" aria-hidden /> {loading ? 'Loading…' : 'Fetch Summary'}
+            </Button>
+          </div>
+          {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+        </CardContent>
+      </Card>
+
+      {summary && (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {summary.demographics && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><User className="h-4 w-4" /> Demographics</CardTitle></CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {summary.demographics.name && <p><span className="text-muted-foreground">Name:</span> <strong>{summary.demographics.name}</strong></p>}
+                {summary.demographics.age && <p><span className="text-muted-foreground">Age:</span> {summary.demographics.age} yrs</p>}
+                {summary.demographics.gender && <p><span className="text-muted-foreground">Gender:</span> {summary.demographics.gender}</p>}
+                {summary.demographics.bloodGroup && <p><span className="text-muted-foreground">Blood Group:</span> {summary.demographics.bloodGroup}</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          {summary.chronicDiseases && summary.chronicDiseases.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Heart className="h-4 w-4" /> Chronic Conditions</CardTitle></CardHeader>
+              <CardContent className="space-y-1">
+                {summary.chronicDiseases.map((d, i) => <Badge key={i} tone="warning" className="mr-1 mb-1">{d}</Badge>)}
+              </CardContent>
+            </Card>
+          )}
+
+          {summary.allergies && summary.allergies.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Activity className="h-4 w-4" /> Allergies</CardTitle></CardHeader>
+              <CardContent className="space-y-1">
+                {summary.allergies.map((a, i) => <Badge key={i} tone="danger" className="mr-1 mb-1">{a}</Badge>)}
+              </CardContent>
+            </Card>
+          )}
+
+          {summary.medications && summary.medications.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Pill className="h-4 w-4" /> Current Medications</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {summary.medications.map((m, i) => (
+                  <div key={i} className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                    <p className="font-medium">{m.name}</p>
+                    {(m.dosage || m.frequency) && <p className="text-xs text-muted-foreground">{m.dosage}{m.frequency ? ` · ${m.frequency}` : ''}</p>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {summary.documentCounts && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><FileText className="h-4 w-4" /> Record Counts</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {Object.entries(summary.documentCounts).map(([key, count]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="capitalize text-muted-foreground">{key.replace(/([A-Z])/g, ' $1')}</span>
+                    <Badge tone="info">{count}</Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {summary.surgeries && summary.surgeries.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Clock className="h-4 w-4" /> Surgical History</CardTitle></CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {summary.surgeries.map((s, i) => <p key={i} className="text-muted-foreground">• {s}</p>)}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<'financial' | 'occupancy' | 'clinical' | 'opd-ipd'>('financial');
+  const [activeTab, setActiveTab] = useState<'financial' | 'occupancy' | 'clinical' | 'opd-ipd' | 'patient'>('financial');
   const [dateRange, setDateRange] = useState('This Month (Jul 2026)');
   const [selectedDept, setSelectedDept] = useState('All Departments');
 
@@ -160,6 +291,9 @@ export default function ReportsPage() {
           </TabsTrigger>
           <TabsTrigger value="opd-ipd">
             <Building2 className="h-4 w-4" aria-hidden /> OPD vs IPD & Demographics
+          </TabsTrigger>
+          <TabsTrigger value="patient">
+            <User className="h-4 w-4" aria-hidden /> Patient Clinical Report
           </TabsTrigger>
         </TabsList>
 
@@ -307,6 +441,11 @@ export default function ReportsPage() {
               onClick: () => alert(`Exporting CareConnect Executive Report (${dateRange}) as PDF & CSV...`),
             }}
           />
+        </TabsContent>
+
+        {/* TAB 5: PATIENT CLINICAL REPORT — uses real backend */}
+        <TabsContent value="patient" className="mt-6">
+          <PatientReportTab />
         </TabsContent>
       </Tabs>
     </div>
