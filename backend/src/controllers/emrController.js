@@ -276,6 +276,9 @@ exports.getEncounter = async (req, res) => {
         ]);
         res.json({ encounter, notes, orders });
     } catch (err) {
+        if (err.name === 'CastError' && err.kind === 'ObjectId') {
+            return res.status(400).json({ success: false, message: 'Invalid ID format.' });
+        }
         res.status(500).json({ message: 'Failed to load encounter', error: err.message });
     }
 };

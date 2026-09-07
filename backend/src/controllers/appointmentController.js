@@ -106,10 +106,16 @@ exports.bookAppointment = async (req, res) => {
     // Patients book for themselves; staff/admin may specify patientId in the body
     const patientId = bodyPatientId && req.user?.role !== 'patient'
         ? bodyPatientId
-        : (req.user?._id ?? new mongoose.Types.ObjectId());
-    
-    // For MVP, if doctorId is 'mock1', we generate a fake object ID to avoid cast errors
-    const validDoctorId = mongoose.Types.ObjectId.isValid(doctorId) ? doctorId : new mongoose.Types.ObjectId();
+        : req.user?._id;
+
+    if (!patientId) {
+        return res.status(400).json({ success: false, message: 'Patient ID is required.' });
+    }
+
+    if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId)) {
+        return res.status(400).json({ success: false, message: 'A valid doctor ID is required.' });
+    }
+    const validDoctorId = doctorId;
 
     const patient = await User.findById(patientId);
     const doctor = await DoctorProfile.findOne({ user: validDoctorId }).populate('user');

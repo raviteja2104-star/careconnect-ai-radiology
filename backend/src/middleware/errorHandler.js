@@ -25,6 +25,14 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
+    // Mongoose CastError (invalid ObjectId format)
+    if (err.name === 'CastError' && err.kind === 'ObjectId') {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid ID format.',
+        });
+    }
+
     // Mongoose duplicate key
     if (err.code === 11000) {
         return res.status(400).json({
