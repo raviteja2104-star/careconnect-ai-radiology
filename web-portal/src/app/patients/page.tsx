@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Search, Plus, ChevronRight, Users, UserCheck, UserX,
@@ -69,6 +70,7 @@ function BloodBadge({ group }: { group: BloodGroup }) {
 }
 
 export default function PatientsPage() {
+  const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | PatientStatus>('All');
@@ -115,6 +117,7 @@ export default function PatientsPage() {
     setIsRegisterModalOpen(false);
     setName('');
     setDiagnosis('');
+    router.push('/emr');
   };
 
   const columns: Column<Patient>[] = [
