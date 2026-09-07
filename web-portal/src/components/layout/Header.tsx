@@ -32,14 +32,12 @@ export const Header = () => {
 
                 {/* Profile */}
                 <button className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                    <img 
-                        src="https://i.pravatar.cc/150?u=a042581f4e29026704d" 
-                        alt="John Doe" 
-                        className="w-10 h-10 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover"
-                    />
+                    <div className="w-10 h-10 rounded-full border border-zinc-200 dark:border-zinc-700 bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-sm font-bold text-indigo-600 dark:text-indigo-300">
+                        P
+                    </div>
                     <div className="text-left hidden md:block">
-                        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 leading-none mb-1">John Doe</p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-none">Patient</p>
+                        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 leading-none mb-1">Patient</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-none">Logged in</p>
                     </div>
                     <ChevronDown className="w-4 h-4 text-zinc-400 hidden md:block" />
                 </button>

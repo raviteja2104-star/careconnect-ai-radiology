@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getRevenueDashboard,
   createInvoice,
+  getInvoice,
   getInvoices,
   processPayment
 } = require('../controllers/billingController');
@@ -18,8 +19,9 @@ router.get('/dashboard', permit('STAFF.VIEW_REVENUE'), getRevenueDashboard);
 
 // Invoices — patients see own invoices; billing staff see all.
 // Controller scopes results to req.user for patient role.
-router.get('/invoices',  permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), getInvoices);
-router.post('/invoices', permit('STAFF.CREATE_INVOICE'), createInvoice);
+router.get('/invoices',     permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), getInvoices);
+router.post('/invoices',    permit('STAFF.CREATE_INVOICE'), createInvoice);
+router.get('/invoices/:id', permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), getInvoice);
 
 // Payments — billing staff only
 router.post('/payments', permit('STAFF.PROCESS_PAYMENT'), processPayment);

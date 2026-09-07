@@ -19,9 +19,13 @@ export default function DigitalHealthWallet() {
     activeTokens: [], pendingInvoices: [], pendingConsents: [], appointments: [], telemedicine: []
   });
 
-  const patientId = typeof window !== 'undefined'
-    ? (() => { try { return JSON.parse(localStorage.getItem('cc-user') ?? '{}')._id ?? null; } catch { return null; } })()
-    : null;
+  const storedUser = typeof window !== 'undefined'
+    ? (() => { try { return JSON.parse(localStorage.getItem('cc-user') ?? '{}'); } catch { return {}; } })()
+    : {};
+  const patientId = storedUser._id ?? null;
+  const patientDisplayName = storedUser.firstName
+    ? `${storedUser.firstName}${storedUser.lastName ? ' ' + storedUser.lastName : ''}`
+    : 'Patient';
 
   const { data: walletRes, refetch } = useQuery({
     queryKey: ['patient_wallet', patientId],
@@ -96,7 +100,7 @@ export default function DigitalHealthWallet() {
                 <QrCode className="h-6 w-6" aria-hidden />
               </span>
             </div>
-            <p className="relative mt-6 text-sm font-medium opacity-90">John Doe • Male • 34 Yrs</p>
+            <p className="relative mt-6 text-sm font-medium opacity-90">{patientDisplayName}</p>
           </CardContent>
         </Card>
       </motion.div>

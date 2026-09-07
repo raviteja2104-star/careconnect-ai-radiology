@@ -109,6 +109,24 @@ exports.getInvoices = async (req, res) => {
   }
 };
 
+// @desc    Get a single invoice by ID
+// @route   GET /api/billing/invoices/:id
+exports.getInvoice = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('patient', 'firstName lastName phone');
+    if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
+
+    if (req.user?.role === 'patient' && !invoice.patient._id.equals(req.user._id)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    res.json({ success: true, data: invoice });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Process a payment for an invoice
 // @route   POST /api/billing/payments
 exports.processPayment = async (req, res) => {

@@ -257,10 +257,10 @@ export const DEMO_ENCOUNTER_ID = 'demo';
 
 const DEMO_PATIENT: PatientRecord = {
     _id: DEMO_PATIENT_ID,
-    firstName: 'Rohit',
-    lastName: 'Sharma',
+    firstName: 'Demo',
+    lastName: 'Patient',
     phone: '+91 98765 43210',
-    email: 'rohit.sharma@example.in',
+    email: 'demo.patient@careconnect.dev',
     dateOfBirth: '1992-05-12T00:00:00.000Z',
     gender: 'male',
     bloodGroup: 'B+',
@@ -311,7 +311,7 @@ export const DEMO_360: Patient360 = {
 export const DEMO_ENCOUNTER_BUNDLE: EncounterBundle = {
     encounter: {
         _id: DEMO_ENCOUNTER_ID,
-        patientId: { _id: DEMO_PATIENT_ID, name: 'Rohit Sharma' },
+        patientId: { _id: DEMO_PATIENT_ID, name: 'Demo Patient' },
         doctorId: { _id: 'doc1', name: 'Dr. Raj Sharma' },
         type: 'opd',
         specialty: 'Cardiology',
