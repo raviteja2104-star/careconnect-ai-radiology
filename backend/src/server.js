@@ -114,7 +114,7 @@ app.use((req, res, next) => {
 });
 const CORS_ORIGINS = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : ['http://localhost:3000', 'http://localhost:3001', 'https://www.careconnect.care', 'https://careconnect.care'];
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://www.careconnect.care', 'https://careconnect.care'];
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -371,7 +371,7 @@ if (!process.env.VERCEL) {
     const server = http.createServer(app);
     const wsOrigins = process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-        : ['http://localhost:3000', 'http://localhost:3001', 'https://www.careconnect.care', 'https://careconnect.care'];
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://www.careconnect.care', 'https://careconnect.care'];
     const io = new Server(server, { cors: { origin: wsOrigins, methods: ['GET', 'POST'], credentials: true } });
     const { setupWebSocket } = require('./websocket/socketHandler');
     setupWebSocket(io);
