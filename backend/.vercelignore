@@ -1,0 +1,9 @@
+uploads/
+uploads-secure/
+node_modules/
+.env
+.env.*
+*.test.js
+*.spec.js
+src/__tests__/
+migrations/
