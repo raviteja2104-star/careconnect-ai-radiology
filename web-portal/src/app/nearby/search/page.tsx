@@ -36,6 +36,11 @@ function filtersFromParams(sp: URLSearchParams): FilterState {
         verifiedOnly: parseBool(sp.get('verified-only')),
         maxFee: sp.get('fee') ? Number(sp.get('fee')) : DEFAULT_FILTERS.maxFee,
         insurance: sp.get('insurance') || '',
+        // pharmacy-specific
+        is24Hours: parseBool(sp.get('is24Hours')),
+        homeDelivery: parseBool(sp.get('homeDelivery')),
+        onlineOrdering: parseBool(sp.get('onlineOrdering')),
+        pharmacyType: (sp.get('pharmacyType') as FilterState['pharmacyType']) || '',
     };
 }
 
@@ -60,6 +65,11 @@ function paramsFromState(filters: FilterState, extra: {
     if (filters.verifiedOnly) qs.set('verified-only', 'true');
     if (filters.maxFee !== DEFAULT_FILTERS.maxFee) qs.set('fee', String(filters.maxFee));
     if (filters.insurance.trim()) qs.set('insurance', filters.insurance.trim());
+    // pharmacy-specific
+    if (filters.is24Hours) qs.set('is24Hours', 'true');
+    if (filters.homeDelivery) qs.set('homeDelivery', 'true');
+    if (filters.onlineOrdering) qs.set('onlineOrdering', 'true');
+    if (filters.pharmacyType) qs.set('pharmacyType', filters.pharmacyType);
     return qs;
 }
 
@@ -126,6 +136,11 @@ function SearchPageInner() {
             teleconsultation: filters.teleconsultation || undefined,
             emergency: filters.emergency || undefined,
             maxFee: filters.maxFee < DEFAULT_FILTERS.maxFee ? filters.maxFee : undefined,
+            // pharmacy-specific
+            is24Hours: filters.is24Hours || undefined,
+            homeDelivery: filters.homeDelivery || undefined,
+            onlineOrdering: filters.onlineOrdering || undefined,
+            pharmacyType: filters.pharmacyType || undefined,
         })
             .then((res) => {
                 if (id !== requestIdRef.current) return;

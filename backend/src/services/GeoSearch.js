@@ -66,6 +66,11 @@ function buildBaseQuery(filters) {
         teleconsultation,
         emergency,
         maxFee,
+        // pharmacy-specific
+        is24Hours,
+        homeDelivery,
+        onlineOrdering,
+        pharmacyType,
     } = filters;
 
     const query = { active: { $ne: false } };
@@ -78,11 +83,24 @@ function buildBaseQuery(filters) {
     if (maxFee != null && Number.isFinite(Number(maxFee))) {
         query['consultationFeeRange.min'] = { $lte: Number(maxFee) };
     }
+    // Pharmacy filters — only applied when relevant fields are truthy to
+    // avoid filtering out non-pharmacy providers that lack these fields.
+    if (is24Hours) query.is24Hours = true;
+    if (homeDelivery) query.$or = [{ homeDelivery: true }, { homeCollection: true }];
+    if (onlineOrdering) query.onlineOrdering = true;
+    if (pharmacyType) query.pharmacyType = pharmacyType;
     if (q && String(q).trim()) {
         const needle = String(q).trim();
         const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const rx = new RegExp(escaped, 'i');
-        query.$or = [{ name: rx }, { servicesOffered: rx }, { specialties: rx }, { locality: rx }];
+        // If homeDelivery already set $or, merge into it; otherwise start fresh.
+        const textOr = [{ name: rx }, { servicesOffered: rx }, { specialties: rx }, { locality: rx }];
+        if (query.$or) {
+            query.$and = [{ $or: query.$or }, { $or: textOr }];
+            delete query.$or;
+        } else {
+            query.$or = textOr;
+        }
     }
     return query;
 }

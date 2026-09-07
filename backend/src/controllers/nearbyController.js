@@ -103,6 +103,12 @@ function serializeProviderBase(p) {
         teleconsultation: !!p.teleconsultation,
         emergencyAvailable: !!p.emergencyAvailable,
         appointmentEnabled: !!p.appointmentEnabled,
+        // pharmacy-specific (null/undefined for non-pharmacy types)
+        pharmacyType: p.pharmacyType ?? null,
+        is24Hours: !!p.is24Hours,
+        homeDelivery: !!(p.homeDelivery || p.homeCollection),
+        onlineOrdering: !!p.onlineOrdering,
+        prescriptionDelivery: !!p.prescriptionDelivery,
         photos: p.photos || [],
         logo: p.logo,
         phone: p.phone,
@@ -267,6 +273,9 @@ const PROVIDER_EDITABLE_FIELDS = [
     'city', 'state', 'pincode', 'phone', 'email', 'website', 'workingHours',
     'emergencyAvailable', 'servicesOffered', 'specialties', 'consultationFeeRange',
     'insuranceAccepted', 'homeCollection', 'teleconsultation', 'appointmentEnabled', 'orgId',
+    // pharmacy-specific
+    'pharmacyType', 'is24Hours', 'homeDelivery', 'onlineOrdering', 'prescriptionDelivery',
+    'secondarySourceUrl',
 ];
 // type/locality are handled separately via ProviderMasterResolver (accepts
 // either the raw string or an *Id — never written to the document as-is).
@@ -300,6 +309,11 @@ exports.search = async (req, res) => {
             maxFee: q.maxFee !== undefined ? Number(q.maxFee) : undefined,
             page: q.page !== undefined ? Number(q.page) : undefined,
             limit: q.limit !== undefined ? Number(q.limit) : undefined,
+            // pharmacy-specific filters
+            is24Hours: q.is24Hours === 'true',
+            homeDelivery: q.homeDelivery === 'true',
+            onlineOrdering: q.onlineOrdering === 'true',
+            pharmacyType: q.pharmacyType || undefined,
         };
         const { results, total } = await GeoSearch.searchProviders(params);
         const enriched = await enrichProviders(results);

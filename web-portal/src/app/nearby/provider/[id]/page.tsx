@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     Phone, Navigation2, CalendarCheck2, Star, Truck, Video, Siren, Building2, MapPin, Clock3,
-    GraduationCap, Stethoscope, ShieldAlert, ImageOff,
+    GraduationCap, Stethoscope, ShieldAlert, ImageOff, Pill, Clock, ShoppingCart, FileText, Package,
 } from 'lucide-react';
 import {
     PageHeader, Card, CardHeader, CardTitle, CardContent, Button, Badge, Tabs, TabsList, TabsTrigger,
@@ -12,8 +12,8 @@ import {
 } from '@/components/ui';
 import { VerificationBadge } from '../../_components/VerificationBadge';
 import {
-    fetchProviderProfile, isAppointmentEnabled, PROVIDER_TYPE_LABELS, feeRangeLabel, formatINR,
-    directionsUrl, telUrl, type ProviderProfile,
+    fetchProviderProfile, isAppointmentEnabled, PROVIDER_TYPE_LABELS, PHARMACY_TYPE_LABELS,
+    feeRangeLabel, formatINR, directionsUrl, telUrl, type ProviderProfile,
 } from '../../_lib/api';
 
 const TYPE_TONE: Record<string, string> = {
@@ -120,7 +120,29 @@ export default function ProviderProfilePage() {
                                 <span className="whitespace-nowrap">· {provider.distanceKm} km away</span>
                             </p>
                             <div className="flex flex-wrap gap-1.5">
-                                {provider.homeCollection && <Badge tone="info"><Truck className="h-3 w-3" aria-hidden /> Home collection</Badge>}
+                                {/* Pharmacy-specific capability badges */}
+                                {provider.type === 'pharmacy' && provider.pharmacyType && (
+                                    <Badge tone="neutral">
+                                        <Pill className="h-3 w-3" aria-hidden />
+                                        {PHARMACY_TYPE_LABELS[provider.pharmacyType] ?? provider.pharmacyType}
+                                    </Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.is24Hours && (
+                                    <Badge tone="success"><Clock className="h-3 w-3" aria-hidden /> Open 24 Hours</Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.homeDelivery && (
+                                    <Badge tone="info"><Truck className="h-3 w-3" aria-hidden /> Home Delivery</Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.onlineOrdering && (
+                                    <Badge tone="info"><ShoppingCart className="h-3 w-3" aria-hidden /> Online Ordering</Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.prescriptionDelivery && (
+                                    <Badge tone="info"><FileText className="h-3 w-3" aria-hidden /> Prescription Delivery</Badge>
+                                )}
+                                {/* Generic badges */}
+                                {provider.type !== 'pharmacy' && provider.homeCollection && (
+                                    <Badge tone="info"><Truck className="h-3 w-3" aria-hidden /> Home collection</Badge>
+                                )}
                                 {provider.teleconsultation && <Badge tone="info"><Video className="h-3 w-3" aria-hidden /> Teleconsult</Badge>}
                                 {provider.emergencyAvailable && <Badge tone="danger"><Siren className="h-3 w-3" aria-hidden /> Emergency</Badge>}
                             </div>
@@ -142,10 +164,50 @@ export default function ProviderProfilePage() {
 
                         <TabsContent value="overview">
                             <Card>
-                                <CardHeader><CardTitle>About</CardTitle></CardHeader>
+                                <CardHeader>
+                                    <CardTitle>{provider.type === 'pharmacy' ? 'Pharmacy Information' : 'About'}</CardTitle>
+                                </CardHeader>
                                 <CardContent className="space-y-4">
+                                    {/* Pharmacy-specific info section */}
+                                    {provider.type === 'pharmacy' && (
+                                        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                                                <Package className="h-3.5 w-3.5" aria-hidden /> Pharmacy Details
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div>
+                                                    <span className="text-muted-foreground">Type</span>
+                                                    <p className="font-medium">
+                                                        {provider.pharmacyType ? PHARMACY_TYPE_LABELS[provider.pharmacyType] ?? provider.pharmacyType : 'Pharmacy'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground">Hours</span>
+                                                    <p className="font-medium">{provider.is24Hours ? '24 Hours, 7 Days' : 'See schedule below'}</p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground">Home Delivery</span>
+                                                    <p className="font-medium">{provider.homeDelivery ? 'Available' : 'Not available'}</p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground">Online Ordering</span>
+                                                    <p className="font-medium">{provider.onlineOrdering ? 'Available' : 'Not available'}</p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground">Rx Delivery</span>
+                                                    <p className="font-medium">{provider.prescriptionDelivery ? 'Available' : 'Not available'}</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground italic">
+                                                This is an external pharmacy listing. CareConnect displays publicly listed information only.
+                                                For prescriptions, contact the pharmacy directly.
+                                            </p>
+                                        </div>
+                                    )}
                                     <div>
-                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Services offered</p>
+                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                            {provider.type === 'pharmacy' ? 'Products & services' : 'Services offered'}
+                                        </p>
                                         <div className="flex flex-wrap gap-1.5">
                                             {provider.servicesOffered.map((s) => <Badge key={s} tone="outline">{s}</Badge>)}
                                         </div>
@@ -279,18 +341,38 @@ export default function ProviderProfilePage() {
                 <div className="space-y-4">
                     <Card>
                         <CardContent className="space-y-3 p-5">
-                            <Button
-                                className="w-full"
-                                size="lg"
-                                disabled={!bookable}
-                                onClick={() => router.push(`/nearby/book/${provider._id}`)}
-                            >
-                                <CalendarCheck2 className="h-4 w-4" aria-hidden /> Book Appointment
-                            </Button>
-                            {!bookable && (
-                                <p className="text-center text-xs text-muted-foreground">
-                                    {closed ? 'This listing is closed.' : 'Online booking not available — call to book.'}
-                                </p>
+                            {provider.type === 'pharmacy' ? (
+                                /* Pharmacy — no internal booking; show contact/directions only */
+                                <div className="space-y-2">
+                                    <p className="text-center text-xs text-muted-foreground">
+                                        External pharmacy — contact directly for orders and prescriptions.
+                                    </p>
+                                    {provider.onlineOrdering && provider.website && (
+                                        <Button
+                                            className="w-full"
+                                            size="lg"
+                                            onClick={() => window.open(provider.website!, '_blank', 'noopener,noreferrer')}
+                                        >
+                                            <ShoppingCart className="h-4 w-4" aria-hidden /> Order Online
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <Button
+                                        className="w-full"
+                                        size="lg"
+                                        disabled={!bookable}
+                                        onClick={() => router.push(`/nearby/book/${provider._id}`)}
+                                    >
+                                        <CalendarCheck2 className="h-4 w-4" aria-hidden /> Book Appointment
+                                    </Button>
+                                    {!bookable && (
+                                        <p className="text-center text-xs text-muted-foreground">
+                                            {closed ? 'This listing is closed.' : 'Online booking not available — call to book.'}
+                                        </p>
+                                    )}
+                                </>
                             )}
                             <div className="grid grid-cols-2 gap-2">
                                 {tel && (
@@ -309,13 +391,15 @@ export default function ProviderProfilePage() {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader><CardTitle className="text-sm">Fees</CardTitle></CardHeader>
-                        <CardContent className="p-5 pt-0">
-                            <p className="text-lg font-semibold text-foreground">{feeRangeLabel(provider.consultationFeeRange)}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Consultation fee range, where listed.</p>
-                        </CardContent>
-                    </Card>
+                    {provider.type !== 'pharmacy' && (
+                        <Card>
+                            <CardHeader><CardTitle className="text-sm">Fees</CardTitle></CardHeader>
+                            <CardContent className="p-5 pt-0">
+                                <p className="text-lg font-semibold text-foreground">{feeRangeLabel(provider.consultationFeeRange)}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">Consultation fee range, where listed.</p>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </div>

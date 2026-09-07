@@ -7,6 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/utils/seed.js",
+    "seed:pharmacies": "node src/scripts/seedPharmacies.js",
+    "seed:pharmacies:wipe": "node src/scripts/seedPharmacies.js --wipe",
     "test": "jest --testPathPatterns=src",
     "migrate": "migrate-mongo up",
     "migrate:down": "migrate-mongo down",

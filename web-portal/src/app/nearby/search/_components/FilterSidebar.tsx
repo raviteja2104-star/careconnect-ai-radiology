@@ -3,7 +3,10 @@
 import * as React from 'react';
 import { SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Switch, Label, Select, Input, Button } from '@/components/ui';
-import { ALL_SPECIALTIES, PROVIDER_TYPE_LABELS, type ProviderType } from '../../_lib/api';
+import {
+    ALL_SPECIALTIES, PROVIDER_TYPE_LABELS, PHARMACY_TYPE_LABELS,
+    type ProviderType, type PharmacyType,
+} from '../../_lib/api';
 
 export interface FilterState {
     radiusKm: number;
@@ -18,6 +21,11 @@ export interface FilterState {
     verifiedOnly: boolean;
     maxFee: number;
     insurance: string;
+    // pharmacy-specific
+    is24Hours: boolean;
+    homeDelivery: boolean;
+    onlineOrdering: boolean;
+    pharmacyType: PharmacyType | '';
 }
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -33,6 +41,10 @@ export const DEFAULT_FILTERS: FilterState = {
     verifiedOnly: false,
     maxFee: 2000,
     insurance: '',
+    is24Hours: false,
+    homeDelivery: false,
+    onlineOrdering: false,
+    pharmacyType: '',
 };
 
 export function FilterSidebar({
@@ -134,9 +146,32 @@ export function FilterSidebar({
                     />
                     <ToggleRow label="Emergency care" checked={filters.emergency} onChange={(v) => onChange({ emergency: v })} />
                     <ToggleRow label="Online consult" checked={filters.teleconsultation} onChange={(v) => onChange({ teleconsultation: v })} />
-                    <ToggleRow label="Home collection" checked={filters.homeCollection} onChange={(v) => onChange({ homeCollection: v })} />
+                    <ToggleRow label="Home collection / delivery" checked={filters.homeCollection} onChange={(v) => onChange({ homeCollection: v })} />
                     <ToggleRow label="Verified only" checked={filters.verifiedOnly} onChange={(v) => onChange({ verifiedOnly: v })} />
                 </div>
+
+                {/* ── Pharmacy filters — shown only when type=pharmacy ── */}
+                {filters.type === 'pharmacy' && (
+                    <div className="space-y-3 rounded-lg border border-dashed border-border p-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pharmacy</p>
+                        <div>
+                            <Label htmlFor="pharmacyType">Pharmacy type</Label>
+                            <Select
+                                id="pharmacyType"
+                                value={filters.pharmacyType}
+                                onChange={(e) => onChange({ pharmacyType: e.target.value as PharmacyType | '' })}
+                            >
+                                <option value="">All pharmacy types</option>
+                                {(Object.keys(PHARMACY_TYPE_LABELS) as PharmacyType[]).map((t) => (
+                                    <option key={t} value={t}>{PHARMACY_TYPE_LABELS[t]}</option>
+                                ))}
+                            </Select>
+                        </div>
+                        <ToggleRow label="Open 24 hours" checked={filters.is24Hours} onChange={(v) => onChange({ is24Hours: v })} />
+                        <ToggleRow label="Home delivery" checked={filters.homeDelivery} onChange={(v) => onChange({ homeDelivery: v })} />
+                        <ToggleRow label="Online ordering" checked={filters.onlineOrdering} onChange={(v) => onChange({ onlineOrdering: v })} />
+                    </div>
+                )}
 
                 <div>
                     <Label htmlFor="insurance">Insurance accepted</Label>

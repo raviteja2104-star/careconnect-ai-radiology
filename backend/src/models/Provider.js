@@ -69,6 +69,21 @@ const providerSchema = new mongoose.Schema(
         teleconsultation: { type: Boolean, default: false },
         appointmentEnabled: { type: Boolean, default: true },
 
+        // ── Pharmacy-specific fields ── (ignored/null for non-pharmacy types)
+        // pharmacyType normalises "Medical Shop", "Chemist", "Medical Store"
+        // etc. into one of the five canonical categories.
+        pharmacyType: {
+            type: String,
+            enum: ['PHARMACY', 'MEDICAL_STORE', 'HOSPITAL_PHARMACY', 'PHARMACY_CHAIN', 'ONLINE_PHARMACY_BRANCH', null],
+            default: null,
+        },
+        is24Hours: { type: Boolean, default: false },
+        homeDelivery: { type: Boolean, default: false },
+        onlineOrdering: { type: Boolean, default: false },
+        prescriptionDelivery: { type: Boolean, default: false },
+        // Secondary source for duplicate detection / cross-verification.
+        secondarySourceUrl: { type: String },
+
         // ── Verification ── (kept as flat fields rather than a nested
         // subdocument to avoid rewriting every existing controller/frontend
         // call site that reads provider.verificationStatus directly; this is

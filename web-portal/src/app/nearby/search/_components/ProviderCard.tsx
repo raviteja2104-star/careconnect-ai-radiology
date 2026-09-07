@@ -3,11 +3,11 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MapPin, Phone, Navigation2, CalendarCheck2, Star, Truck, Video, Siren } from 'lucide-react';
+import { MapPin, Phone, Navigation2, CalendarCheck2, Star, Truck, Video, Siren, Pill, Clock, ShoppingCart, FileText } from 'lucide-react';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { VerificationBadge } from '../../_components/VerificationBadge';
 import {
-    PROVIDER_TYPE_LABELS, feeRangeLabel, directionsUrl, telUrl,
+    PROVIDER_TYPE_LABELS, PHARMACY_TYPE_LABELS, feeRangeLabel, directionsUrl, telUrl,
     type NearbyProvider,
 } from '../../_lib/api';
 
@@ -76,10 +76,35 @@ export function ProviderCard({
                             )}
 
                             <div className="mt-3 flex flex-wrap gap-1.5">
-                                {provider.servicesOffered.slice(0, 4).map((s) => (
+                                {/* Pharmacy-specific badges shown first for pharmacy type */}
+                                {provider.type === 'pharmacy' && provider.pharmacyType && (
+                                    <Badge tone="neutral">
+                                        <Pill className="h-3 w-3" aria-hidden />
+                                        {PHARMACY_TYPE_LABELS[provider.pharmacyType] ?? provider.pharmacyType}
+                                    </Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.is24Hours && (
+                                    <Badge tone="success"><Clock className="h-3 w-3" aria-hidden /> 24 Hours</Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.homeDelivery && (
+                                    <Badge tone="info"><Truck className="h-3 w-3" aria-hidden /> Home Delivery</Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.onlineOrdering && (
+                                    <Badge tone="info"><ShoppingCart className="h-3 w-3" aria-hidden /> Online Order</Badge>
+                                )}
+                                {provider.type === 'pharmacy' && provider.prescriptionDelivery && (
+                                    <Badge tone="info"><FileText className="h-3 w-3" aria-hidden /> Rx Delivery</Badge>
+                                )}
+                                {/* Generic badges for non-pharmacy types */}
+                                {provider.type !== 'pharmacy' && provider.servicesOffered.slice(0, 4).map((s) => (
                                     <Badge key={s} tone="outline">{s}</Badge>
                                 ))}
-                                {provider.homeCollection && <Badge tone="info"><Truck className="h-3 w-3" aria-hidden /> Home collection</Badge>}
+                                {provider.type === 'pharmacy' && provider.servicesOffered.slice(0, 3).map((s) => (
+                                    <Badge key={s} tone="outline">{s}</Badge>
+                                ))}
+                                {provider.type !== 'pharmacy' && provider.homeCollection && (
+                                    <Badge tone="info"><Truck className="h-3 w-3" aria-hidden /> Home collection</Badge>
+                                )}
                                 {provider.teleconsultation && <Badge tone="info"><Video className="h-3 w-3" aria-hidden /> Teleconsult</Badge>}
                                 {provider.emergencyAvailable && <Badge tone="danger"><Siren className="h-3 w-3" aria-hidden /> Emergency</Badge>}
                             </div>

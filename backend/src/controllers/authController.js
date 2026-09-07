@@ -55,7 +55,9 @@ const register = async (req, res, next) => {
 
         const user = await User.create({ firstName, lastName, email, password, phone, role: role || 'patient', ...rest });
         const token = generateToken(user._id);
-        res.status(201).json({ success: true, message: 'Registration successful.', data: { user, token } });
+        await ensureUserHasRole(user).catch(() => {});
+        const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
+        res.status(201).json({ success: true, message: 'Registration successful.', data: { user, token, permissions, workspaces } });
     } catch (error) {
         next(error);
     }

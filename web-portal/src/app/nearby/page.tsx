@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
     Search, MapPin, LocateFixed, Stethoscope, Building2, FlaskConical, TestTube2,
-    Video, Siren, ChevronRight, ShieldCheck, Sparkles,
+    Video, Siren, ChevronRight, ShieldCheck, Sparkles, Pill,
 } from 'lucide-react';
 import { Card, CardContent, Button, Badge, Input, Select, Label } from '@/components/ui';
 import {
@@ -53,6 +53,13 @@ const QUICK_ACTIONS: Array<{
         icon: Video,
         tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
         build: () => ({ path: '/nearby/search', params: { teleconsultation: 'true' } }),
+    },
+    {
+        label: 'Find Pharmacy',
+        description: 'Medicine & medical stores',
+        icon: Pill,
+        tone: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400',
+        build: () => ({ path: '/nearby/search', params: { type: 'pharmacy' } }),
     },
     {
         label: 'Emergency',

@@ -20,6 +20,21 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconn
 
 export type ProviderType = 'hospital' | 'clinic' | 'diagnostic' | 'pharmacy';
 
+export type PharmacyType =
+    | 'PHARMACY'
+    | 'MEDICAL_STORE'
+    | 'HOSPITAL_PHARMACY'
+    | 'PHARMACY_CHAIN'
+    | 'ONLINE_PHARMACY_BRANCH';
+
+export const PHARMACY_TYPE_LABELS: Record<PharmacyType, string> = {
+    PHARMACY: 'Pharmacy',
+    MEDICAL_STORE: 'Medical Store',
+    HOSPITAL_PHARMACY: 'Hospital Pharmacy',
+    PHARMACY_CHAIN: 'Pharmacy Chain',
+    ONLINE_PHARMACY_BRANCH: 'Online Pharmacy Branch',
+};
+
 /** Never render UNVERIFIED/CLAIMED info with a verified-looking badge. */
 export type VerificationStatus =
     | 'VERIFIED'
@@ -69,6 +84,12 @@ export interface NearbyProvider {
     homeCollection: boolean;
     teleconsultation: boolean;
     emergencyAvailable: boolean;
+    /** Pharmacy-specific — null/undefined for non-pharmacy providers. */
+    pharmacyType?: PharmacyType | null;
+    is24Hours?: boolean;
+    homeDelivery?: boolean;
+    onlineOrdering?: boolean;
+    prescriptionDelivery?: boolean;
     reviewSummary?: ReviewSummary;
     photos?: string[];
     logo?: string;
@@ -183,6 +204,11 @@ export interface SearchParams {
     teleconsultation?: boolean;
     emergency?: boolean;
     maxFee?: number;
+    // pharmacy-specific
+    is24Hours?: boolean;
+    homeDelivery?: boolean;
+    onlineOrdering?: boolean;
+    pharmacyType?: PharmacyType | '';
 }
 
 export interface SearchResponse {
@@ -527,12 +553,17 @@ export const DEMO_PROVIDERS: NearbyProvider[] = [
         availableToday: false,
         verificationStatus: 'CLAIMED',
         careconnectVerified: false,
-        servicesOffered: ['Medicine Dispensing', 'Home Delivery'],
+        servicesOffered: ['Prescription Medicines', 'OTC Medicines', 'Medical Devices', 'Home Delivery'],
         specialties: [],
         consultationFeeRange: undefined,
-        homeCollection: false,
+        homeCollection: true,
         teleconsultation: false,
         emergencyAvailable: false,
+        pharmacyType: 'PHARMACY' as PharmacyType,
+        is24Hours: false,
+        homeDelivery: true,
+        onlineOrdering: false,
+        prescriptionDelivery: true,
         reviewSummary: { avg: 4.0, count: 19 },
         photos: [],
         phone: '+91 891 234 5006',
@@ -591,6 +622,118 @@ export const DEMO_PROVIDERS: NearbyProvider[] = [
         reviewSummary: { avg: 4.2, count: 56 },
         photos: [],
         phone: '+91 891 234 5008',
+    },
+    // ── Additional demo pharmacies ────────────────────────────────────────
+    {
+        _id: 'demo-p9',
+        name: 'MedPlus — Dwaraka Nagar',
+        type: 'pharmacy',
+        subtype: 'Chain Pharmacy',
+        locality: 'Dwaraka Nagar',
+        address: 'Dwaraka Nagar Circle, Visakhapatnam',
+        geo: g(17.7211, 83.3007),
+        distanceKm: 0,
+        openNow: true,
+        availableToday: false,
+        verificationStatus: 'UNVERIFIED',
+        careconnectVerified: false,
+        servicesOffered: ['Prescription Medicines', 'OTC Medicines', 'Generic Medicines', 'Personal Care', 'Health Products'],
+        specialties: [],
+        consultationFeeRange: undefined,
+        homeCollection: true,
+        teleconsultation: false,
+        emergencyAvailable: false,
+        pharmacyType: 'PHARMACY_CHAIN' as PharmacyType,
+        is24Hours: false,
+        homeDelivery: true,
+        onlineOrdering: true,
+        prescriptionDelivery: true,
+        reviewSummary: { avg: 4.2, count: 63 },
+        photos: [],
+        phone: '+91 891 234 5009',
+        workingHours: [
+            { day: 'Mon', opens: '07:00', closes: '23:00' },
+            { day: 'Tue', opens: '07:00', closes: '23:00' },
+            { day: 'Wed', opens: '07:00', closes: '23:00' },
+            { day: 'Thu', opens: '07:00', closes: '23:00' },
+            { day: 'Fri', opens: '07:00', closes: '23:00' },
+            { day: 'Sat', opens: '07:00', closes: '23:00' },
+            { day: 'Sun', opens: '07:00', closes: '23:00' },
+        ],
+    },
+    {
+        _id: 'demo-p10',
+        name: 'Gajuwaka 24 Hour Pharmacy',
+        type: 'pharmacy',
+        subtype: 'Medical Store',
+        locality: 'Gajuwaka',
+        address: 'NH-16 Service Road, Gajuwaka, Visakhapatnam',
+        geo: g(17.6868, 83.2013),
+        distanceKm: 0,
+        openNow: true,
+        availableToday: false,
+        verificationStatus: 'UNVERIFIED',
+        careconnectVerified: false,
+        servicesOffered: ['Prescription Medicines', 'OTC Medicines', 'Generic Medicines', 'Medical Devices'],
+        specialties: [],
+        consultationFeeRange: undefined,
+        homeCollection: false,
+        teleconsultation: false,
+        emergencyAvailable: false,
+        pharmacyType: 'MEDICAL_STORE' as PharmacyType,
+        is24Hours: true,
+        homeDelivery: true,
+        onlineOrdering: false,
+        prescriptionDelivery: true,
+        reviewSummary: { avg: 4.1, count: 29 },
+        photos: [],
+        phone: '+91 891 234 5010',
+        workingHours: [
+            { day: 'Mon', opens: '00:00', closes: '23:59' },
+            { day: 'Tue', opens: '00:00', closes: '23:59' },
+            { day: 'Wed', opens: '00:00', closes: '23:59' },
+            { day: 'Thu', opens: '00:00', closes: '23:59' },
+            { day: 'Fri', opens: '00:00', closes: '23:59' },
+            { day: 'Sat', opens: '00:00', closes: '23:59' },
+            { day: 'Sun', opens: '00:00', closes: '23:59' },
+        ],
+    },
+    {
+        _id: 'demo-p11',
+        name: 'Apollo Pharmacy — Seethammadhara',
+        type: 'pharmacy',
+        subtype: 'Chain Pharmacy',
+        locality: 'Seethammadhara',
+        address: 'Near Seethammadhara Flyover, Visakhapatnam',
+        geo: g(17.7423, 83.3182),
+        distanceKm: 0,
+        openNow: true,
+        availableToday: false,
+        verificationStatus: 'UNVERIFIED',
+        careconnectVerified: false,
+        servicesOffered: ['Prescription Medicines', 'OTC Medicines', 'Generic Medicines', 'Personal Care', 'Baby Care', 'Medical Devices'],
+        specialties: [],
+        consultationFeeRange: undefined,
+        homeCollection: true,
+        teleconsultation: false,
+        emergencyAvailable: false,
+        pharmacyType: 'PHARMACY_CHAIN' as PharmacyType,
+        is24Hours: true,
+        homeDelivery: true,
+        onlineOrdering: true,
+        prescriptionDelivery: true,
+        reviewSummary: { avg: 4.3, count: 47 },
+        photos: [],
+        phone: '+91 891 234 5011',
+        workingHours: [
+            { day: 'Mon', opens: '00:00', closes: '23:59' },
+            { day: 'Tue', opens: '00:00', closes: '23:59' },
+            { day: 'Wed', opens: '00:00', closes: '23:59' },
+            { day: 'Thu', opens: '00:00', closes: '23:59' },
+            { day: 'Fri', opens: '00:00', closes: '23:59' },
+            { day: 'Sat', opens: '00:00', closes: '23:59' },
+            { day: 'Sun', opens: '00:00', closes: '23:59' },
+        ],
     },
 ];
 
@@ -849,6 +992,11 @@ function demoSearch(params: SearchParams): SearchResponse {
     if (params.maxFee != null) {
         results = results.filter((p) => !p.consultationFeeRange || p.consultationFeeRange.min <= params.maxFee!);
     }
+    // pharmacy-specific demo filters
+    if (params.is24Hours) results = results.filter((p) => p.is24Hours);
+    if (params.homeDelivery) results = results.filter((p) => p.homeDelivery || p.homeCollection);
+    if (params.onlineOrdering) results = results.filter((p) => p.onlineOrdering);
+    if (params.pharmacyType) results = results.filter((p) => p.pharmacyType === params.pharmacyType);
 
     results.sort((a, b) => a.distanceKm - b.distanceKm);
     return { results, total: results.length };
