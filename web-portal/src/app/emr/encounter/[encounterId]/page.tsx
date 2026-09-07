@@ -5,8 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     CheckCircle2, Loader2, PenLine, ShieldCheck, FileSignature, Plus, WifiOff,
-    Stethoscope, AlertCircle,
+    Stethoscope, AlertCircle, Printer,
 } from 'lucide-react';
+import { buildPrescriptionHtml, openPrescriptionPrintWindow } from '@/components/prescriptionSheet';
 import {
     PageHeader, Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent,
     Tabs, TabsList, TabsTrigger, Input, Textarea, Select, Label, Switch, Dialog,
@@ -361,6 +362,49 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         </span>
     );
 
+    const printRx = () => {
+        const medOrders = (bundle?.orders || []).filter((o) => o.category === 'medication');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const drugs = medOrders.flatMap((o: any) => {
+            const rawDrugs: any[] = Array.isArray(o?.details?.drugs) ? o.details.drugs : [];
+            return rawDrugs.map((d: any) => ({
+                name: String(d?.name || ''),
+                dose: d?.dose as string | undefined,
+                frequency: d?.frequency as string | undefined,
+                duration: d?.duration as string | undefined,
+                instructions: [d?.instructions, d?.foodTiming].filter(Boolean).join('; ') || undefined,
+                route: d?.route as string | undefined,
+            }));
+        });
+        const patient = p360?.patient;
+        const ageYears = patient?.dateOfBirth
+            ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / 31557600000)
+            : undefined;
+        const pid = (p360 as unknown as Record<string, unknown>)?.patientId;
+        const html = buildPrescriptionHtml({
+            settings: {
+                hospitalName: 'CareConnect Medical Centre',
+                doctorName: 'Dr. Raj Kumar',
+                doctorTitle: 'MBBS, MD — General Medicine',
+                primaryColor: 'indigo',
+                showDiagnosis: true,
+                showVitals: false,
+                showFooter: true,
+                footerTerms: 'This prescription is valid for 30 days from the date of issue.',
+            },
+            patient: {
+                name: patientDisplayName(patient) || 'Patient',
+                ageSex: [ageYears ? `${ageYears}Y` : undefined, patient?.gender].filter(Boolean).join(' / '),
+                id: pid ? String(pid).slice(-8) : undefined,
+                mobile: patient?.phone || undefined,
+            },
+            diagnosis: diagnoses.map((d) => d.term).join(', ') || undefined,
+            drugs,
+        });
+        const opened = openPrescriptionPrintWindow(html);
+        if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print prescriptions.');
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -381,6 +425,11 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                             </Badge>
                         )}
                         <Badge tone={encounter.status === 'signed' ? 'success' : 'info'} className="uppercase">{encounter.status || 'open'}</Badge>
+                        {bundle.orders.some((o) => o.category === 'medication') && (
+                            <Button variant="outline" size="sm" onClick={printRx}>
+                                <Printer className="h-4 w-4" aria-hidden /> Print Rx
+                            </Button>
+                        )}
                     </div>
                 }
             />
