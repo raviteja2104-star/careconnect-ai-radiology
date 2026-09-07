@@ -3,15 +3,18 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Search, Plus, ChevronRight, Users, UserCheck, UserX,
   AlertTriangle, CheckCircle, LayoutGrid, Rows3, Droplet, FileText,
+  Loader2,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Button, Badge, Input, Select, Label,
   Avatar, DataTable, type Column, Dialog, Card,
 } from '@/components/ui';
+import { AUTH_API_BASE, TOKEN_STORAGE_KEY } from '@/services/authService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Gender = 'Male' | 'Female' | 'Other';
@@ -25,17 +28,86 @@ interface Patient {
   allergies: string[]; ward?: string; doctor: string; initials: string;
 }
 
-// ─── Initial Data ─────────────────────────────────────────────────────────────
-const INITIAL_PATIENTS: Patient[] = [
-  { id: '1', mrn: 'MRN-2024-08742', name: 'Ravi Kumar Sharma', age: 54, gender: 'Male', dob: '1970-03-15', phone: '+91 98765 43210', email: 'ravi.sharma@email.com', bloodGroup: 'B+', status: 'Admitted', lastVisit: '24 Jul 2026', diagnosis: 'Acute Myocardial Infarction (STEMI)', allergies: ['Penicillin', 'Aspirin'], ward: 'ICU Bed 2', doctor: 'Dr. Priya Mehta', initials: 'RK' },
-  { id: '2', mrn: 'MRN-2024-09133', name: 'Ananya Krishnamurthy', age: 67, gender: 'Female', dob: '1957-11-22', phone: '+91 87654 32109', bloodGroup: 'O+', status: 'Critical', lastVisit: '23 Jul 2026', diagnosis: 'Septic Shock — Post-operative', allergies: ['Sulfa'], ward: 'ICU Bed 7', doctor: 'Dr. Rajesh Iyer', initials: 'AK' },
-  { id: '3', mrn: 'MRN-2024-07391', name: 'Mohan Das', age: 32, gender: 'Male', dob: '1994-06-08', phone: '+91 76543 21098', email: 'mohan.das@email.com', bloodGroup: 'A+', status: 'Active', lastVisit: '20 Jul 2026', diagnosis: 'Type 2 Diabetes Mellitus', allergies: [], doctor: 'Dr. Suresh Gupta', initials: 'MD' },
-  { id: '4', mrn: 'MRN-2024-06520', name: 'Deepa Nair', age: 29, gender: 'Female', dob: '1997-02-14', phone: '+91 65432 10987', bloodGroup: 'AB-', status: 'Active', lastVisit: '22 Jul 2026', diagnosis: 'Iron Deficiency Anaemia', allergies: ['Latex'], doctor: 'Dr. Priya Mehta', initials: 'DN' },
-  { id: '5', mrn: 'MRN-2024-05188', name: 'Suresh Venkataraman', age: 71, gender: 'Male', dob: '1953-09-30', phone: '+91 54321 09876', bloodGroup: 'O-', status: 'Discharged', lastVisit: '18 Jul 2026', diagnosis: 'COPD Exacerbation', allergies: ['Ibuprofen'], doctor: 'Dr. K. Venkatesh', initials: 'SV' },
-  { id: '6', mrn: 'MRN-2024-04877', name: 'Mohammed Ali Khan', age: 63, gender: 'Male', dob: '1961-05-17', phone: '+91 43210 98765', email: 'ali.khan@email.com', bloodGroup: 'B-', status: 'Admitted', lastVisit: '24 Jul 2026', diagnosis: 'Ischaemic Stroke', allergies: ['Warfarin'], ward: 'Neurology Ward B-4', doctor: 'Dr. Rao Srinivas', initials: 'MA' },
-  { id: '7', mrn: 'MRN-2024-03612', name: 'Kavitha Rajan', age: 45, gender: 'Female', dob: '1979-12-05', phone: '+91 32109 87654', bloodGroup: 'A-', status: 'Active', lastVisit: '21 Jul 2026', diagnosis: 'Hypertension, Grade II', allergies: [], doctor: 'Dr. Priya Mehta', initials: 'KR' },
-  { id: '8', mrn: 'MRN-2024-02445', name: 'Priya Patel', age: 39, gender: 'Female', dob: '1985-08-12', phone: '+91 21098 76543', email: 'priya.patel@email.com', bloodGroup: 'O+', status: 'Active', lastVisit: '19 Jul 2026', diagnosis: 'Gestational Diabetes', allergies: ['Penicillin'], doctor: 'Dr. Suresh Gupta', initials: 'PP' },
-];
+// ─── API Helpers ──────────────────────────────────────────────────────────────
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : null;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+function ageFromDob(dob?: string | Date): number {
+  if (!dob) return 0;
+  const diff = Date.now() - new Date(dob).getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapBackendPatient(u: any): Patient {
+  const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ');
+  const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'PT';
+  const bloodGroup = (u.bloodGroup || 'O+') as BloodGroup;
+  const gender = u.gender
+    ? ((u.gender.charAt(0).toUpperCase() + u.gender.slice(1)) as Gender)
+    : 'Other';
+  const diagnosis = u.medicalHistory?.[0]?.condition || u.chronicDiseases?.[0] || 'General Health';
+
+  return {
+    id: String(u._id),
+    mrn: u.mrn || `MRN-${String(u._id).slice(-8).toUpperCase()}`,
+    name: fullName || 'Unknown',
+    age: ageFromDob(u.dateOfBirth),
+    gender,
+    dob: u.dateOfBirth ? new Date(u.dateOfBirth).toISOString().split('T')[0] : '',
+    phone: u.phone || '—',
+    email: u.email,
+    bloodGroup,
+    status: 'Active',
+    lastVisit: u.updatedAt
+      ? new Date(u.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '—',
+    diagnosis,
+    allergies: u.allergies || [],
+    doctor: '—',
+    initials,
+  };
+}
+
+async function fetchPatients(search: string): Promise<Patient[]> {
+  const url = new URL(`${AUTH_API_BASE}/api/patients`);
+  if (search) url.searchParams.set('search', search);
+  const res = await fetch(url.toString(), { headers: authHeaders() });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { message?: string }).message || `Failed to load patients (${res.status})`);
+  }
+  const json = await res.json();
+  return ((json.data || []) as unknown[]).map(mapBackendPatient);
+}
+
+interface CreatePatientInput {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  gender: string;
+  bloodGroup: string;
+  dateOfBirth?: string;
+  diagnosis?: string;
+}
+
+async function createPatientApi(input: CreatePatientInput): Promise<Patient> {
+  const res = await fetch(`${AUTH_API_BASE}/api/patients`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as { message?: string }).message || `Create failed (${res.status})`);
+  return mapBackendPatient((json as { data: unknown }).data);
+}
+
+// ─── UI Helpers ───────────────────────────────────────────────────────────────
 
 const STATUS_TONE: Record<PatientStatus, { tone: 'success' | 'info' | 'neutral' | 'danger'; pulse?: boolean }> = {
   Active:     { tone: 'success' },
@@ -44,7 +116,6 @@ const STATUS_TONE: Record<PatientStatus, { tone: 'success' | 'info' | 'neutral' 
   Critical:   { tone: 'danger', pulse: true },
 };
 
-/* Soft accent tints for blood-group badges (allowed for badges per design system). */
 const BLOOD_GROUP_COLOR: Record<BloodGroup, string> = {
   'O+':  'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400',
   'O-':  'bg-red-100 text-red-800 dark:bg-red-500/25 dark:text-red-300',
@@ -69,56 +140,86 @@ function BloodBadge({ group }: { group: BloodGroup }) {
   );
 }
 
+// ─── Page ────────────────────────────────────────────────────────────────────
+
 export default function PatientsPage() {
   const router = useRouter();
-  const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
+  const queryClient = useQueryClient();
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | PatientStatus>('All');
   const [view, setView] = useState<'table' | 'cards'>('table');
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // Form State
-  const [name, setName] = useState('');
-  const [age, setAge] = useState<number>(30);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState<Gender>('Male');
   const [bloodGroup, setBloodGroup] = useState<BloodGroup>('O+');
-  const [phone, setPhone] = useState('+91 98000 12345');
+  const [phone, setPhone] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
 
-  const filtered = useMemo(() =>
-    patients.filter(p => {
-      const matchSearch = [p.name, p.mrn, p.diagnosis, p.doctor].some(f =>
-        f.toLowerCase().includes(search.toLowerCase())
-      );
-      const matchStatus = statusFilter === 'All' || p.status === statusFilter;
-      return matchSearch && matchStatus;
-    }), [patients, search, statusFilter]);
+  const { data: patients = [], isLoading, isError, error } = useQuery<Patient[], Error>({
+    queryKey: ['patients', search],
+    queryFn: () => fetchPatients(search),
+    staleTime: 30_000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createPatientApi,
+    onSuccess: (newPatient) => {
+      queryClient.setQueryData<Patient[]>(['patients', search], prev => [newPatient, ...(prev ?? [])]);
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      setIsRegisterModalOpen(false);
+      resetForm();
+      router.push(`/emr/patients/${newPatient.id}`);
+    },
+    onError: (err: Error) => {
+      setFormError(err.message);
+    },
+  });
+
+  function resetForm() {
+    setFirstName('');
+    setLastName('');
+    setDateOfBirth('');
+    setGender('Male');
+    setBloodGroup('O+');
+    setPhone('');
+    setDiagnosis('');
+    setFormError('');
+  }
+
+  function handleOpenModal() {
+    resetForm();
+    setIsRegisterModalOpen(true);
+  }
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'NP';
-    const newPatient: Patient = {
-      id: `${Date.now()}`,
-      mrn: `MRN-2024-0${Math.floor(1000 + Math.random() * 9000)}`,
-      name,
-      age,
+    setFormError('');
+    if (!firstName.trim() || !lastName.trim()) {
+      setFormError('First name and last name are required.');
+      return;
+    }
+    createMutation.mutate({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone.trim() || undefined,
       gender,
-      dob: '1994-01-01',
-      phone,
       bloodGroup,
-      status: 'Active',
-      lastVisit: 'Today',
-      diagnosis: diagnosis || 'General Health Examination',
-      allergies: [],
-      doctor: 'Dr. Priya Mehta',
-      initials
-    };
-    setPatients([newPatient, ...patients]);
-    setIsRegisterModalOpen(false);
-    setName('');
-    setDiagnosis('');
-    router.push('/emr');
+      dateOfBirth: dateOfBirth || undefined,
+      diagnosis: diagnosis.trim() || undefined,
+    });
   };
+
+  const filtered = useMemo(() =>
+    patients.filter(p => {
+      const matchStatus = statusFilter === 'All' || p.status === statusFilter;
+      return matchStatus;
+    }), [patients, statusFilter]);
 
   const columns: Column<Patient>[] = [
     {
@@ -152,7 +253,7 @@ export default function PatientsPage() {
       header: 'Age / Gender',
       sortable: true,
       accessor: p => p.age,
-      cell: p => <span className="whitespace-nowrap text-muted-foreground">{p.age}y · {p.gender[0]}</span>,
+      cell: p => <span className="whitespace-nowrap text-muted-foreground">{p.age > 0 ? `${p.age}y` : '—'} · {p.gender[0]}</span>,
     },
     {
       key: 'bloodGroup',
@@ -206,7 +307,7 @@ export default function PatientsPage() {
         description="Manage and view patient records"
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Patients' }]}
         actions={
-          <Button onClick={() => setIsRegisterModalOpen(true)}>
+          <Button onClick={handleOpenModal}>
             <Plus className="h-4 w-4" aria-hidden /> Register Patient
           </Button>
         }
@@ -231,7 +332,7 @@ export default function PatientsPage() {
             icon={<Search />}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, MRN, diagnosis, or doctor..."
+            placeholder="Search by name, phone, or email..."
             aria-label="Search patients"
           />
         </div>
@@ -271,8 +372,25 @@ export default function PatientsPage() {
         </div>
       </motion.div>
 
+      {/* Loading / error states */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading patients…
+        </div>
+      )}
+
+      {isError && (
+        <Card className="p-6">
+          <div className="flex flex-col items-center py-8 text-center">
+            <AlertTriangle className="mb-3 h-8 w-8 text-danger" />
+            <h3 className="font-semibold text-foreground">Failed to load patients</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{error?.message}</p>
+          </div>
+        </Card>
+      )}
+
       {/* Patient table / cards */}
-      {view === 'table' ? (
+      {!isLoading && !isError && view === 'table' && (
         <DataTable<Patient>
           columns={columns}
           data={filtered}
@@ -285,56 +403,60 @@ export default function PatientsPage() {
           rowActions={p => (
             <Link
               key={p.id}
-              href="/emr"
+              href={`/emr/patients/${p.id}`}
               className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             >
               <FileText className="h-3 w-3" aria-hidden /> View Chart
             </Link>
           )}
         />
-      ) : filtered.length === 0 ? (
-        <Card className="p-6">
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Users className="h-7 w-7" aria-hidden />
+      )}
+
+      {!isLoading && !isError && view === 'cards' && (
+        filtered.length === 0 ? (
+          <Card className="p-6">
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Users className="h-7 w-7" aria-hidden />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">No patients found</h3>
+              <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">Try adjusting your search or status filter, or register a new patient.</p>
+              <Button className="mt-5" size="sm" onClick={handleOpenModal}>Register Patient</Button>
             </div>
-            <h3 className="text-base font-semibold text-foreground">No patients found</h3>
-            <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">Try adjusting your search or status filter, or register a new patient.</p>
-            <Button className="mt-5" size="sm" onClick={() => setIsRegisterModalOpen(true)}>Register Patient</Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filtered.map((p, i) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card variant="interactive" className="h-full p-4">
+                  <div className="mb-3 flex items-start justify-between">
+                    <Avatar name={p.name} size="md" />
+                    <StatusBadge status={p.status} />
+                  </div>
+                  <h4 className="text-sm font-semibold text-foreground">{p.name}</h4>
+                  <p className="mb-2 text-xs text-muted-foreground">{p.mrn} · {p.age > 0 ? `${p.age}y` : '—'} · {p.gender}</p>
+                  <p className="mb-3 truncate text-xs text-muted-foreground">{p.diagnosis}</p>
+                  {p.allergies.length > 0 && (
+                    <p className="mb-3 flex items-center gap-1 text-xs text-danger">
+                      <AlertTriangle className="h-3 w-3" aria-hidden /> {p.allergies.join(', ')}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <BloodBadge group={p.bloodGroup} />
+                    <Link href={`/emr/patients/${p.id}`} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                      Chart <ChevronRight className="h-3 w-3" aria-hidden />
+                    </Link>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
           </div>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p, i) => (
-            <motion.div
-              key={p.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] }}
-            >
-              <Card variant="interactive" className="h-full p-4">
-                <div className="mb-3 flex items-start justify-between">
-                  <Avatar name={p.name} size="md" />
-                  <StatusBadge status={p.status} />
-                </div>
-                <h4 className="text-sm font-semibold text-foreground">{p.name}</h4>
-                <p className="mb-2 text-xs text-muted-foreground">{p.mrn} · {p.age}y · {p.gender}</p>
-                <p className="mb-3 truncate text-xs text-muted-foreground">{p.diagnosis}</p>
-                {p.allergies.length > 0 && (
-                  <p className="mb-3 flex items-center gap-1 text-xs text-danger">
-                    <AlertTriangle className="h-3 w-3" aria-hidden /> {p.allergies.join(', ')}
-                  </p>
-                )}
-                <div className="flex items-center justify-between border-t border-border pt-3">
-                  <BloodBadge group={p.bloodGroup} />
-                  <Link href="/emr" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                    Chart <ChevronRight className="h-3 w-3" aria-hidden />
-                  </Link>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+        )
       )}
 
       {/* Register patient dialog */}
@@ -346,26 +468,39 @@ export default function PatientsPage() {
         size="md"
       >
         <form onSubmit={handleRegisterSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="patient-name">Full Name</Label>
-            <Input
-              id="patient-name"
-              type="text"
-              required
-              placeholder="Patient full name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="patient-first-name">First Name</Label>
+              <Input
+                id="patient-first-name"
+                type="text"
+                required
+                placeholder="First name"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="patient-last-name">Last Name</Label>
+              <Input
+                id="patient-last-name"
+                type="text"
+                required
+                placeholder="Last name"
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <Label htmlFor="patient-age">Age</Label>
+              <Label htmlFor="patient-dob">Date of Birth</Label>
               <Input
-                id="patient-age"
-                type="number"
-                value={age}
-                onChange={e => setAge(Number(e.target.value))}
+                id="patient-dob"
+                type="date"
+                value={dateOfBirth}
+                onChange={e => setDateOfBirth(e.target.value)}
               />
             </div>
             <div>
@@ -393,17 +528,18 @@ export default function PatientsPage() {
           </div>
 
           <div>
-            <Label htmlFor="patient-phone">Phone Number</Label>
+            <Label htmlFor="patient-phone">Phone Number <span className="text-muted-foreground">(optional)</span></Label>
             <Input
               id="patient-phone"
-              type="text"
+              type="tel"
+              placeholder="+91 98000 12345"
               value={phone}
               onChange={e => setPhone(e.target.value)}
             />
           </div>
 
           <div>
-            <Label htmlFor="patient-diagnosis">Initial Diagnosis / Reason</Label>
+            <Label htmlFor="patient-diagnosis">Initial Diagnosis / Reason <span className="text-muted-foreground">(optional)</span></Label>
             <Input
               id="patient-diagnosis"
               type="text"
@@ -413,12 +549,22 @@ export default function PatientsPage() {
             />
           </div>
 
+          {formError && (
+            <p className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" /> {formError}
+            </p>
+          )}
+
           <div className="flex justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="ghost" onClick={() => setIsRegisterModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">
-              <CheckCircle className="h-4 w-4" aria-hidden /> Save Patient
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : (
+                <><CheckCircle className="h-4 w-4" aria-hidden /> Save Patient</>
+              )}
             </Button>
           </div>
         </form>

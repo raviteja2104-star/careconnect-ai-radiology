@@ -42,7 +42,7 @@ exports.kioskCheckIn = async (req, res) => {
     const token = await QueueToken.create({
       tokenNumber,
       patient: patient._id,
-      patientName: patient.name,
+      patientName: [patient.firstName, patient.lastName].filter(Boolean).join(' '),
       appointment: appointment._id,
       department: appointment.specialty,
       doctor: appointment.doctor._id,

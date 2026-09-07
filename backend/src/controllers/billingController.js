@@ -97,11 +97,12 @@ exports.createInvoice = async (req, res) => {
 // @route   GET /api/billing/invoices
 exports.getInvoices = async (req, res) => {
   try {
-    const invoices = await Invoice.find()
-      .populate('patient', 'name phone uhid')
+    // Patients may only see their own invoices — staff/admin see all
+    const filter = req.user?.role === 'patient' ? { patient: req.user._id } : {};
+    const invoices = await Invoice.find(filter)
+      .populate('patient', 'firstName lastName phone')
       .sort({ createdAt: -1 })
-      .limit(50);
-      
+      .limit(100);
     res.json({ success: true, data: invoices });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

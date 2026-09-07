@@ -35,27 +35,34 @@ exports.getDoctors = async (req, res) => {
       query.specialty = specialty;
     }
     
-    // In a real app, you would populate from User
-    const profiles = await DoctorProfile.find(query).populate('user', 'name profilePicture');
-    
-    // If DB is empty, return some mocks for development
-    if (profiles.length === 0) {
-      return res.json({ success: true, data: [
-        { _id: 'mock1', name: 'Dr. Sarah Johnson', specialty: specialty || 'Cardiology', rating: 4.9, exp: '15 Yrs', nextSlot: 'Today, 02:00 PM', image: 'https://i.pravatar.cc/150?u=doc1' },
-        { _id: 'mock2', name: 'Dr. Michael Brown', specialty: specialty || 'General Medicine', rating: 4.7, exp: '10 Yrs', nextSlot: 'Tomorrow, 10:00 AM', image: 'https://i.pravatar.cc/150?u=doc2' },
-      ]});
+    const profiles = await DoctorProfile.find(query).populate('user', 'firstName lastName profilePicture');
+
+    if (profiles.length > 0) {
+      const formatted = profiles.map(p => ({
+        _id: p.user?._id || p._id,
+        name: p.user ? `${p.user.firstName} ${p.user.lastName}` : p.name,
+        specialty: p.specialty,
+        rating: p.rating || 4.5,
+        exp: `${p.experienceYears || 0} Yrs`,
+        nextSlot: 'Today, Available',
+        image: p.user?.profilePicture || null,
+      }));
+      return res.json({ success: true, data: formatted });
     }
 
-    const formatted = profiles.map(p => ({
-      _id: p.user._id,
-      name: p.user.name,
-      specialty: p.specialty,
-      rating: p.rating,
-      exp: `${p.experienceYears} Yrs`,
+    // Fall back to User collection (real doctors in the system)
+    const userQuery = { role: 'doctor', isActive: true };
+    if (specialty) userQuery.specialization = specialty;
+    const doctors = await User.find(userQuery).select('firstName lastName specialization consultationFee rating').lean();
+    const formatted = doctors.map(d => ({
+      _id: d._id,
+      name: `${d.firstName} ${d.lastName}`,
+      specialty: d.specialization || 'General Medicine',
+      rating: d.rating || 4.5,
+      exp: d.experience ? `${d.experience} Yrs` : 'N/A',
       nextSlot: 'Today, Available',
-      image: p.user.profilePicture || 'https://i.pravatar.cc/150?u=doc1'
+      image: null,
     }));
-
     res.json({ success: true, data: formatted });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -94,10 +101,12 @@ exports.getAvailability = async (req, res) => {
 // @route   POST /api/appointments
 exports.bookAppointment = async (req, res) => {
   try {
-    const { doctorId, specialty, date, timeSlot, visitType, reason, insuranceApplied } = req.body;
-    
-    // Note: in a real app req.user._id would come from auth middleware
-    const patientId = req.user ? req.user._id : new mongoose.Types.ObjectId(); 
+    const { doctorId, specialty, date, timeSlot, visitType, reason, insuranceApplied, patientId: bodyPatientId } = req.body;
+
+    // Patients book for themselves; staff/admin may specify patientId in the body
+    const patientId = bodyPatientId && req.user?.role !== 'patient'
+        ? bodyPatientId
+        : (req.user?._id ?? new mongoose.Types.ObjectId());
     
     // For MVP, if doctorId is 'mock1', we generate a fake object ID to avoid cast errors
     const validDoctorId = mongoose.Types.ObjectId.isValid(doctorId) ? doctorId : new mongoose.Types.ObjectId();
@@ -141,8 +150,8 @@ exports.bookAppointment = async (req, res) => {
         tenantId: 't-default',
         traceId: traceId,
         payload: {
-          patientName: patient ? patient.name : 'Valued Patient',
-          doctorName: doctor && doctor.user ? doctor.user.name : 'Your Doctor',
+          patientName: patient ? [patient.firstName, patient.lastName].filter(Boolean).join(' ') : 'Valued Patient',
+          doctorName: doctor?.user ? [doctor.user.firstName, doctor.user.lastName].filter(Boolean).join(' ') : 'Your Doctor',
           appointmentDate: date,
           appointmentTime: timeSlot,
           hospitalName: 'CareConnect Main Center'

@@ -18,6 +18,7 @@ const authRoutes = require('./routes/authRoutes');
 // const { createProxyMiddleware } = require('http-proxy-middleware');
 const radiologyRoutes = require('./routes/radiologyRoutes');
 const patientRoutes = require('./routes/patientRoutes');
+const patientManagementRoutes = require('./routes/patientManagementRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const walletRoutes = require('./routes/walletRoutes');
@@ -68,7 +69,6 @@ require('./services/LabIntake').init();
 require('./services/MasterDataSeedService').init();
 require('./services/NearbySeedService').init();
 require('./services/ClinicalCatalogService').init();
-require('./seeds/rbacSeed').init();
 const OutboxWorker = require('./services/OutboxWorker');
 
 const app = express();
@@ -76,8 +76,30 @@ const app = express();
 // Start Notification Outbox Drainer
 OutboxWorker.start(5000);
 
-// Connect to Database
-connectDB();
+// Connect to Database — then seed initial staff accounts when using in-memory DB
+(async () => {
+    const conn = await connectDB();
+    if (conn) {
+        const mongoose = require('mongoose');
+        const User = require('./models/User');
+        // Seed only when DB was empty (memory-server dev fallback)
+        const count = await User.countDocuments({ role: { $in: ['admin', 'doctor'] } }).catch(() => -1);
+        if (count === 0) {
+            console.log('🌱  Seeding initial staff accounts...');
+            const bcrypt = require('bcryptjs');
+            const hash = await bcrypt.hash('Admin@123', 10);
+            await User.insertMany([
+                { firstName: 'Admin', lastName: 'CareConnect', email: 'admin@careconnect.com', password: hash, role: 'admin', isActive: true, isVerified: true },
+                { firstName: 'Dr. Raj', lastName: 'Sharma', email: 'dr.raj@careconnect.com', password: hash, role: 'doctor', isActive: true, isVerified: true, specialization: 'General Medicine' },
+                { firstName: 'Nurse', lastName: 'Priya', email: 'nurse@careconnect.com', password: hash, role: 'nurse', isActive: true, isVerified: true },
+                { firstName: 'Reception', lastName: 'Staff', email: 'reception@careconnect.com', password: hash, role: 'reception', isActive: true, isVerified: true },
+            ]);
+            console.log('✅  Seeded: admin, doctor, nurse, reception — password: Admin@123');
+        }
+        // Seed RBAC roles after DB is connected (was previously called before connect)
+        await require('./seeds/rbacSeed').init();
+    }
+})();
 
 // Mount viewer routes BEFORE helmet to preserve custom CSP
 app.use('/viewer', viewerRoutes);
@@ -188,6 +210,7 @@ if (process.env.USE_NEW_AUTH_SERVICE === 'true') {
 
 app.use('/api/radiology', radiologyRoutes);
 app.use('/api/patient', patientRoutes);
+app.use('/api/patients', patientManagementRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/wallet', walletRoutes);

@@ -81,6 +81,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const searchParams = useSearchParams();
     const initialPanel = (searchParams.get('panel') as OrderPanelTab | null) || undefined;
     const queryClient = useQueryClient();
+    const ordersRef = React.useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const { hasPermission } = usePermissions();
     const canSignNote = hasPermission('DOCTOR.SIGN_CLINICAL_NOTES');
@@ -127,6 +128,15 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     }
 
     const isSigned = note?.status === 'signed';
+
+    // Scroll the Orders panel into view when navigated with ?panel=
+    React.useEffect(() => {
+        if (!initialPanel || !bundle) return;
+        const timer = setTimeout(() => {
+            ordersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [initialPanel, bundle]);
 
     const updateSection = (key: keyof NoteSections, value: string) => {
         if (isSigned) return;
@@ -540,6 +550,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                     </Card>
 
                     {/* ── Orders ── */}
+                    <div ref={ordersRef}>
                     <OrdersPanel
                         encounterId={encounterId}
                         serverOrders={bundle.orders}
@@ -555,6 +566,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                         }}
                         onChanged={() => queryClient.invalidateQueries({ queryKey: ['emr', 'encounter', encounterId] })}
                     />
+                    </div>
                 </div>
 
                 {/* ── RIGHT: AI copilot ── */}

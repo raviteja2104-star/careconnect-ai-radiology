@@ -28,10 +28,11 @@ router.get('/', (req, res, next) => {
     next();
 }, getAppointments);
 
-// POST / — only users with booking permission may create appointments
+// POST / — patient books own appointment, OR staff/admin books on behalf of patient
+const { permitAny } = require('../middleware/permit');
 router.post(
     '/',
-    permit('PATIENT.BOOK_APPOINTMENT'),
+    permitAny('PATIENT.BOOK_APPOINTMENT', 'STAFF.CREATE_APPOINTMENTS'),
     bookAppointment
 );
 

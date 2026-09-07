@@ -153,9 +153,11 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                 crumbs={[{ label: 'Clinical', href: '/dashboard' }, { label: 'EMR', href: '/emr' }, { label: name }]}
                 actions={
                     demo ? (
-                        <Badge tone="warning" dot pulse>
-                            <WifiOff className="h-3 w-3" aria-hidden /> Demo data — backend offline
-                        </Badge>
+                        <Link href="/login" className="no-underline">
+                            <Badge tone="warning" dot pulse>
+                                <WifiOff className="h-3 w-3" aria-hidden /> Demo data — log in to view real patient
+                            </Badge>
+                        </Link>
                     ) : undefined
                 }
             />

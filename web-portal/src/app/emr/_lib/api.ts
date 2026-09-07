@@ -229,6 +229,8 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 5000): P
         throw new ApiOfflineError('Unauthorized');
     }
     if (res.status === 403) throw new ApiOfflineError('Unauthorized');
+    // 503 = server temporarily unavailable (DB reconnecting, cold start) — treat as offline
+    if (res.status === 503) throw new ApiOfflineError('Service temporarily unavailable');
     if (!res.ok) {
         let body: Record<string, unknown> = {};
         try {
