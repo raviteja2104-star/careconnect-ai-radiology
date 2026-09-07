@@ -234,7 +234,7 @@ export const DEMO_ITEMS: WorklistItem[] = [
     {
         _id: 'demo-lab-2',
         labNumber: 'LAB-2026-0102',
-        patientId: { _id: 'demo-pt-rohit', name: 'Rohit Sharma' },
+        patientId: { _id: 'demo-pt-rohit', name: 'Patient A' },
         orderingDoctorId: { name: 'Dr. Raj Sharma' },
         priority: 'urgent',
         status: 'SAMPLE_COLLECTED',
@@ -353,7 +353,7 @@ export const DEMO_ITEMS: WorklistItem[] = [
     {
         _id: 'demo-lab-6',
         labNumber: 'LAB-2026-0106',
-        patientId: { _id: 'demo-pt-rohit', name: 'Rohit Sharma' },
+        patientId: { _id: 'demo-pt-rohit', name: 'Patient A' },
         orderingDoctorId: { name: 'Dr. Asha Rao' },
         priority: 'urgent',
         status: 'REJECTED',

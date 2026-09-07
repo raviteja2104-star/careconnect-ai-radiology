@@ -23,8 +23,8 @@ export default function ADTDashboard() {
   ];
 
   const pendingAdmissions = [
-    { id: 'ADM-26-891', patient: 'Rohit Sharma', age: 32, type: 'Emergency', diagnosis: 'Acute Appendicitis', priority: 'High', bedStatus: 'Allocated (W4-B12)' },
-    { id: 'ADM-26-892', patient: 'Meena Gupta', age: 45, type: 'Elective', diagnosis: 'Cholecystectomy', priority: 'Medium', bedStatus: 'Pending Allocation' },
+    { id: 'ADM-26-891', patient: 'Patient A', age: 32, type: 'Emergency', diagnosis: 'Acute Appendicitis', priority: 'High', bedStatus: 'Allocated (W4-B12)' },
+    { id: 'ADM-26-892', patient: 'Patient B', age: 45, type: 'Elective', diagnosis: 'Cholecystectomy', priority: 'Medium', bedStatus: 'Pending Allocation' },
   ];
 
   const dischargeQueue = [

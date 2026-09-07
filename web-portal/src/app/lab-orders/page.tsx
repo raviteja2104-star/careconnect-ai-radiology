@@ -32,7 +32,7 @@ interface LabOrder {
 
 const INITIAL_LAB_ORDERS: LabOrder[] = [
   {
-    id: 'lo1', mrn: 'MRN-2024-07241', patientName: 'Rohit Sharma', patientAge: 32, patientGender: 'M',
+    id: 'lo1', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M',
     panelName: 'Cardiac Markers (STAT)', orderedBy: 'Dr. Priya Mehta', department: 'Cardiology',
     orderedAt: '09:18, 24 Jul', reportedAt: '09:52, 24 Jul', status: 'Final', priority: 'STAT',
     specimenType: 'Serum',
@@ -44,7 +44,7 @@ const INITIAL_LAB_ORDERS: LabOrder[] = [
     ]
   },
   {
-    id: 'lo2', mrn: 'MRN-2024-07241', patientName: 'Rohit Sharma', patientAge: 32, patientGender: 'M',
+    id: 'lo2', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M',
     panelName: 'Complete Blood Count (CBC)', orderedBy: 'Dr. Priya Mehta', department: 'Cardiology',
     orderedAt: '09:18, 24 Jul', reportedAt: '10:45, 24 Jul', status: 'Final', priority: 'Urgent',
     specimenType: 'EDTA Blood',
@@ -122,7 +122,7 @@ export default function LabOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // New order form state
-  const [patientName, setPatientName] = useState('Rohit Sharma');
+  const [patientName, setPatientName] = useState('Patient A');
   const [mrn, setMrn] = useState('MRN-2024-07241');
   const [selectedPanel, setSelectedPanel] = useState(AVAILABLE_PANELS[0]);
   const [priority, setPriority] = useState<Priority>('Urgent');

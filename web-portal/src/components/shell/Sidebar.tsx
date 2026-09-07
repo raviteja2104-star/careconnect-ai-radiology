@@ -49,7 +49,7 @@ function usePersistedList(key: string, limit: number) {
 export function Sidebar({ collapsed, onToggle, mobile, onNavigate, badges = {} }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { session, switchRole, availableRoles, isAuthenticated, logout } = useSession();
+    const { session, switchRole, availableRoles, isAuthenticated, hydrated, logout } = useSession();
     const app = appForRole(session.role);
     const groups = React.useMemo(() => navGroupsForRole(session.role), [session.role]);
     const [query, setQuery] = React.useState('');
@@ -200,20 +200,27 @@ export function Sidebar({ collapsed, onToggle, mobile, onNavigate, badges = {} }
 
             {/* Nav */}
             <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4 pt-1">
-                {!filter && showLabels && pinnedItems.length > 0 && (
+                {!hydrated && (
+                    <div className="space-y-1 px-3 pt-2" aria-hidden>
+                        {[60, 48, 72, 56, 64, 52].map((w, i) => (
+                            <div key={i} className="h-8 rounded-xl bg-muted/50 animate-pulse" style={{ width: `${w}%` }} />
+                        ))}
+                    </div>
+                )}
+                {hydrated && !filter && showLabels && pinnedItems.length > 0 && (
                     <div className="mb-3">
                         <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">Pinned</p>
                         <div className="space-y-0.5">{pinnedItems.map((i) => renderItem(i, { pinned: true }))}</div>
                     </div>
                 )}
-                {!filter && showLabels && recentItems.length > 0 && (
+                {hydrated && !filter && showLabels && recentItems.length > 0 && (
                     <div className="mb-3">
                         <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">Recent</p>
                         <div className="space-y-0.5">{recentItems.slice(0, 3).map((i) => renderItem(i))}</div>
                     </div>
                 )}
 
-                {groups.map((group) => {
+                {hydrated && groups.map((group) => {
                     const visible = group.items.filter(matches);
                     if (visible.length === 0) return null;
                     const isOpen = openGroups[group.id] ?? true;

@@ -109,7 +109,7 @@ export const PediatricsWidget: React.FC = () => {
                 CareConnect Official Immunization Certificate
               </h4>
               <p className="text-xs text-amber-800 dark:text-amber-400 max-w-md mx-auto">
-                Certifies that <strong>Rohit Sharma (Child)</strong> has completed all 6-week and birth vaccinations per WHO guidelines.
+                Certifies that <strong>[Patient Name]</strong> has completed all 6-week and birth vaccinations per WHO guidelines.
               </p>
               <div className="flex justify-center gap-4 text-[11px] font-mono text-amber-700 pt-2">
                 <span>Completed Vaccines: 6/11</span>

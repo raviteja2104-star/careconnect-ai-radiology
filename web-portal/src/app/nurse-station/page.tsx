@@ -47,7 +47,7 @@ export default function NurseStation() {
   ];
 
   const patients: Patient[] = [
-    { bed: 'W4-B12', name: 'Rohit Sharma', age: 32, gender: 'M', diagnosis: 'Acute Appendicitis', status: 'Post-Op', risk: 'Medium', ews: 3, nextMed: '14:00', nextVital: '15:00', ivRunning: true },
+    { bed: 'W4-B12', name: 'Patient A', age: 32, gender: 'M', diagnosis: 'Acute Appendicitis', status: 'Post-Op', risk: 'Medium', ews: 3, nextMed: '14:00', nextVital: '15:00', ivRunning: true },
     { bed: 'W4-B14', name: 'Sunita Rao', age: 65, gender: 'F', diagnosis: 'COPD Exacerbation', status: 'Oxygen Therapy', risk: 'High', ews: 6, nextMed: '13:30 (Overdue)', nextVital: '14:00', ivRunning: true },
     { bed: 'W4-B15', name: 'Amit Singh', age: 45, gender: 'M', diagnosis: 'Dengue Fever', status: 'Stable', risk: 'Low', ews: 1, nextMed: '18:00', nextVital: '18:00', ivRunning: false },
     { bed: 'W4-B18', name: 'Priya Patel', age: 28, gender: 'F', diagnosis: 'Gastroenteritis', status: 'Observation', risk: 'Low', ews: 0, nextMed: '16:00', nextVital: '16:00', ivRunning: true },
@@ -55,8 +55,8 @@ export default function NurseStation() {
 
   const emarTasks: EmarTask[] = [
     { patient: 'Sunita Rao', bed: 'W4-B14', drug: 'Salbutamol Nebulizer', dose: '2.5mg', route: 'Inhalation', time: '13:30', status: 'Overdue' },
-    { patient: 'Rohit Sharma', bed: 'W4-B12', drug: 'Ceftriaxone', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
-    { patient: 'Rohit Sharma', bed: 'W4-B12', drug: 'Paracetamol', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
+    { patient: 'Patient A', bed: 'W4-B12', drug: 'Ceftriaxone', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
+    { patient: 'Patient A', bed: 'W4-B12', drug: 'Paracetamol', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
   ];
 
   const patientColumns: Column<Patient>[] = [
@@ -191,7 +191,7 @@ export default function NurseStation() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-foreground">W4-B12 • Rohit Sharma</p>
+                        <p className="text-sm font-bold text-foreground">W4-B12 • Patient A</p>
                         <p className="text-xs font-semibold text-warning">NEWS2 Score: 3</p>
                         <p className="mt-1 text-xs text-muted-foreground">Temp 38.2°C, HR 102.</p>
                       </div>

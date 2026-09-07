@@ -23,7 +23,7 @@ interface Consultation {
 
 const CONSULTATIONS: Consultation[] = [
   {
-    id: 'c1', token: 'A-01', patientName: 'Rohit Sharma', patientMrn: 'MRN-2024-07241',
+    id: 'c1', token: 'A-01', patientName: 'Patient A', patientMrn: 'MRN-2024-07241',
     patientAge: 32, patientGender: 'M', appointmentTime: '09:00', type: 'OPD',
     status: 'Completed', chiefComplaint: 'Chest pain, radiating to left arm, onset 2 hours ago',
     doctor: 'Dr. Priya Mehta', department: 'Cardiology',

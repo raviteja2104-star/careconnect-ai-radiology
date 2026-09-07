@@ -76,8 +76,8 @@ export const PERSONAS: Record<string, AuthUserSession> = {
   },
   PATIENT: {
     userId: 'usr-pat-01',
-    name: 'Rohit Sharma',
-    email: 'rohit.sharma@example.com',
+    name: 'Demo Patient',
+    email: 'patient@example.com',
     role: 'PATIENT',
     tenantId: 'tenant-apollo-main',
     hospitalName: 'Apollo CareConnect Super Specialty',

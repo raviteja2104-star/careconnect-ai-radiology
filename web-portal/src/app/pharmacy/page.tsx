@@ -41,7 +41,7 @@ export default function PharmacyDashboard() {
   ];
 
   const rxQueue: RxItem[] = [
-    { rxId: 'RX-2026-881', patient: 'Rohit Sharma', doctor: 'Dr. Raj Sharma', time: '10 mins ago', status: 'Verification', items: 4, aiFlag: false },
+    { rxId: 'RX-2026-881', patient: 'Patient A', doctor: 'Dr. Raj Sharma', time: '10 mins ago', status: 'Verification', items: 4, aiFlag: false },
     { rxId: 'RX-2026-882', patient: 'Priya Patel', doctor: 'Dr. Anita Desai', time: '15 mins ago', status: 'Ready', items: 2, aiFlag: true, aiMsg: 'Potential duplicate therapy detected.' },
     { rxId: 'RX-2026-883', patient: 'Amit Singh', doctor: 'Dr. Raj Sharma', time: '1 hour ago', status: 'Dispensed', items: 1, aiFlag: false },
   ];

@@ -335,7 +335,7 @@ function buildDemoDashboard(providerId: string): ProviderDashboard {
     const d2 = doctors[1]?._id ?? d1;
     return {
         todayAppointments: [
-            { _id: 'demo-appt-1', providerId, doctorId: d1, type: 'consultation', date: todayIso(), startTime: '09:30', endTime: '09:45', status: 'BOOKED', patientDetails: { name: 'Rohit Sharma', age: 34, gender: 'male', phone: '+91 98765 43210' }, confirmationCode: 'CC-DEMO-1001', paymentMode: 'pay_at_visit', paymentStatus: 'pending' },
+            { _id: 'demo-appt-1', providerId, doctorId: d1, type: 'consultation', date: todayIso(), startTime: '09:30', endTime: '09:45', status: 'BOOKED', patientDetails: { name: 'Patient A', age: 34, gender: 'male', phone: '+91 98765 43210' }, confirmationCode: 'CC-DEMO-1001', paymentMode: 'pay_at_visit', paymentStatus: 'pending' },
             { _id: 'demo-appt-2', providerId, doctorId: d1, type: 'consultation', date: todayIso(), startTime: '10:00', endTime: '10:15', status: 'CHECKED_IN', patientDetails: { name: 'Sunita Patil', age: 52, gender: 'female', phone: '+91 90210 44556' }, confirmationCode: 'CC-DEMO-1002', paymentMode: 'online', paymentStatus: 'paid' },
             { _id: 'demo-appt-3', providerId, doctorId: d2, type: 'consultation', date: todayIso(), startTime: '11:30', endTime: '11:45', status: 'BOOKED', patientDetails: { name: 'Aarav Mehta', age: 6, gender: 'male', phone: '+91 88992 33445' }, confirmationCode: 'CC-DEMO-1003', paymentMode: 'pay_at_visit', paymentStatus: 'pending' },
         ],

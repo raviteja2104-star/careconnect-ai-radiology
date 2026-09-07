@@ -184,7 +184,7 @@ class LowCodeWorkflowService {
       definitionId: 'tmpl-opd-01',
       definitionName: 'OPD Consultation & EMR Workflow',
       patientId: 'PT-0001234',
-      patientName: 'Rohit Sharma',
+      patientName: 'Patient A',
       status: 'IN_PROGRESS',
       currentNodeId: 'n4',
       assignedRole: 'DOCTOR',
