@@ -124,10 +124,10 @@ const STATS = [
 ];
 
 const FAMILY_MEMBERS = [
-    { name: 'Rahul Sharma',  relation: 'Myself',  apt: 'Cardiology · Dr. Mehta · Tomorrow 10 AM',  color: 'bg-blue-500'   },
-    { name: 'Priya Sharma',  relation: 'Spouse',  apt: 'CBC Lab Test · Home Collection · Today',     color: 'bg-violet-500' },
-    { name: 'Arun Sharma',   relation: 'Father',  apt: 'Diabetes Checkup · Thursday',               color: 'bg-teal-500'   },
-    { name: 'Meera Sharma',  relation: 'Mother',  apt: 'Ophthalmology · Dr. Nair · Next Monday',    color: 'bg-rose-500'   },
+    { name: 'You',           relation: 'Myself',  apt: 'Cardiology · Upcoming appointment',        color: 'bg-blue-500'   },
+    { name: 'Spouse',        relation: 'Spouse',  apt: 'CBC Lab Test · Home Collection',            color: 'bg-violet-500' },
+    { name: 'Father',        relation: 'Father',  apt: 'Diabetes Follow-up · This Week',           color: 'bg-teal-500'   },
+    { name: 'Mother',        relation: 'Mother',  apt: 'Ophthalmology Consult · Next Week',        color: 'bg-rose-500'   },
 ];
 
 /* ─── animation helpers ──────────────────────────────────────────────── */

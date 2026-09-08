@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
   ShieldCheck, FileText, Download, Phone, CheckCircle2, Clock,
-  Stethoscope, Pill, FlaskConical, HeartPulse, Wallet, CalendarClock,
+  Wallet, CalendarClock,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
@@ -34,17 +34,19 @@ interface InsuranceCoverage {
   validTill?: string;
 }
 
+interface CoverageBenefit {
+  label: string;
+  icon?: string;
+  pct: number;
+  note?: string;
+}
+
 interface InsuranceSummary {
   coverage: InsuranceCoverage | null;
   claims: Claim[];
+  coverageBenefits?: CoverageBenefit[];
 }
 
-const STATIC_COVERAGE_BENEFITS = [
-  { label: 'Outpatient Consultations', icon: Stethoscope, pct: 80, note: '80% after deductible' },
-  { label: 'Prescription Drugs', icon: Pill, pct: 80, note: '80% generic & branded' },
-  { label: 'Diagnostics & Laboratory', icon: FlaskConical, pct: 80, note: '80% in-network labs' },
-  { label: 'Emergency & Hospitalization', icon: HeartPulse, pct: 100, note: '100% in-network ER' },
-];
 
 export default function InsurancePage() {
   const router = useRouter();
@@ -272,21 +274,29 @@ export default function InsurancePage() {
               <CardDescription>What your plan pays for in-network care.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              {STATIC_COVERAGE_BENEFITS.map((c) => (
-                <div key={c.label} className="flex items-start gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <c.icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">{c.label}</p>
-                      <span className="text-xs font-bold tabular-nums text-foreground">{c.pct}%</span>
+              {(data?.coverageBenefits?.length ?? 0) === 0 ? (
+                <EmptyState
+                  icon={ShieldCheck}
+                  title="Coverage breakdown not available"
+                  description="Benefit percentages are not included in your policy's digital record. Contact your insurer for a full coverage summary."
+                />
+              ) : (
+                data!.coverageBenefits!.map((c) => (
+                  <div key={c.label} className="flex items-start gap-3">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <ShieldCheck className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">{c.label}</p>
+                        <span className="text-xs font-bold tabular-nums text-foreground">{c.pct}%</span>
+                      </div>
+                      <Progress value={c.pct} className="mt-1.5" />
+                      {c.note && <p className="mt-1 text-xs text-muted-foreground">{c.note}</p>}
                     </div>
-                    <Progress value={c.pct} className="mt-1.5" />
-                    <p className="mt-1 text-xs text-muted-foreground">{c.note}</p>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </motion.div>

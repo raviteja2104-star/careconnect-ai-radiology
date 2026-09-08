@@ -286,19 +286,29 @@ export default function PharmacyDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 pt-4">
-                  <div className="rounded-xl border border-danger/30 bg-danger-soft p-3">
-                    <div className="mb-1 flex items-start justify-between">
-                      <span className="text-xs font-bold text-danger">Severe Interaction</span>
-                      <span className="font-mono text-xs text-danger/80">RX-2026-885</span>
+                  {queueQuery.isLoading ? (
+                    <div className="h-20 animate-pulse rounded-xl bg-muted" />
+                  ) : queue.filter(r => r.aiFlag).length === 0 ? (
+                    <p className="py-4 text-center text-sm text-muted-foreground">No AI drug interaction flags at this time.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {queue.filter(r => r.aiFlag).map(rx => (
+                        <div key={rx.rxId} className="rounded-xl border border-danger/30 bg-danger-soft p-3">
+                          <div className="mb-1 flex items-start justify-between">
+                            <span className="text-xs font-bold text-danger">Drug Interaction Flag</span>
+                            <span className="font-mono text-xs text-danger/80">{rx.rxId}</span>
+                          </div>
+                          <p className="mb-2 text-xs text-foreground">{rx.aiMsg ?? 'Potential drug interaction detected — pharmacist review required.'}</p>
+                          <button
+                            onClick={() => setActiveTab('queue')}
+                            className="text-xs font-semibold text-danger hover:underline"
+                          >
+                            Review &amp; Hold
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <p className="mb-2 text-xs text-foreground">Patient prescribed Warfarin + Aspirin. High risk of bleeding.</p>
-                    <button
-                      onClick={() => setActiveTab('queue')}
-                      className="text-xs font-semibold text-danger hover:underline"
-                    >
-                      Review &amp; Hold
-                    </button>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

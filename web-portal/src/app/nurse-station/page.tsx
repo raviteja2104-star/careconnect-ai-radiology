@@ -54,7 +54,6 @@ const TAB_LABELS: Record<string, string> = {
 export default function NurseStation() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [copilotAcknowledged, setCopilotAcknowledged] = useState(false);
 
   const nursingQuery = useQuery<{ success: boolean; data: NursingResponse }>({
     queryKey: ['ward-nursing'],
@@ -139,7 +138,7 @@ export default function NurseStation() {
     <div className="space-y-6">
       <PageHeader
         title="Nurse Station"
-        description="Ward 4 (General Medical) • Shift: 08:00 - 16:00 • Nurse: Sarah K."
+        description="Your patient ward assignments and active care queue."
         crumbs={[{ label: 'Clinical' }, { label: 'Nurse Station' }]}
         actions={
           <Button disabled title="Coming soon">
@@ -187,7 +186,7 @@ export default function NurseStation() {
                   <CardTitle className="flex items-center gap-2">
                     <HeartPulse className="h-5 w-5 text-danger" aria-hidden /> NEWS2 Alerts
                   </CardTitle>
-                  <Badge tone="danger" dot pulse>1 Critical</Badge>
+                  <Badge tone="danger" dot pulse>{patients.filter(p => p.ews >= 5).length} Critical</Badge>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {criticalPatient && (
@@ -199,13 +198,13 @@ export default function NurseStation() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <ProgressRing value={88} size={56} strokeWidth={5} tone="danger">
-                            <span className="text-xs font-bold">88%</span>
+                          <ProgressRing value={Math.round(criticalPatient.ews / 20 * 100)} size={56} strokeWidth={5} tone="danger">
+                            <span className="text-xs font-bold">{criticalPatient.ews}</span>
                           </ProgressRing>
                           <div>
                             <p className="text-sm font-bold text-foreground">{criticalPatient.bed} • {criticalPatient.name}</p>
                             <p className="text-xs font-semibold text-danger">NEWS2 Score: {criticalPatient.ews}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">SpO2 dropped to 88% on room air. RR 24.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">High NEWS2 — immediate clinical assessment required.</p>
                           </div>
                         </div>
                         <Button variant="danger" size="sm" onClick={() => router.push('/messages')}>Escalate</Button>
@@ -224,7 +223,7 @@ export default function NurseStation() {
                         <div>
                           <p className="text-sm font-bold text-foreground">{warningPatient.bed} • {warningPatient.name}</p>
                           <p className="text-xs font-semibold text-warning">NEWS2 Score: {warningPatient.ews}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Temp 38.2°C, HR 102.</p>
+                          <p className="mt-1 text-xs text-muted-foreground">NEWS2 score {warningPatient.ews} — monitor closely.</p>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => router.push('/emr')}>Review</Button>
                       </div>
@@ -253,17 +252,8 @@ export default function NurseStation() {
                     <h3 className="text-sm font-bold tracking-wide">AI Nursing Copilot</h3>
                   </div>
                   <p className="mb-4 text-sm leading-relaxed opacity-90">
-                    <strong>Reminder:</strong> Blood cultures for W4-B12 (Rohit) need to be drawn before starting IV Ceftriaxone at 14:00.
+                    No active AI reminders for this shift. Reminders will appear here when the AI detects care-gap risks from your patient list and eMAR.
                   </p>
-                  <Button
-                    variant="glass"
-                    size="sm"
-                    className="w-full"
-                    disabled={copilotAcknowledged}
-                    onClick={() => setCopilotAcknowledged(true)}
-                  >
-                    {copilotAcknowledged ? 'Acknowledged' : 'Acknowledge'}
-                  </Button>
                 </div>
               </motion.div>
             </div>

@@ -50,15 +50,35 @@ exports.generateToken = async (req, res) => {
 exports.getDepartmentQueue = async (req, res) => {
   try {
     const { department } = req.params;
-    
-    const tokens = await QueueToken.find({
-      department,
-      status: { $in: ['WAITING', 'CALLED', 'IN_PROGRESS'] }
-    })
-    .sort({ status: 1, priority: -1, createdAt: 1 })
-    .populate('doctor', 'name');
 
-    res.json({ success: true, data: tokens });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [tokens, completedToday] = await Promise.all([
+      QueueToken.find({
+        department,
+        status: { $in: ['WAITING', 'CALLED', 'IN_PROGRESS'] },
+      })
+        .sort({ status: 1, priority: -1, createdAt: 1 })
+        .populate('doctor', 'name'),
+
+      QueueToken.find({
+        department,
+        status: 'COMPLETED',
+        createdAt: { $gte: today },
+        calledAt: { $ne: null },
+      }).select('calledAt createdAt').lean(),
+    ]);
+
+    let avgWaitMins = null;
+    if (completedToday.length > 0) {
+      const totalMs = completedToday.reduce(
+        (s, t) => s + (new Date(t.calledAt).getTime() - new Date(t.createdAt).getTime()), 0
+      );
+      avgWaitMins = Math.round(totalMs / completedToday.length / 60000);
+    }
+
+    res.json({ success: true, data: tokens, avgWaitMins });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

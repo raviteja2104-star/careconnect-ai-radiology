@@ -158,8 +158,8 @@ export default function DoctorQueueWorkspace() {
         />
         <StatCard
           label="Avg Wait"
-          value="12m"
-          sub="Rolling average today"
+          value={isLoading ? '—' : (queueData?.avgWaitMins != null ? `${queueData.avgWaitMins}m` : '—')}
+          sub={queueData?.avgWaitMins != null ? 'Rolling avg for today' : 'No completed visits yet'}
           icon={Timer}
           tone="violet"
           delay={0.05}
