@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Building, Users, Shield, Settings, Server, FileText,
@@ -81,9 +82,22 @@ const TAB_ITEMS = [
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Dashboard');
+
+  const { data: statsRes } = useQuery({
+    queryKey: ['admin_platform_stats'],
+    queryFn: () => fetch(`${API}/api/admin/platform-stats`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+  const stats = statsRes?.data;
 
   const orgColumns: Column<Org>[] = [
     {
@@ -131,10 +145,10 @@ export default function AdminDashboard() {
         {/* ---------------- Dashboard ---------------- */}
         <TabsContent value="Dashboard" className="space-y-6">
           <StatGrid>
-            <StatCard label="Total Organizations" value="124" sub="+3 this month" trend="up" icon={Building} tone="brand" delay={0} />
-            <StatCard label="Active Users" value="14,290" sub="+12% vs last week" trend="up" icon={Users} tone="emerald" delay={0.05} />
-            <StatCard label="Platform Uptime" value="99.99%" sub="Last 30 days" trend="neutral" icon={Activity} tone="violet" delay={0.1} />
-            <StatCard label="API Requests (24h)" value="2.4M" sub="Normal volume" trend="neutral" icon={Database} tone="amber" delay={0.15} />
+            <StatCard label="Registered Users" value={stats ? stats.totalUsers.toLocaleString() : '—'} sub={stats?.dbConnected ? 'All roles' : 'DB offline'} trend="up" icon={Building} tone="brand" delay={0} />
+            <StatCard label="Active Users" value={stats ? stats.activeUsers.toLocaleString() : '—'} sub="Currently active accounts" trend="up" icon={Users} tone="emerald" delay={0.05} />
+            <StatCard label="Today's Appointments" value={stats ? stats.todayAppointments.toLocaleString() : '—'} sub="Booked for today" trend="neutral" icon={Activity} tone="violet" delay={0.1} />
+            <StatCard label="Server Uptime" value={stats ? `${Math.floor((stats.uptimeSeconds ?? 0) / 3600)}h ${Math.floor(((stats.uptimeSeconds ?? 0) % 3600) / 60)}m` : '—'} sub="Since last deploy" trend="neutral" icon={Database} tone="amber" delay={0.15} />
           </StatGrid>
 
           {/* Module launcher */}

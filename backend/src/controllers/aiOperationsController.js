@@ -28,7 +28,8 @@ exports.getPredictions = async (req, res) => {
         predictedWaitTime: estimatedWaitMins,
         predictedNextHourVolume: Math.round(q.count * 1.5),
         severity,
-        confidence: 85 + Math.floor(Math.random() * 10)
+        // Confidence is a function of queue size: more data → higher confidence, capped at 94
+        confidence: Math.min(94, 80 + Math.floor(q.count * 2))
       };
     });
 

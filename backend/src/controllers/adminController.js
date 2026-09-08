@@ -34,13 +34,39 @@ exports.getCommandCenter = async (req, res) => {
       data: {
         activeSessions: userCount,
         todayAppointments: todayAppts,
-        apiLatencyMs: Math.round(Math.random() * 20 + 10),
+        apiLatencyMs: 0, // populated by Telemetry middleware in observability dashboard
         dbConnected: true,
         uptime: process.uptime(),
         memUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         queueDepth: 0,
         activeAlerts: [],
       },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.getPlatformStats = async (req, res) => {
+  try {
+    const isDBConnected = () => require('mongoose').connection.readyState === 1;
+    if (!isDBConnected()) {
+      return res.json({
+        success: true,
+        data: { totalUsers: 0, activeUsers: 0, todayAppointments: 0, uptimeSeconds: process.uptime(), dbConnected: false },
+      });
+    }
+    const User = require('../models/User');
+    const Appointment = require('../models/Appointment');
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const [totalUsers, activeUsers, todayAppointments] = await Promise.all([
+      User.countDocuments({}),
+      User.countDocuments({ isActive: true }),
+      Appointment.countDocuments({ date: { $gte: today } }),
+    ]);
+    res.json({
+      success: true,
+      data: { totalUsers, activeUsers, todayAppointments, uptimeSeconds: process.uptime(), dbConnected: true },
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
