@@ -179,6 +179,76 @@ exports.bookAppointment = async (req, res) => {
   }
 };
 
+// @desc    Cancel an appointment
+// @route   PATCH /api/appointments/:id/cancel
+exports.cancelAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid appointment ID.' });
+    }
+
+    const appt = await Appointment.findById(id);
+    if (!appt) {
+      return res.status(404).json({ success: false, message: 'Appointment not found.' });
+    }
+
+    const isOwner = appt.patient.toString() === req.user._id.toString();
+    const isStaff = ['admin', 'staff', 'receptionist', 'nurse'].includes(req.user.role);
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ success: false, message: 'You are not authorised to cancel this appointment.' });
+    }
+
+    const cancellableStatuses = ['Booked', 'Confirmed'];
+    if (!cancellableStatuses.includes(appt.status)) {
+      return res.status(409).json({ success: false, message: `Cannot cancel an appointment with status "${appt.status}".` });
+    }
+
+    const patient = await User.findById(appt.patient);
+    const doctor = await DoctorProfile.findOne({ user: appt.doctor }).populate('user');
+    const traceId = req.headers['x-trace-id'] || uuidv4();
+
+    await TxRunner.run(async (session) => {
+      appt.status = 'Cancelled';
+      appt.cancelledAt = new Date();
+      if (reason) appt.cancellationReason = reason;
+      if (session) {
+        await appt.save({ session });
+      } else {
+        await appt.save();
+      }
+
+      await EventPublisher.publish({
+        session,
+        eventType: 'AppointmentCancelled',
+        version: '1.0',
+        aggregateId: appt._id,
+        tenantId: 't-default',
+        traceId,
+        payload: {
+          patientName: patient ? [patient.firstName, patient.lastName].filter(Boolean).join(' ') : 'Valued Patient',
+          doctorName: doctor?.user ? [doctor.user.firstName, doctor.user.lastName].filter(Boolean).join(' ') : 'Your Doctor',
+          appointmentDate: appt.date,
+          appointmentTime: appt.timeSlot,
+          reason: reason || null,
+        },
+        recipient: {
+          id: appt.patient.toString(),
+          phone: patient?.phone || '+15550000000',
+          email: patient?.email || 'patient@example.com',
+          preferences: { sms: true, email: true, whatsapp: false, push: false },
+        },
+      });
+    });
+
+    res.json({ success: true, data: appt });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Get user appointments (patient-scoped, auth required)
 // @route   GET /api/appointments?type=video&status=Booked
 exports.getAppointments = async (req, res) => {

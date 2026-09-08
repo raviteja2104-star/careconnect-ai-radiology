@@ -47,7 +47,13 @@ const appointmentSchema = new mongoose.Schema({
   },
   meetingLink: {
     type: String // For Video Call
-  }
+  },
+  cancelledAt: {
+    type: Date,
+  },
+  cancellationReason: {
+    type: String,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Appointment', appointmentSchema);

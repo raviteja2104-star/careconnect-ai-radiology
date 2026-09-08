@@ -1,9 +1,9 @@
 ﻿'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
   Search,
@@ -78,9 +78,29 @@ const statusTone: Record<AppointmentData['status'], 'info' | 'success' | 'danger
   Cancelled: 'danger',
 };
 
-function AppointmentRow({ appointment, delay }: { appointment: AppointmentData; delay: number }) {
+interface AppointmentRowProps {
+  appointment: AppointmentData;
+  delay: number;
+  onCancel: (id: string) => Promise<void>;
+  cancelling: boolean;
+}
+
+function AppointmentRow({ appointment, delay, onCancel, cancelling }: AppointmentRowProps) {
   const router = useRouter();
   const isVideo = appointment.type === 'Video Call';
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const handleCancelConfirm = async () => {
+    setCancelError(null);
+    try {
+      await onCancel(appointment.id);
+      setConfirmCancel(false);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel. Please try again.');
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -148,7 +168,12 @@ function AppointmentRow({ appointment, delay }: { appointment: AppointmentData; 
                   }
                 >
                   <DropdownItem onClick={() => router.push(isVideo ? '/telemedicine' : '/appointments/book')}>View details</DropdownItem>
-                  <DropdownItem disabled title="Coming soon" className="opacity-50">Cancel appointment</DropdownItem>
+                  <DropdownItem
+                    className="text-danger"
+                    onClick={() => { setConfirmCancel(true); setCancelError(null); }}
+                  >
+                    Cancel appointment
+                  </DropdownItem>
                 </Dropdown>
               </>
             )}
@@ -157,6 +182,34 @@ function AppointmentRow({ appointment, delay }: { appointment: AppointmentData; 
             )}
           </div>
         </div>
+
+        {confirmCancel && (
+          <div className="mt-4 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3">
+            <p className="mb-1 text-sm font-medium text-danger">Cancel this appointment?</p>
+            <p className="mb-3 text-xs text-muted-foreground">This cannot be undone. You can book a new appointment afterwards.</p>
+            {cancelError && <p className="mb-2 text-xs text-danger">{cancelError}</p>}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-danger/30 text-danger hover:bg-danger/10"
+                onClick={handleCancelConfirm}
+                loading={cancelling}
+                disabled={cancelling}
+              >
+                Yes, cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setConfirmCancel(false); setCancelError(null); }}
+                disabled={cancelling}
+              >
+                Keep appointment
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </motion.div>
   );
@@ -164,8 +217,31 @@ function AppointmentRow({ appointment, delay }: { appointment: AppointmentData; 
 
 export default function AppointmentsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Past' | 'Cancelled'>('Upcoming');
   const [search, setSearch] = useState('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const handleCancel = useCallback(async (id: string) => {
+    setCancellingId(id);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_BASE}/appointments/${id}/cancel`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error((json as { message?: string }).message ?? 'Failed to cancel appointment.');
+      }
+      await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    } finally {
+      setCancellingId(null);
+    }
+  }, [queryClient]);
 
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['appointments'],
@@ -256,7 +332,13 @@ export default function AppointmentsPage() {
           Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
         ) : filtered.length > 0 ? (
           filtered.map((apt, i) => (
-            <AppointmentRow key={apt.id} appointment={apt} delay={i * 0.05} />
+            <AppointmentRow
+              key={apt.id}
+              appointment={apt}
+              delay={i * 0.05}
+              onCancel={handleCancel}
+              cancelling={cancellingId === apt.id}
+            />
           ))
         ) : (
           <EmptyState

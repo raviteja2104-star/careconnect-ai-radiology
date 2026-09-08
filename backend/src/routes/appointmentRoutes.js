@@ -5,7 +5,8 @@ const {
   getDoctors,
   getAvailability,
   bookAppointment,
-  getAppointments
+  getAppointments,
+  cancelAppointment,
 } = require('../controllers/appointmentController');
 const { protect } = require('../middleware/auth');
 const { permit } = require('../middleware/permit');
@@ -35,5 +36,9 @@ router.post(
     permitAny('PATIENT.BOOK_APPOINTMENT', 'STAFF.CREATE_APPOINTMENTS'),
     bookAppointment
 );
+
+// PATCH /:id/cancel — patient cancels own appointment; staff may cancel on their behalf
+// Ownership and status validation are enforced inside the controller.
+router.patch('/:id/cancel', cancelAppointment);
 
 module.exports = router;
