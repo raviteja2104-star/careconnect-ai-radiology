@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const QueueToken = require('../models/QueueToken');
-const User = require('../models/User'); // Patients and Doctors
+const User = require('../models/User');
+const Invoice = require('../models/Invoice');
 
 // @desc    Get Reception Dashboard Stats
 // @route   GET /api/reception/dashboard
@@ -9,22 +11,68 @@ exports.getDashboardStats = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const appointmentsToday = await Appointment.countDocuments({ date: { $gte: today } });
-    const tokensToday = await QueueToken.countDocuments({ createdAt: { $gte: today } });
-    const waitingTokens = await QueueToken.countDocuments({ status: 'WAITING', createdAt: { $gte: today } });
-    const completedTokens = await QueueToken.countDocuments({ status: 'COMPLETED', createdAt: { $gte: today } });
+    const [appointmentsToday, tokensToday, walkInsToday, waitingTokens, completedTokens, revenueAgg] = await Promise.all([
+      Appointment.countDocuments({ date: { $gte: today } }),
+      QueueToken.countDocuments({ createdAt: { $gte: today } }),
+      QueueToken.countDocuments({ appointment: null, createdAt: { $gte: today } }),
+      QueueToken.countDocuments({ status: 'WAITING', createdAt: { $gte: today } }),
+      QueueToken.countDocuments({ status: 'COMPLETED', createdAt: { $gte: today } }),
+      mongoose.connection.readyState === 1
+        ? Invoice.aggregate([
+            { $match: { issuedAt: { $gte: today }, status: { $in: ['PAID', 'PARTIALLY_PAID'] } } },
+            { $group: { _id: null, total: { $sum: '$amountPaid' } } },
+          ])
+        : Promise.resolve([]),
+    ]);
 
     res.json({
       success: true,
       data: {
         appointmentsToday,
-        walkInsToday: tokensToday - appointmentsToday > 0 ? tokensToday - appointmentsToday : Math.floor(tokensToday * 0.4), // approx if no precise walkin tracking
+        walkInsToday,
         checkedIn: tokensToday,
         waiting: waitingTokens,
         completed: completedTokens,
-        revenueCollected: tokensToday * 500, // mock revenue for UI
+        revenueCollected: revenueAgg[0]?.total ?? 0,
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get doctor availability status derived from live queue and today's appointments
+// @route   GET /api/reception/doctors-status
+exports.getDoctorsStatus = async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [doctors, activeTokens, todayAppointments] = await Promise.all([
+      User.find({ role: 'doctor' }, { name: 1, specialty: 1, department: 1 }).lean(),
+      QueueToken.find({ status: 'IN_PROGRESS', createdAt: { $gte: today } }, { doctor: 1 }).lean(),
+      Appointment.find(
+        { date: { $gte: today }, status: { $in: ['Scheduled', 'Checked_In'] } },
+        { doctor: 1 }
+      ).lean(),
+    ]);
+
+    const consultingSet = new Set(activeTokens.map(t => t.doctor?.toString()).filter(Boolean));
+    const scheduledSet  = new Set(todayAppointments.map(a => a.doctor?.toString()).filter(Boolean));
+
+    const data = doctors.map(doc => {
+      const id = doc._id.toString();
+      let status = 'Offline';
+      if (consultingSet.has(id)) status = 'Consulting';
+      else if (scheduledSet.has(id)) status = 'Available';
+      return { id, name: doc.name, dept: doc.specialty || doc.department || 'General', status };
+    });
+
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

@@ -1,38 +1,48 @@
-﻿'use client';
+'use client';
 import React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Users, UserPlus, CalendarCheck, IndianRupee, Clock, CheckCircle2, TicketCheck,
-  Tv, MonitorSmartphone,
+  Tv, MonitorSmartphone, Stethoscope,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
-  CardContent, Badge, Avatar, Button, Timeline, TimelineItem, Skeleton,
+  CardContent, Badge, Avatar, Button, EmptyState, Skeleton,
 } from '@/components/ui';
 
-const DOCTORS: { name: string; dept: string; status: 'Consulting' | 'Available' | 'Break' | 'Offline' }[] = [
-  { name: 'Dr. Sarah Johnson', dept: 'Cardiology', status: 'Consulting' },
-  { name: 'Dr. Michael Brown', dept: 'Orthopedics', status: 'Available' },
-  { name: 'Dr. Emily Davis', dept: 'Neurology', status: 'Break' },
-  { name: 'Dr. Robert Wilson', dept: 'Pediatrics', status: 'Offline' },
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 const doctorStatusMeta: Record<string, { avatar: 'online' | 'busy' | 'away' | 'offline'; tone: 'success' | 'info' | 'warning' | 'neutral' }> = {
   Consulting: { avatar: 'busy', tone: 'info' },
-  Available: { avatar: 'online', tone: 'success' },
-  Break: { avatar: 'away', tone: 'warning' },
-  Offline: { avatar: 'offline', tone: 'neutral' },
+  Available:  { avatar: 'online', tone: 'success' },
+  Break:      { avatar: 'away', tone: 'warning' },
+  Offline:    { avatar: 'offline', tone: 'neutral' },
 };
 
 export default function ReceptionDashboard() {
   const { data: statsRes, isLoading } = useQuery({
     queryKey: ['reception_dashboard'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/dashboard`).then(res => res.json())
+    queryFn: () =>
+      fetch(`${API_BASE}/api/reception/dashboard`, { headers: authHeaders() }).then(r => r.json()),
+    refetchInterval: 30_000,
   });
 
-  const stats = statsRes?.data || { appointmentsToday: 0, walkInsToday: 0, checkedIn: 0, waiting: 0, completed: 0, revenueCollected: 0 };
+  const { data: doctorsRes, isLoading: doctorsLoading } = useQuery({
+    queryKey: ['reception_doctors_status'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/reception/doctors-status`, { headers: authHeaders() }).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  const stats = statsRes?.data ?? { appointmentsToday: 0, walkInsToday: 0, checkedIn: 0, waiting: 0, completed: 0, revenueCollected: 0 };
+  const doctors: { id: string; name: string; dept: string; status: string }[] = doctorsRes?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -73,17 +83,15 @@ export default function ReceptionDashboard() {
           <StatCard
             label="Total Appointments"
             value={stats.appointmentsToday}
-            sub="12% vs yesterday"
+            sub="Scheduled for today"
             icon={CalendarCheck}
             tone="brand"
-            trend="up"
-            trendPositive
             delay={0}
           />
           <StatCard
             label="Walk-ins Today"
             value={stats.walkInsToday}
-            sub={`${stats.checkedIn} checked in`}
+            sub={`${stats.checkedIn} checked in total`}
             icon={UserPlus}
             tone="violet"
             delay={0.05}
@@ -91,11 +99,9 @@ export default function ReceptionDashboard() {
           <StatCard
             label="Currently Waiting"
             value={stats.waiting}
-            sub="Queue building up"
+            sub="In queue"
             icon={Clock}
             tone="amber"
-            trend="up"
-            trendPositive={false}
             delay={0.1}
           />
           <StatCard
@@ -123,21 +129,14 @@ export default function ReceptionDashboard() {
                 <CardTitle>Live Activity Stream</CardTitle>
                 <CardDescription>Latest front-desk events as they happen.</CardDescription>
               </div>
-              <Badge tone="brand" dot pulse>LIVE</Badge>
+              <Badge tone="neutral">Activity Feed</Badge>
             </CardHeader>
             <CardContent>
-              <Timeline>
-                <TimelineItem icon={Users} tone="brand" title="Token Generated" meta="Just now">
-                  Walk-in patient registered for Cardiology. Token{' '}
-                  <span className="font-mono font-semibold text-foreground">CAR-042</span> assigned.
-                </TimelineItem>
-                <TimelineItem icon={IndianRupee} tone="success" title="Payment Received" meta="2 min ago">
-                  ₹500 collected from Rajesh Kumar (UHID: 10092).
-                </TimelineItem>
-                <TimelineItem icon={CalendarCheck} tone="brand" title="Appointment Checked-in" meta="15 min ago">
-                  Sneha Patel arrived for 10:30 AM slot with Dr. Emily Davis.
-                </TimelineItem>
-              </Timeline>
+              <EmptyState
+                icon={Users}
+                title="Activity feed not yet connected"
+                description="Real-time front-desk events will appear here once the activity stream API is wired to queue and check-in webhooks."
+              />
             </CardContent>
           </Card>
         </motion.div>
@@ -154,30 +153,52 @@ export default function ReceptionDashboard() {
               <CardDescription>Consultation availability right now.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-1.5">
-              {DOCTORS.map((doc) => {
-                const meta = doctorStatusMeta[doc.status];
-                return (
-                  <div
-                    key={doc.name}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-transparent p-3 transition-colors hover:border-border hover:bg-muted/40"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar name={doc.name} status={meta.avatar} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold leading-tight text-foreground">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground">{doc.dept}</p>
+              {doctorsLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="space-y-1 flex-1">
+                        <Skeleton className="h-3 w-32" />
+                        <Skeleton className="h-3 w-20" />
                       </div>
                     </div>
-                    <Badge tone={meta.tone} dot pulse={doc.status === 'Consulting'}>
-                      {doc.status}
-                    </Badge>
+                  ))}
+                </div>
+              ) : doctors.length === 0 ? (
+                <EmptyState
+                  icon={Stethoscope}
+                  title="No doctors on record"
+                  description="Doctor accounts will appear here once staff profiles are created in the system."
+                />
+              ) : (
+                <>
+                  {doctors.map((doc) => {
+                    const meta = doctorStatusMeta[doc.status] ?? doctorStatusMeta['Offline'];
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-transparent p-3 transition-colors hover:border-border hover:bg-muted/40"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar name={doc.name} status={meta.avatar} />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold leading-tight text-foreground">{doc.name}</p>
+                            <p className="text-xs text-muted-foreground">{doc.dept}</p>
+                          </div>
+                        </div>
+                        <Badge tone={meta.tone} dot pulse={doc.status === 'Consulting'}>
+                          {doc.status}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+                    Status derived from live OPD queue and today's appointments.
                   </div>
-                );
-              })}
-              <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
-                Status syncs from the OPD queue in real time.
-              </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>

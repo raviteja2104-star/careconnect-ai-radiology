@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   getDashboardStats,
+  getDoctorsStatus,
   getAppointments,
   checkinAppointment,
   registerWalkIn
@@ -14,6 +15,7 @@ router.use(protect);
 // Dashboard/appointments expose aggregated patient data — restrict to clinical staff.
 // Write operations additionally require an elevated role.
 router.route('/dashboard').get(authorize('admin', 'doctor', 'nurse', 'reception'), getDashboardStats);
+router.route('/doctors-status').get(authorize('admin', 'doctor', 'nurse', 'reception'), getDoctorsStatus);
 router.route('/appointments').get(authorize('admin', 'doctor', 'nurse', 'reception'), getAppointments);
 router.route('/checkin').post(authorize('admin', 'doctor', 'nurse'), checkinAppointment);
 router.route('/walkin').post(authorize('admin', 'doctor', 'nurse'), registerWalkIn);

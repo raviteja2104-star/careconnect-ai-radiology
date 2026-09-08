@@ -246,34 +246,12 @@ export default function EmergencyDepartment() {
             className="mx-auto max-w-4xl"
           >
             <Card>
-              <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border pb-5">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-danger-soft text-danger">
-                    <Brain className="h-6 w-6" aria-hidden />
-                  </span>
-                  <div>
-                    <CardTitle>Stroke Code Pathway</CardTitle>
-                    <CardDescription>Patient: Sunita Rao • Bed 4</CardDescription>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Door-to-CT Time</p>
-                  <p className="font-mono text-3xl font-bold text-danger tabular-nums">14:22</p>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <Timeline>
-                  <TimelineItem icon={CheckCircle} tone="success" title="Patient Arrival (Door)" meta="10:30">
-                    Left-side weakness noted at triage.
-                  </TimelineItem>
-                  <TimelineItem icon={Clock} tone="brand" title="Non-Con CT Head" meta="Pending">
-                    <p>Order placed. Patient en route to Radiology.</p>
-                    <Button size="sm" className="mt-3" disabled title="Coming soon">Mark CT Complete</Button>
-                  </TimelineItem>
-                  <TimelineItem icon={Activity} tone="neutral" title="Thrombolysis Decision" meta="--:--">
-                    Neurology Consult &amp; NIHSS Score required.
-                  </TimelineItem>
-                </Timeline>
+              <CardContent className="py-10">
+                <EmptyState
+                  icon={Brain}
+                  title="No active stroke protocol"
+                  description="When a stroke code is activated, the patient pathway, door-to-CT timer, and thrombolysis decision steps will appear here in real time."
+                />
               </CardContent>
             </Card>
           </motion.div>

@@ -243,31 +243,11 @@ export default function ICUDashboard() {
         </TabsContent>
 
         <TabsContent value="severity scores" className="mt-6">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <CardTitle>APACHE II Score</CardTitle>
-                <ActivitySquare className="h-5 w-5 text-primary" aria-hidden />
-              </CardHeader>
-              <CardContent>
-                <div className="mb-2 text-4xl font-bold tabular-nums text-primary">24</div>
-                <p className="text-sm text-muted-foreground">Predicted Mortality: ~50%. Calculated 2 hours ago for Patient Rohit S.</p>
-                <Button variant="secondary" className="mt-4 w-full" disabled title="Coming soon">Recalculate</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <CardTitle>SOFA Score</CardTitle>
-                <ActivitySquare className="h-5 w-5 text-success" aria-hidden />
-              </CardHeader>
-              <CardContent>
-                <div className="mb-2 text-4xl font-bold tabular-nums text-success">9</div>
-                <p className="text-sm text-muted-foreground">Suggests significant organ failure (Resp, CV, Renal). Patient Sunita R.</p>
-                <Button variant="secondary" className="mt-4 w-full" disabled title="Coming soon">Recalculate</Button>
-              </CardContent>
-            </Card>
-          </div>
+          <EmptyState
+            icon={ActivitySquare}
+            title="Severity scoring requires clinical data pipeline"
+            description="APACHE II and SOFA scores are computed from real-time lab values, vitals, and clinical assessments. This module will populate once the severity scoring pipeline is connected."
+          />
         </TabsContent>
 
         {['dashboard', 'infusions', 'rounds'].map((tab) => (
