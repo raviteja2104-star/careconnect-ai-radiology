@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   FileText, Pill, FlaskConical, Search, Plus, Activity, Heart,
-  Thermometer, Save, Send, Mic,
+  Thermometer, Save, Send, Mic, Loader2,
 } from 'lucide-react';
 import {
   PageHeader, Badge, Button, Avatar, Card, CardContent,
@@ -15,6 +15,13 @@ import {
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token
+    ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+}
+
 interface Consultation {
   id: string; token: string; patientName: string; patientMrn: string;
   patientAge: number | null; patientGender: string; appointmentTime: string;
@@ -23,6 +30,13 @@ interface Consultation {
   diagnosis?: string; encounterId?: string | null;
   soap?: { subjective?: string; objective?: string; assessment?: string; plan?: string; };
   vitals?: { bp: string | null; hr: number | null; temp: number | null; spo2: number | null; rr: number | null; };
+}
+
+interface SoapFields {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
 }
 
 function VitalsStrip({ vitals }: { vitals: NonNullable<Consultation['vitals']> }) {
@@ -59,8 +73,13 @@ const STATUS_TONE: Record<Consultation['status'], { tone: 'brand' | 'success' | 
   'Pending Review': { tone: 'warning' },
 };
 
-function SOAPEditor({ soap }: { soap?: Consultation['soap'] }) {
-  const sections: { key: keyof NonNullable<Consultation['soap']>; label: string; placeholder: string }[] = [
+interface SOAPEditorProps {
+  soap: SoapFields;
+  onChange: (field: keyof SoapFields, value: string) => void;
+}
+
+function SOAPEditor({ soap, onChange }: SOAPEditorProps) {
+  const sections: { key: keyof SoapFields; label: string; placeholder: string }[] = [
     { key: 'subjective', label: 'S — Subjective', placeholder: "Patient's reported symptoms, history, and complaints..." },
     { key: 'objective', label: 'O — Objective', placeholder: 'Examination findings, vitals, and investigation results...' },
     { key: 'assessment', label: 'A — Assessment', placeholder: 'Diagnosis and clinical impression...' },
@@ -74,11 +93,27 @@ function SOAPEditor({ soap }: { soap?: Consultation['soap'] }) {
           <Label htmlFor={`soap-${s.key}`} className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             {s.label}
           </Label>
-          <Textarea id={`soap-${s.key}`} defaultValue={soap?.[s.key] ?? ''} placeholder={s.placeholder} rows={5} className="resize-none bg-muted/30" />
+          <Textarea
+            id={`soap-${s.key}`}
+            value={soap[s.key]}
+            onChange={e => onChange(s.key, e.target.value)}
+            placeholder={s.placeholder}
+            rows={5}
+            className="resize-none bg-muted/30"
+          />
         </motion.div>
       ))}
     </div>
   );
+}
+
+function emptySoap(soap?: Consultation['soap']): SoapFields {
+  return {
+    subjective: soap?.subjective ?? '',
+    objective: soap?.objective ?? '',
+    assessment: soap?.assessment ?? '',
+    plan: soap?.plan ?? '',
+  };
 }
 
 export default function ConsultationsPage() {
@@ -87,6 +122,14 @@ export default function ConsultationsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Consultation | null>(null);
   const [activeTab, setActiveTab] = useState<'soap' | 'rx' | 'labs'>('soap');
+
+  // Controlled SOAP fields
+  const [soap, setSoap] = useState<SoapFields>({ subjective: '', objective: '', assessment: '', plan: '' });
+
+  // Action states
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -99,7 +142,11 @@ export default function ConsultationsPage() {
           const data = await r.json();
           if (data.success && Array.isArray(data.data)) {
             setConsultations(data.data as Consultation[]);
-            if (data.data.length > 0) setSelected(data.data[0] as Consultation);
+            if (data.data.length > 0) {
+              const first = data.data[0] as Consultation;
+              setSelected(first);
+              setSoap(emptySoap(first.soap ?? undefined));
+            }
           }
         }
       } catch {
@@ -109,6 +156,71 @@ export default function ConsultationsPage() {
       }
     })();
   }, []);
+
+  function selectConsultation(c: Consultation) {
+    setSelected(c);
+    setSoap(emptySoap(c.soap ?? undefined));
+    setSaveMessage(null);
+  }
+
+  function handleSoapChange(field: keyof SoapFields, value: string) {
+    setSoap(prev => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSaveDraft() {
+    if (!selected) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      const encId = selected.encounterId ?? selected.id;
+      const r = await fetch(`${API}/api/consultations/${encId}/soap`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ soap }),
+      });
+      const data = await r.json();
+      if (r.ok && data.success) {
+        setSaveMessage('Draft saved.');
+      } else {
+        setSaveMessage(data.message || 'Save failed.');
+      }
+    } catch {
+      setSaveMessage('Network error — draft not saved.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleSign() {
+    if (!selected) return;
+    setIsSigning(true);
+    setSaveMessage(null);
+    try {
+      const encId = selected.encounterId ?? selected.id;
+      const r = await fetch(`${API}/api/consultations/${encId}/sign`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ soap }),
+      });
+      const data = await r.json();
+      if (r.ok && data.success) {
+        // Mutate consultation status to Completed in local state
+        setConsultations(prev =>
+          prev.map(c => c.id === selected.id ? { ...c, status: 'Completed' } : c)
+        );
+        setSelected(prev => prev ? { ...prev, status: 'Completed' } : prev);
+        setSaveMessage('Note signed and encounter completed.');
+      } else {
+        setSaveMessage(data.message || 'Sign failed.');
+      }
+    } catch {
+      setSaveMessage('Network error — note not signed.');
+    } finally {
+      setIsSigning(false);
+    }
+  }
+
+  const isInFlight = isSaving || isSigning;
 
   const filtered = consultations.filter(c =>
     !search || c.patientName.toLowerCase().includes(search.toLowerCase()) || c.chiefComplaint.toLowerCase().includes(search.toLowerCase())
@@ -154,7 +266,7 @@ export default function ConsultationsPage() {
                 return (
                   <button
                     key={c.id}
-                    onClick={() => setSelected(c)}
+                    onClick={() => selectConsultation(c)}
                     aria-current={isActive ? 'true' : undefined}
                     className={`w-full px-4 py-4 text-left transition-colors ${isActive ? 'border-l-2 border-primary bg-primary/5' : 'border-l-2 border-transparent hover:bg-muted/50'}`}
                   >
@@ -229,13 +341,31 @@ export default function ConsultationsPage() {
                             </Button>
                           </div>
                         </div>
-                        <SOAPEditor soap={selected.soap ?? undefined} />
+                        <SOAPEditor soap={soap} onChange={handleSoapChange} />
+                        {saveMessage && (
+                          <p className="text-sm text-muted-foreground">{saveMessage}</p>
+                        )}
                         <div className="flex gap-3 border-t border-border pt-4">
-                          <Button variant="secondary" disabled title="Coming soon">
-                            <Save className="h-4 w-4" aria-hidden /> Save Draft
+                          <Button
+                            variant="secondary"
+                            onClick={handleSaveDraft}
+                            disabled={isInFlight}
+                          >
+                            {isSaving
+                              ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              : <Save className="h-4 w-4" aria-hidden />
+                            }
+                            Save Draft
                           </Button>
-                          <Button disabled title="Coming soon">
-                            <Send className="h-4 w-4" aria-hidden /> Sign &amp; Complete
+                          <Button
+                            onClick={handleSign}
+                            disabled={isInFlight}
+                          >
+                            {isSigning
+                              ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              : <Send className="h-4 w-4" aria-hidden />
+                            }
+                            Sign &amp; Complete
                           </Button>
                         </div>
                       </CardContent>

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Bed, Users, Activity, Map as MapIcon, Grid, LayoutList,
   Search, Wrench, Brush, ShieldAlert, Sparkles,
@@ -11,8 +12,15 @@ import { cn } from '@/lib/utils';
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button, Select, Input,
-  Progress, EmptyState,
+  Progress, EmptyState, SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
 
 type BedStatus = 'Available' | 'Occupied' | 'Cleaning' | 'Maintenance' | 'Reserved';
 
@@ -24,50 +32,49 @@ const STATUS_TONE: Record<BedStatus, 'success' | 'brand' | 'warning' | 'danger' 
   Reserved: 'info',
 };
 
+type BedEntry = {
+  id: string; type: string; status: BedStatus;
+  patient: string | null; gender: string | null; admitDate: string | null; isolation: boolean;
+};
+type Ward = { name: string; cap: number; occ: number; pct: number };
+type AdtRequest = {
+  kind: string; kindTone: 'brand' | 'warning' | 'info'; time: string;
+  patient: string; detail: string; cta: string; primary: boolean;
+};
+type BedStats = { total: number; occupied: number; available: number; occupancyPct: number };
+
+type BedsResponse = {
+  stats: BedStats;
+  beds: BedEntry[];
+  wards: Ward[];
+  adtRequests: AdtRequest[];
+};
+
 export default function BedManagement() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
   const [search, setSearch] = useState('');
 
-  // Mock Data
+  const bedsQuery = useQuery<{ success: boolean; data: BedsResponse }>({
+    queryKey: ['ward-beds'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/ward/beds`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  const apiData = bedsQuery.data?.data;
+
   const stats = [
-    { label: 'Total Beds', value: '450', sub: 'across 12 wards', icon: Bed, tone: 'brand' as const },
-    { label: 'Occupancy Rate', value: '82%', sub: '369 beds occupied', icon: Activity, tone: 'teal' as const },
-    { label: 'Pending Cleaning', value: '14', sub: 'Housekeeping queue', icon: Brush, tone: 'amber' as const },
-    { label: 'Under Maintenance', value: '5', sub: 'Biomedical / Repair', icon: Wrench, tone: 'rose' as const },
+    { label: 'Total Beds',       value: apiData ? String(apiData.stats.total)       : '—', sub: 'across 12 wards',      icon: Bed,      tone: 'brand'  as const },
+    { label: 'Occupancy Rate',   value: apiData ? `${apiData.stats.occupancyPct}%`  : '—', sub: `${apiData?.stats.occupied ?? '—'} beds occupied`, icon: Activity, tone: 'teal'   as const },
+    { label: 'Pending Cleaning', value: apiData ? String(apiData.beds.filter(b => b.status === 'Cleaning').length) : '—', sub: 'Housekeeping queue', icon: Brush, tone: 'amber'  as const },
+    { label: 'Under Maintenance',value: apiData ? String(apiData.beds.filter(b => b.status === 'Maintenance').length) : '—', sub: 'Biomedical / Repair', icon: Wrench, tone: 'rose' as const },
   ];
 
-  const bedExplorerData = [
-    { id: 'W1-101-A', type: 'General', status: 'Occupied' as BedStatus, patient: 'Rajesh Kumar', gender: 'M', admitDate: '2 Days ago', isolation: false },
-    { id: 'W1-101-B', type: 'General', status: 'Available' as BedStatus, patient: null, gender: null, admitDate: null, isolation: false },
-    { id: 'W1-102-A', type: 'Isolation', status: 'Occupied' as BedStatus, patient: 'Sunil Sharma', gender: 'M', admitDate: '5 Days ago', isolation: true },
-    { id: 'W1-103-A', type: 'Private', status: 'Cleaning' as BedStatus, patient: null, gender: null, admitDate: null, isolation: false },
-    { id: 'W1-104-A', type: 'Private', status: 'Maintenance' as BedStatus, patient: null, gender: null, admitDate: null, isolation: false },
-    { id: 'W1-105-A', type: 'General', status: 'Reserved' as BedStatus, patient: 'Incoming ADT', gender: 'F', admitDate: 'ETA 2hrs', isolation: false },
-    { id: 'W2-ICU-1', type: 'ICU', status: 'Occupied' as BedStatus, patient: 'Vikram Singh', gender: 'M', admitDate: '1 Day ago', isolation: false },
-    { id: 'W2-ICU-2', type: 'ICU', status: 'Occupied' as BedStatus, patient: 'Meena Gupta', gender: 'F', admitDate: '12 Hours ago', isolation: true },
-  ];
-
-  const wards = [
-    { name: 'Intensive Care Unit (ICU)', cap: 20, occ: 19, pct: 95 },
-    { name: 'General Medical (Ward 4)', cap: 60, occ: 52, pct: 86 },
-    { name: 'Maternity (Ward 2)', cap: 40, occ: 28, pct: 70 },
-    { name: 'Pediatrics (Ward 3)', cap: 30, occ: 15, pct: 50 },
-  ];
-
-  const adtRequests = [
-    {
-      kind: 'Admission (ER)', kindTone: 'brand' as const, time: '10 mins ago',
-      patient: 'Ramesh Kumar (45, M)', detail: 'Req: ICU Bed • Suspected MI • Isolation: No',
-      cta: 'Allocate Bed (AI)', primary: true,
-    },
-    {
-      kind: 'Transfer (Internal)', kindTone: 'warning' as const, time: '25 mins ago',
-      patient: 'Sunita Rao (65, F)', detail: 'From: ICU-1 • To: General Ward • Oxygen required',
-      cta: 'Review Request', primary: false,
-    },
-  ];
+  const bedExplorerData: BedEntry[] = apiData?.beds ?? [];
+  const wards: Ward[] = apiData?.wards ?? [];
+  const adtRequests: AdtRequest[] = apiData?.adtRequests ?? [];
 
   const q = search.trim().toLowerCase();
   const visibleBeds = bedExplorerData.filter(
@@ -97,45 +104,60 @@ export default function BedManagement() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6 space-y-6">
-          <StatGrid>
-            {stats.map((s, i) => (
-              <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
-            ))}
-          </StatGrid>
+          {bedsQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : bedsQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Failed to load bed data. Please refresh.</p>
+          ) : (
+            <StatGrid>
+              {stats.map((s, i) => (
+                <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
+              ))}
+            </StatGrid>
+          )}
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Pending ADT Requests */}
             <Card className="xl:col-span-1">
               <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border">
                 <CardTitle>Pending ADT Requests</CardTitle>
-                <Badge tone="warning">3 Requests</Badge>
+                <Badge tone="warning">{adtRequests.length} Requests</Badge>
               </CardHeader>
               <CardContent className="pt-4 space-y-3">
-                {adtRequests.map((req, i) => (
-                  <motion.div
-                    key={req.patient}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: i * 0.05 }}
-                    className="rounded-xl border border-border bg-muted/40 p-3.5"
-                  >
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <Badge tone={req.kindTone}>{req.kind}</Badge>
-                      <span className="text-xs text-subtle-foreground whitespace-nowrap">{req.time}</span>
-                    </div>
-                    <p className="text-sm font-bold text-foreground">{req.patient}</p>
-                    <p className="mt-0.5 mb-3 text-xs text-muted-foreground">{req.detail}</p>
-                    <Button
-                      variant={req.primary ? 'primary' : 'outline'}
-                      size="sm"
-                      className="w-full"
-                      onClick={() => (req.primary ? setActiveTab('bed explorer') : router.push('/adt'))}
+                {bedsQuery.isLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-24 animate-pulse rounded-xl bg-muted" />
+                    <div className="h-24 animate-pulse rounded-xl bg-muted" />
+                  </div>
+                ) : (
+                  adtRequests.map((req, i) => (
+                    <motion.div
+                      key={req.patient}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.05 }}
+                      className="rounded-xl border border-border bg-muted/40 p-3.5"
                     >
-                      {req.primary && <Sparkles className="h-3.5 w-3.5" aria-hidden />}
-                      {req.cta}
-                    </Button>
-                  </motion.div>
-                ))}
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <Badge tone={req.kindTone}>{req.kind}</Badge>
+                        <span className="text-xs text-subtle-foreground whitespace-nowrap">{req.time}</span>
+                      </div>
+                      <p className="text-sm font-bold text-foreground">{req.patient}</p>
+                      <p className="mt-0.5 mb-3 text-xs text-muted-foreground">{req.detail}</p>
+                      <Button
+                        variant={req.primary ? 'primary' : 'outline'}
+                        size="sm"
+                        className="w-full"
+                        onClick={() => (req.primary ? setActiveTab('bed explorer') : router.push('/adt'))}
+                      >
+                        {req.primary && <Sparkles className="h-3.5 w-3.5" aria-hidden />}
+                        {req.cta}
+                      </Button>
+                    </motion.div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -145,18 +167,28 @@ export default function BedManagement() {
                 <CardTitle>Ward Occupancy Heatmap</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col justify-center gap-6 pt-6">
-                {wards.map((ward) => (
-                  <Progress
-                    key={ward.name}
-                    label={ward.name}
-                    value={ward.pct}
-                    tone={ward.pct > 90 ? 'danger' : ward.pct > 75 ? 'warning' : 'success'}
-                    showValue
-                  />
-                ))}
-                <p className="text-xs text-subtle-foreground">
-                  Occupied / capacity: ICU 19/20 · General 52/60 · Maternity 28/40 · Pediatrics 15/30
-                </p>
+                {bedsQuery.isLoading ? (
+                  <div className="space-y-4">
+                    {[0, 1, 2, 3].map(i => <div key={i} className="h-8 animate-pulse rounded-lg bg-muted" />)}
+                  </div>
+                ) : (
+                  <>
+                    {wards.map((ward) => (
+                      <Progress
+                        key={ward.name}
+                        label={ward.name}
+                        value={ward.pct}
+                        tone={ward.pct > 90 ? 'danger' : ward.pct > 75 ? 'warning' : 'success'}
+                        showValue
+                      />
+                    ))}
+                    {apiData && (
+                      <p className="text-xs text-subtle-foreground">
+                        Occupied / capacity: ICU {wards[0]?.occ ?? '?'}/{wards[0]?.cap ?? '?'} · General {wards[1]?.occ ?? '?'}/{wards[1]?.cap ?? '?'} · Maternity {wards[2]?.occ ?? '?'}/{wards[2]?.cap ?? '?'} · Pediatrics {wards[3]?.occ ?? '?'}/{wards[3]?.cap ?? '?'}
+                      </p>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -209,8 +241,12 @@ export default function BedManagement() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              {visibleBeds.length === 0 ? (
-                <EmptyState icon={Bed} title="No beds match" description={`No results for “${search}”.`} action={{ label: 'Clear search', onClick: () => setSearch('') }} />
+              {bedsQuery.isLoading ? (
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-muted" />)}
+                </div>
+              ) : visibleBeds.length === 0 ? (
+                <EmptyState icon={Bed} title="No beds match" description={`No results for "${search}".`} action={{ label: 'Clear search', onClick: () => setSearch('') }} />
               ) : viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                   {visibleBeds.map((bed, i) => (

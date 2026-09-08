@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import {
   PageHeader, StatCard, StatGrid, Badge, Button, Avatar,
   Card, CardHeader, CardTitle, CardContent, Dialog,
-  EmptyState, Skeleton, SkeletonCard, Textarea, Label,
+  EmptyState, Skeleton, SkeletonCard, Textarea, Label, Select,
   useToast,
 } from '@/components/ui';
 
@@ -29,9 +29,28 @@ function getDoctorIdFromToken(): string | null {
 export default function DoctorQueueWorkspace() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const department = 'OPD'; // Hardcoded for demo
+  const [department, setDepartment] = useState('OPD');
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTarget, setTransferTarget] = useState('Laboratory');
+  const [transferPriority, setTransferPriority] = useState<'Routine' | 'Urgent' | 'Emergency'>('Routine');
+
+  // Fetch the authenticated doctor's department from the API on mount.
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+    fetch(`${apiUrl}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(({ data }) => {
+        if (!data) return;
+        const user = data.user ?? data;
+        setDepartment(user.specialization || user.department || 'General Medicine');
+      })
+      .catch(() => {}); // keep default 'OPD' on any error
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Subscribe to private-doctor-{userId} so PATIENT_JOINED_WAITING_ROOM
   // arrives instantly via Pusher instead of waiting for the next React Query poll.
@@ -284,7 +303,7 @@ export default function DoctorQueueWorkspace() {
                   patientName: activeToken.patientName,
                   fromDepartment: department,
                   toDepartment: transferTarget,
-                  priority: 'Routine', // Hardcoded for demo
+                  priority: transferPriority,
                   clinicalReason: 'Requested by doctor'
                 })}
               >
@@ -325,6 +344,19 @@ export default function DoctorQueueWorkspace() {
           </div>
 
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="transfer-priority" className="mb-2 block text-xs font-bold uppercase tracking-wide">Transfer Priority</Label>
+              <Select
+                id="transfer-priority"
+                value={transferPriority}
+                onChange={(e) => setTransferPriority(e.target.value as 'Routine' | 'Urgent' | 'Emergency')}
+              >
+                <option value="Routine">Routine</option>
+                <option value="Urgent">Urgent</option>
+                <option value="Emergency">Emergency</option>
+              </Select>
+            </div>
+
             <div>
               <Label htmlFor="transfer-notes" className="mb-2 block text-xs font-bold uppercase tracking-wide">Clinical Reason / Notes</Label>
               <Textarea

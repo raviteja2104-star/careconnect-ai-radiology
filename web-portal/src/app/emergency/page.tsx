@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Siren, Clock, Activity, AlertTriangle, Hourglass,
   Zap, Brain, Truck, CheckCircle, Radio, UserPlus, FileText,
@@ -10,12 +11,28 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button,
-  DataTable, type Column, EmptyState, Timeline, TimelineItem,
+  DataTable, type Column, EmptyState, Timeline, TimelineItem, SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
 
 type TrackedPatient = {
   bed: string; patient: string; age: string; gender: string; esi: number;
   complaint: string; arrTime: string; status: string; md: string; rn: string; flags: string[];
+};
+
+type EmergencyStats = {
+  critical: number; stable: number; triageWaiting: number; averageWaitMins: number; enRoute: number;
+};
+
+type EmergencyResponse = {
+  stats: EmergencyStats;
+  patients: TrackedPatient[];
 };
 
 const ESI_STYLES: Record<number, { chip: string; label: string }> = {
@@ -45,20 +62,22 @@ export default function EmergencyDepartment() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('tracking board');
 
-  // Mock Data
-  const stats = [
-    { label: 'Patients Waiting', value: '14', icon: Clock, tone: 'amber' as const, sub: 'In waiting room now' },
-    { label: 'Avg Wait Time', value: '28m', icon: Hourglass, tone: 'brand' as const, sub: 'Door to provider' },
-    { label: 'Critical (ESI 1-2)', value: '3', icon: AlertTriangle, tone: 'rose' as const, sub: 'Active resuscitation / emergent' },
-    { label: 'En Route', value: '2', icon: Truck, tone: 'violet' as const, sub: 'EMS inbound' },
-  ];
+  const emergencyQuery = useQuery<{ success: boolean; data: EmergencyResponse }>({
+    queryKey: ['ward-emergency'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/ward/emergency`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 15_000,
+  });
 
-  const trackingBoard: TrackedPatient[] = [
-    { bed: 'Resus 1', patient: 'Unknown Male', age: '50s', gender: 'M', esi: 1, complaint: 'Cardiac Arrest', arrTime: '10:05', status: 'Code Blue', md: 'Dr. Sharma', rn: 'Nurse Joy', flags: ['STEMI'] },
-    { bed: 'Trauma 2', patient: 'Rohit Verma', age: '34', gender: 'M', esi: 1, complaint: 'MVA, Head Trauma', arrTime: '10:15', status: 'Primary Survey', md: 'Dr. Anita', rn: 'Nurse Mark', flags: ['Trauma'] },
-    { bed: 'Bed 4', patient: 'Sunita Rao', age: '65', gender: 'F', esi: 2, complaint: 'Left-side weakness', arrTime: '10:30', status: 'CT Pending', md: 'Dr. Khan', rn: 'Nurse Joy', flags: ['Stroke Alert'] },
-    { bed: 'Bed 7', patient: 'Amit Singh', age: '45', gender: 'M', esi: 3, complaint: 'Severe Abdominal Pain', arrTime: '09:45', status: 'Labs Sent', md: 'Dr. Khan', rn: 'Nurse Mary', flags: [] },
-    { bed: 'Wait 1', patient: 'Priya Patel', age: '28', gender: 'F', esi: 4, complaint: 'Ankle Sprain', arrTime: '09:10', status: 'Waiting MD', md: 'Unassigned', rn: 'Unassigned', flags: [] },
+  const apiData = emergencyQuery.data?.data;
+  const trackingBoard: TrackedPatient[] = apiData?.patients ?? [];
+  const apiStats = apiData?.stats;
+
+  const stats = [
+    { label: 'Patients Waiting', value: apiStats ? String(apiStats.triageWaiting) : '—', icon: Clock,     tone: 'amber'  as const, sub: 'In waiting room now' },
+    { label: 'Avg Wait Time',    value: apiStats ? `${apiStats.averageWaitMins}m`  : '—', icon: Hourglass, tone: 'brand'  as const, sub: 'Door to provider' },
+    { label: 'Critical (ESI 1-2)', value: apiStats ? String(apiStats.critical)     : '—', icon: AlertTriangle, tone: 'rose' as const, sub: 'Active resuscitation / emergent' },
+    { label: 'En Route',         value: apiStats ? String(apiStats.enRoute)        : '—', icon: Truck,     tone: 'violet' as const, sub: 'EMS inbound' },
   ];
 
   const boardColumns: Column<TrackedPatient>[] = [
@@ -150,19 +169,27 @@ export default function EmergencyDepartment() {
         </TabsList>
 
         <TabsContent value="tracking board" className="mt-6 space-y-6">
-          <StatGrid>
-            {stats.map((stat, idx) => (
-              <StatCard
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-                sub={stat.sub}
-                icon={stat.icon}
-                tone={stat.tone}
-                delay={idx * 0.05}
-              />
-            ))}
-          </StatGrid>
+          {emergencyQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : emergencyQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Failed to load emergency data. Please refresh.</p>
+          ) : (
+            <StatGrid>
+              {stats.map((stat, idx) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  sub={stat.sub}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  delay={idx * 0.05}
+                />
+              ))}
+            </StatGrid>
+          )}
 
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">

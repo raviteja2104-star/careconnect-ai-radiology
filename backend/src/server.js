@@ -58,6 +58,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const providerRegistrationRoutes = require('./routes/providerRegistrationRoutes');
 const adtRoutes = require('./routes/adtRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
+const wardRoutes = require('./routes/wardRoutes');
 
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
@@ -293,6 +294,8 @@ app.use('/api/search', searchRoutes);
 app.use('/api/provider', providerRegistrationRoutes);
 app.use('/api/adt', adtRoutes);
 app.use('/api/consultations', consultationRoutes);
+app.use('/api/ward', wardRoutes);
+app.use('/api/settings', require('./routes/settingsRoutes'));
 
 const userSearchRoutes = require('./routes/userSearchRoutes');
 app.use('/api/users', userSearchRoutes);

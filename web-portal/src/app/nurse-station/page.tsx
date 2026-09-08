@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Users, Clock, AlertTriangle, Activity, Pill,
   Droplet, ClipboardList, ScanBarcode, HeartPulse,
@@ -12,8 +13,15 @@ import {
   PageHeader, Button, Badge, StatCard, StatGrid,
   Card, CardHeader, CardTitle, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  DataTable, type Column, EmptyState, ProgressRing,
+  DataTable, type Column, EmptyState, ProgressRing, SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
 
 type Patient = {
   bed: string; name: string; age: number; gender: string; diagnosis: string;
@@ -22,6 +30,16 @@ type Patient = {
 
 type EmarTask = {
   patient: string; bed: string; drug: string; dose: string; route: string; time: string; status: string;
+};
+
+type NursingStats = {
+  assignedPatients: number; criticalHighRisk: number; medsDue: number; vitalsDue: number;
+};
+
+type NursingResponse = {
+  stats: NursingStats;
+  patients: Patient[];
+  tasks: EmarTask[];
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -38,26 +56,28 @@ export default function NurseStation() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [copilotAcknowledged, setCopilotAcknowledged] = useState(false);
 
-  // Mock Data
+  const nursingQuery = useQuery<{ success: boolean; data: NursingResponse }>({
+    queryKey: ['ward-nursing'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/ward/nursing`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  const apiData = nursingQuery.data?.data;
+  const apiStats = apiData?.stats;
+  const patients: Patient[] = apiData?.patients ?? [];
+  const emarTasks: EmarTask[] = apiData?.tasks ?? [];
+
   const stats = [
-    { label: 'Assigned Patients', value: '8', icon: Users, tone: 'brand' as const },
-    { label: 'Critical / High Risk', value: '2', icon: AlertTriangle, tone: 'rose' as const },
-    { label: 'Meds Due (Next 2h)', value: '14', icon: Pill, tone: 'violet' as const },
-    { label: 'Vitals Due', value: '6', icon: Activity, tone: 'amber' as const },
+    { label: 'Assigned Patients',  value: apiStats ? String(apiStats.assignedPatients)  : '—', icon: Users,         tone: 'brand'  as const },
+    { label: 'Critical / High Risk', value: apiStats ? String(apiStats.criticalHighRisk) : '—', icon: AlertTriangle, tone: 'rose'   as const },
+    { label: 'Meds Due (Next 2h)', value: apiStats ? String(apiStats.medsDue)           : '—', icon: Pill,          tone: 'violet' as const },
+    { label: 'Vitals Due',         value: apiStats ? String(apiStats.vitalsDue)         : '—', icon: Activity,      tone: 'amber'  as const },
   ];
 
-  const patients: Patient[] = [
-    { bed: 'W4-B12', name: 'Patient A', age: 32, gender: 'M', diagnosis: 'Acute Appendicitis', status: 'Post-Op', risk: 'Medium', ews: 3, nextMed: '14:00', nextVital: '15:00', ivRunning: true },
-    { bed: 'W4-B14', name: 'Sunita Rao', age: 65, gender: 'F', diagnosis: 'COPD Exacerbation', status: 'Oxygen Therapy', risk: 'High', ews: 6, nextMed: '13:30 (Overdue)', nextVital: '14:00', ivRunning: true },
-    { bed: 'W4-B15', name: 'Amit Singh', age: 45, gender: 'M', diagnosis: 'Dengue Fever', status: 'Stable', risk: 'Low', ews: 1, nextMed: '18:00', nextVital: '18:00', ivRunning: false },
-    { bed: 'W4-B18', name: 'Priya Patel', age: 28, gender: 'F', diagnosis: 'Gastroenteritis', status: 'Observation', risk: 'Low', ews: 0, nextMed: '16:00', nextVital: '16:00', ivRunning: true },
-  ];
-
-  const emarTasks: EmarTask[] = [
-    { patient: 'Sunita Rao', bed: 'W4-B14', drug: 'Salbutamol Nebulizer', dose: '2.5mg', route: 'Inhalation', time: '13:30', status: 'Overdue' },
-    { patient: 'Patient A', bed: 'W4-B12', drug: 'Ceftriaxone', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
-    { patient: 'Patient A', bed: 'W4-B12', drug: 'Paracetamol', dose: '1g', route: 'IV', time: '14:00', status: 'Due' },
-  ];
+  // Find the highest-EWS patient for alert display
+  const criticalPatient = patients.find(p => p.ews >= 5);
+  const warningPatient  = patients.find(p => p.ews >= 3 && p.ews < 5);
 
   const patientColumns: Column<Patient>[] = [
     {
@@ -138,18 +158,26 @@ export default function NurseStation() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6 space-y-6">
-          <StatGrid>
-            {stats.map((stat, idx) => (
-              <StatCard
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-                icon={stat.icon}
-                tone={stat.tone}
-                delay={idx * 0.05}
-              />
-            ))}
-          </StatGrid>
+          {nursingQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : nursingQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Failed to load nursing data. Please refresh.</p>
+          ) : (
+            <StatGrid>
+              {stats.map((stat, idx) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  delay={idx * 0.05}
+                />
+              ))}
+            </StatGrid>
+          )}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {/* Early Warning Scores (EWS) Alerts */}
@@ -162,42 +190,50 @@ export default function NurseStation() {
                   <Badge tone="danger" dot pulse>1 Critical</Badge>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className="rounded-2xl border border-danger/30 bg-danger-soft p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <ProgressRing value={88} size={56} strokeWidth={5} tone="danger">
-                          <span className="text-xs font-bold">88%</span>
-                        </ProgressRing>
-                        <div>
-                          <p className="text-sm font-bold text-foreground">W4-B14 • Sunita Rao</p>
-                          <p className="text-xs font-semibold text-danger">NEWS2 Score: 6</p>
-                          <p className="mt-1 text-xs text-muted-foreground">SpO2 dropped to 88% on room air. RR 24.</p>
+                  {criticalPatient && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35 }}
+                      className="rounded-2xl border border-danger/30 bg-danger-soft p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <ProgressRing value={88} size={56} strokeWidth={5} tone="danger">
+                            <span className="text-xs font-bold">88%</span>
+                          </ProgressRing>
+                          <div>
+                            <p className="text-sm font-bold text-foreground">{criticalPatient.bed} • {criticalPatient.name}</p>
+                            <p className="text-xs font-semibold text-danger">NEWS2 Score: {criticalPatient.ews}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">SpO2 dropped to 88% on room air. RR 24.</p>
+                          </div>
                         </div>
+                        <Button variant="danger" size="sm" onClick={() => router.push('/messages')}>Escalate</Button>
                       </div>
-                      <Button variant="danger" size="sm" onClick={() => router.push('/messages')}>Escalate</Button>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  )}
 
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, delay: 0.05 }}
-                    className="rounded-2xl border border-warning/30 bg-warning-soft p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-foreground">W4-B12 • Patient A</p>
-                        <p className="text-xs font-semibold text-warning">NEWS2 Score: 3</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Temp 38.2°C, HR 102.</p>
+                  {warningPatient && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35, delay: 0.05 }}
+                      className="rounded-2xl border border-warning/30 bg-warning-soft p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{warningPatient.bed} • {warningPatient.name}</p>
+                          <p className="text-xs font-semibold text-warning">NEWS2 Score: {warningPatient.ews}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Temp 38.2°C, HR 102.</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => router.push('/emr')}>Review</Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => router.push('/emr')}>Review</Button>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  )}
+
+                  {!nursingQuery.isLoading && !criticalPatient && !warningPatient && (
+                    <p className="text-sm text-muted-foreground text-center py-4">No current EWS alerts.</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -243,32 +279,38 @@ export default function NurseStation() {
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
-                <ul className="divide-y divide-border">
-                  {emarTasks.map((task, i) => (
-                    <motion.li
-                      key={`${task.bed}-${task.drug}`}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: i * 0.05 }}
-                      className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
-                    >
-                      <div className="w-32 min-w-0">
-                        <p className="text-sm font-bold text-foreground">{task.bed}</p>
-                        <p className="text-xs text-muted-foreground">{task.patient}</p>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground">{task.drug}</p>
-                        <p className="text-xs text-muted-foreground">{task.dose} • {task.route}</p>
-                      </div>
-                      <Badge tone={task.status === 'Overdue' ? 'danger' : 'warning'}>
-                        <Clock className="h-3 w-3" aria-hidden /> {task.time} ({task.status})
-                      </Badge>
-                      <Button size="sm" variant="secondary" disabled title="Coming soon">
-                        <ScanBarcode className="h-3.5 w-3.5" aria-hidden /> Scan
-                      </Button>
-                    </motion.li>
-                  ))}
-                </ul>
+                {nursingQuery.isLoading ? (
+                  <div className="space-y-2 p-4">
+                    {[0, 1, 2].map(i => <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />)}
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {emarTasks.map((task, i) => (
+                      <motion.li
+                        key={`${task.bed}-${task.drug}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: i * 0.05 }}
+                        className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
+                      >
+                        <div className="w-32 min-w-0">
+                          <p className="text-sm font-bold text-foreground">{task.bed}</p>
+                          <p className="text-xs text-muted-foreground">{task.patient}</p>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">{task.drug}</p>
+                          <p className="text-xs text-muted-foreground">{task.dose} • {task.route}</p>
+                        </div>
+                        <Badge tone={task.status === 'Overdue' ? 'danger' : 'warning'}>
+                          <Clock className="h-3 w-3" aria-hidden /> {task.time} ({task.status})
+                        </Badge>
+                        <Button size="sm" variant="secondary" disabled title="Coming soon">
+                          <ScanBarcode className="h-3.5 w-3.5" aria-hidden /> Scan
+                        </Button>
+                      </motion.li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -285,8 +327,8 @@ export default function NurseStation() {
             emptyDescription="Patients assigned to this ward will appear here."
             toolbar={
               <div className="flex items-center gap-2">
-                <Badge tone="brand">My Patients (8)</Badge>
-                <Badge tone="outline">Critical (2)</Badge>
+                <Badge tone="brand">My Patients ({patients.length})</Badge>
+                <Badge tone="outline">Critical ({patients.filter(p => p.ews >= 5).length})</Badge>
                 <Badge tone="outline">All Ward 4</Badge>
               </div>
             }

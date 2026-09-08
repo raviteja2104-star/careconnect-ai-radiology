@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Scissors, Calendar, Clock, Activity, CheckCircle,
   AlertTriangle, ShieldCheck, HeartPulse, UserPlus, Settings,
@@ -11,12 +12,29 @@ import {
   PageHeader, Button, Badge, StatCard, StatGrid,
   Card, CardHeader, CardTitle, CardDescription, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  DataTable, type Column, EmptyState, ProgressRing,
+  DataTable, type Column, EmptyState, ProgressRing, SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
 
 type Procedure = {
   room: string; patient: string; procedure: string; surgeon: string;
   anesthesiologist: string; startTime: string; status: string; expectedEnd: string;
+};
+
+type OTStats = {
+  todaySurgeries: number; runningNow: number; delayed: number; availableORs: number;
+};
+
+type OTResponse = {
+  stats: OTStats;
+  procedures: Procedure[];
+  schedule: unknown[];
 };
 
 const TABS = ['dashboard', 'calendar', 'who safety checklist', 'anesthesia', 'intraoperative', 'pacu (recovery)', 'instruments'];
@@ -25,19 +43,22 @@ export default function OTDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // KPI Stats
-  const stats = [
-    { label: "Today's Surgeries", value: '14', icon: Scissors, tone: 'violet' as const },
-    { label: 'Running Now', value: '4', icon: Activity, tone: 'emerald' as const },
-    { label: 'Delayed', value: '1', icon: Clock, tone: 'amber' as const },
-    { label: 'Available ORs', value: '3', icon: CheckCircle, tone: 'brand' as const },
-  ];
+  const otQuery = useQuery<{ success: boolean; data: OTResponse }>({
+    queryKey: ['ward-ot'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/ward/ot`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
 
-  const runningProcedures: Procedure[] = [
-    { room: 'OR-1 (Cardiac)', patient: 'Arun K. (M/55)', procedure: 'CABG x3', surgeon: 'Dr. R. Sharma', anesthesiologist: 'Dr. V. Patel', startTime: '08:00 AM', status: 'IntraOp (Bypass)', expectedEnd: '12:30 PM' },
-    { room: 'OR-2 (Ortho)', patient: 'Smita J. (F/62)', procedure: 'TKR Right', surgeon: 'Dr. A. Gupta', anesthesiologist: 'Dr. M. Singh', startTime: '09:30 AM', status: 'IntraOp (Implanting)', expectedEnd: '11:30 AM' },
-    { room: 'OR-3 (General)', patient: 'Vikas T. (M/34)', procedure: 'Laparoscopic Cholecystectomy', surgeon: 'Dr. P. Nair', anesthesiologist: 'Dr. S. Reddy', startTime: '10:00 AM', status: 'Closing', expectedEnd: '11:00 AM' },
-    { room: 'OR-5 (Trauma)', patient: 'Unknown Male', procedure: 'Ex-Lap (Trauma)', surgeon: 'Dr. K. Desai', anesthesiologist: 'Dr. L. Fernandez', startTime: '10:15 AM', status: 'Critical / Bleeding', expectedEnd: 'Unknown' },
+  const apiData = otQuery.data?.data;
+  const apiStats = apiData?.stats;
+  const runningProcedures: Procedure[] = apiData?.procedures ?? [];
+
+  const stats = [
+    { label: "Today's Surgeries", value: apiStats ? String(apiStats.todaySurgeries) : '—', icon: Scissors,      tone: 'violet'  as const },
+    { label: 'Running Now',       value: apiStats ? String(apiStats.runningNow)     : '—', icon: Activity,      tone: 'emerald' as const },
+    { label: 'Delayed',           value: apiStats ? String(apiStats.delayed)        : '—', icon: Clock,         tone: 'amber'   as const },
+    { label: 'Available ORs',     value: apiStats ? String(apiStats.availableORs)   : '—', icon: CheckCircle,   tone: 'brand'   as const },
   ];
 
   const whoChecklist = [
@@ -115,18 +136,26 @@ export default function OTDashboard() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6 space-y-6">
-          <StatGrid>
-            {stats.map((stat, idx) => (
-              <StatCard
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-                icon={stat.icon}
-                tone={stat.tone}
-                delay={idx * 0.05}
-              />
-            ))}
-          </StatGrid>
+          {otQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : otQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Failed to load OT data. Please refresh.</p>
+          ) : (
+            <StatGrid>
+              {stats.map((stat, idx) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  delay={idx * 0.05}
+                />
+              ))}
+            </StatGrid>
+          )}
 
           <DataTable<Procedure>
             columns={boardColumns}

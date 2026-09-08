@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Ambulance, MapPin, PhoneCall, AlertTriangle,
   Activity, Clock, Radio, Truck, FileText, Navigation, Map, Sparkles, Siren,
@@ -10,12 +11,29 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button,
-  DataTable, type Column, EmptyState,
+  DataTable, type Column, EmptyState, SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
 
 type Incident = {
   id: string; priority: string; complaint: string; location: string;
   unit: string; status: string; eta: string; time: string;
+};
+
+type EMSStats = {
+  activeIncidents: number; unitsEnRoute: number; avgResponseSecs: number; availableALS: string;
+};
+
+type EMSResponse = {
+  stats: EMSStats;
+  incidents: Incident[];
+  units: Array<{ id: string; type: string; status: string; crew: string }>;
 };
 
 function PriorityBadge({ priority }: { priority: string }) {
@@ -27,25 +45,34 @@ function PriorityBadge({ priority }: { priority: string }) {
   }
 }
 
+function fmtAvgResponse(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}m ${s}s`;
+}
+
 const MODULE_TABS = ['dispatch center', 'fleet tracking', 'epcr handovers', 'inter-facility', 'maintenance'];
 
 export default function EMSDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dispatch center');
 
-  // KPI Stats
-  const stats = [
-    { label: 'Active Incidents', value: '8', icon: AlertTriangle, tone: 'rose' as const, sub: 'Across the metro region' },
-    { label: 'Units En Route', value: '4', icon: Truck, tone: 'brand' as const, sub: 'Lights & sirens active' },
-    { label: 'Avg Response', value: '8m 42s', icon: Clock, tone: 'violet' as const, sub: 'Call to on-scene' },
-    { label: 'Available ALS', value: '2 / 5', icon: Activity, tone: 'emerald' as const, sub: 'Advanced life support units' },
-  ];
+  const emsQuery = useQuery<{ success: boolean; data: EMSResponse }>({
+    queryKey: ['ward-ems'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/ward/ems`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 15_000,
+  });
 
-  const dispatchQueue: Incident[] = [
-    { id: 'INC-9912', priority: 'Code 3', complaint: 'Cardiac Arrest', location: '124 MG Road, Indiranagar', unit: 'ALS-04', status: 'On Scene', eta: '-', time: '14:22' },
-    { id: 'INC-9913', priority: 'Code 2', complaint: 'MVA, Severe Trauma', location: 'Ring Road Junction', unit: 'ALS-01', status: 'En Route', eta: '4m', time: '14:35' },
-    { id: 'INC-9914', priority: 'Code 2', complaint: 'Suspected Stroke', location: 'Block B, Koramangala', unit: 'BLS-08', status: 'Transporting', eta: '12m (To ED)', time: '14:10' },
-    { id: 'INC-9915', priority: 'Code 1', complaint: 'Fall, Hip Pain', location: 'Sunrise Apts, HSR', unit: 'Pending', status: 'Awaiting Dispatch', eta: '-', time: '14:40' },
+  const apiData = emsQuery.data?.data;
+  const apiStats = apiData?.stats;
+  const dispatchQueue: Incident[] = apiData?.incidents ?? [];
+
+  const stats = [
+    { label: 'Active Incidents', value: apiStats ? String(apiStats.activeIncidents) : '—', icon: AlertTriangle, tone: 'rose'    as const, sub: 'Across the metro region' },
+    { label: 'Units En Route',   value: apiStats ? String(apiStats.unitsEnRoute)    : '—', icon: Truck,         tone: 'brand'   as const, sub: 'Lights & sirens active' },
+    { label: 'Avg Response',     value: apiStats ? fmtAvgResponse(apiStats.avgResponseSecs) : '—', icon: Clock, tone: 'violet'  as const, sub: 'Call to on-scene' },
+    { label: 'Available ALS',    value: apiStats?.availableALS ?? '—',                       icon: Activity,      tone: 'emerald' as const, sub: 'Advanced life support units' },
   ];
 
   const incidentColumns: Column<Incident>[] = [
@@ -122,19 +149,27 @@ export default function EMSDashboard() {
         </TabsList>
 
         <TabsContent value="dispatch center" className="mt-6 space-y-6">
-          <StatGrid>
-            {stats.map((stat, idx) => (
-              <StatCard
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-                sub={stat.sub}
-                icon={stat.icon}
-                tone={stat.tone}
-                delay={idx * 0.05}
-              />
-            ))}
-          </StatGrid>
+          {emsQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : emsQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Failed to load EMS data. Please refresh.</p>
+          ) : (
+            <StatGrid>
+              {stats.map((stat, idx) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  sub={stat.sub}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  delay={idx * 0.05}
+                />
+              ))}
+            </StatGrid>
+          )}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {/* Dispatch Grid */}

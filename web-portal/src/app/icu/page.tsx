@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   HeartPulse, Activity, AlertTriangle, Wind,
   Droplets, Stethoscope, Siren, ActivitySquare, Clipboard,
@@ -11,13 +12,29 @@ import {
   PageHeader, Button, Badge, StatCard, StatGrid,
   Card, CardHeader, CardTitle, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  EmptyState, ProgressRing,
+  EmptyState, ProgressRing, SkeletonCard,
 } from '@/components/ui';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
 
 type Monitor = {
   bed: string; patient: string; age: number; status: string;
   hr: number; bp: string; map: number; spo2: number; rr: number; temp: number;
   vent: string | null; pressor: string | null;
+};
+
+type ICUStats = {
+  census: string; onVentilator: number; onVasopressors: number; criticalAlerts: number;
+};
+
+type ICUResponse = {
+  stats: ICUStats;
+  patients: Monitor[];
 };
 
 const TABS = ['dashboard', 'central monitor', 'ventilators', 'infusions', 'severity scores', 'rounds'];
@@ -33,22 +50,23 @@ export default function ICUDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // KPI Stats
-  const stats = [
-    { label: 'ICU Census', value: '18 / 20', icon: HeartPulse, tone: 'violet' as const },
-    { label: 'On Ventilator', value: '12', icon: Wind, tone: 'brand' as const },
-    { label: 'On Vasopressors', value: '8', icon: Droplets, tone: 'violet' as const },
-    { label: 'Critical Alerts', value: '3', icon: AlertTriangle, tone: 'rose' as const },
-  ];
+  const icuQuery = useQuery<{ success: boolean; data: ICUResponse }>({
+    queryKey: ['ward-icu'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/ward/icu`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
 
-  // Mock Central Monitor Data
-  const monitors: Monitor[] = [
-    { bed: 'ICU-1', patient: 'Rohit S.', age: 45, status: 'Critical', hr: 112, bp: '85/50', map: 61, spo2: 92, rr: 28, temp: 38.5, vent: 'SIMV', pressor: 'NorAd' },
-    { bed: 'ICU-2', patient: 'Meena G.', age: 62, status: 'Stable', hr: 78, bp: '120/80', map: 93, spo2: 98, rr: 16, temp: 37.1, vent: 'CPAP', pressor: null },
-    { bed: 'ICU-3', patient: 'Anil K.', age: 55, status: 'Warning', hr: 95, bp: '145/90', map: 108, spo2: 94, rr: 22, temp: 37.8, vent: null, pressor: null },
-    { bed: 'ICU-4', patient: 'Sunita R.', age: 38, status: 'Critical', hr: 130, bp: '70/40', map: 50, spo2: 88, rr: 32, temp: 39.2, vent: 'PRVC', pressor: 'Adren/NorAd' },
-    { bed: 'ICU-5', patient: 'Vikram M.', age: 70, status: 'Stable', hr: 82, bp: '130/85', map: 100, spo2: 96, rr: 18, temp: 36.8, vent: null, pressor: null },
-    { bed: 'ICU-6', patient: 'Priya P.', age: 28, status: 'Stable', hr: 88, bp: '110/70', map: 83, spo2: 99, rr: 14, temp: 37.0, vent: null, pressor: null },
+  const apiData = icuQuery.data?.data;
+  const apiStats = apiData?.stats;
+  const monitors: Monitor[] = apiData?.patients ?? [];
+
+  const stats = [
+    { label: 'ICU Census',       value: apiStats?.census          ?? '—', icon: HeartPulse,   tone: 'violet' as const },
+    { label: 'On Ventilator',    value: apiStats ? String(apiStats.onVentilator)   : '—', icon: Wind,         tone: 'brand'  as const },
+    { label: 'On Vasopressors',  value: apiStats ? String(apiStats.onVasopressors) : '—', icon: Droplets,     tone: 'violet' as const },
+    { label: 'Critical Alerts',  value: apiStats ? String(apiStats.criticalAlerts) : '—', icon: AlertTriangle, tone: 'rose'  as const },
   ];
 
   // Helper for conditional styling (semantic tokens)
@@ -89,18 +107,26 @@ export default function ICUDashboard() {
         }
       />
 
-      <StatGrid>
-        {stats.map((stat, idx) => (
-          <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            icon={stat.icon}
-            tone={stat.tone}
-            delay={idx * 0.05}
-          />
-        ))}
-      </StatGrid>
+      {icuQuery.isLoading ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : icuQuery.isError ? (
+        <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Failed to load ICU data. Please refresh.</p>
+      ) : (
+        <StatGrid>
+          {stats.map((stat, idx) => (
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              icon={stat.icon}
+              tone={stat.tone}
+              delay={idx * 0.05}
+            />
+          ))}
+        </StatGrid>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="h-auto max-w-full flex-wrap justify-start overflow-x-auto no-scrollbar">
@@ -112,94 +138,100 @@ export default function ICUDashboard() {
         </TabsList>
 
         <TabsContent value="central monitor" className="mt-6">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {monitors.map((m, i) => (
-              <motion.div
-                key={m.bed}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                className={`flex flex-col overflow-hidden rounded-2xl border-2 bg-card shadow-soft ${getAlertClasses(m.status)}`}
-              >
-                {/* Monitor header */}
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-muted/60 px-4 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="font-mono text-lg font-bold text-primary">{m.bed}</span>
-                    <span className="truncate text-sm font-semibold text-foreground">{m.patient}</span>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Badge tone={statusTone(m.status)} dot pulse={m.status === 'Critical'}>{m.status}</Badge>
-                    {m.vent && (
-                      <Badge tone="info">
-                        <Wind className="h-3 w-3" aria-hidden /> {m.vent}
-                      </Badge>
-                    )}
-                    {m.pressor && (
-                      <Badge tone="brand">
-                        <Droplets className="h-3 w-3" aria-hidden /> {m.pressor}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                {/* Vitals grid */}
-                <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-5 p-4">
-                  {/* HR */}
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-wider text-success">HR (bpm)</span>
-                    <div className="mt-1 flex items-baseline justify-between">
-                      <span className={`font-mono text-4xl font-bold tabular-nums ${m.hr > 100 ? 'animate-pulse text-danger' : 'text-success'}`}>
-                        {m.hr}
-                      </span>
-                      <Activity className="h-5 w-5 text-success opacity-50" aria-hidden />
+          {icuQuery.isLoading ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-56 animate-pulse rounded-2xl bg-muted" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              {monitors.map((m, i) => (
+                <motion.div
+                  key={m.bed}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                  className={`flex flex-col overflow-hidden rounded-2xl border-2 bg-card shadow-soft ${getAlertClasses(m.status)}`}
+                >
+                  {/* Monitor header */}
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-muted/60 px-4 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="font-mono text-lg font-bold text-primary">{m.bed}</span>
+                      <span className="truncate text-sm font-semibold text-foreground">{m.patient}</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Badge tone={statusTone(m.status)} dot pulse={m.status === 'Critical'}>{m.status}</Badge>
+                      {m.vent && (
+                        <Badge tone="info">
+                          <Wind className="h-3 w-3" aria-hidden /> {m.vent}
+                        </Badge>
+                      )}
+                      {m.pressor && (
+                        <Badge tone="brand">
+                          <Droplets className="h-3 w-3" aria-hidden /> {m.pressor}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
-                  {/* BP */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-danger">NIBP (mmHg)</span>
-                      <span className="font-mono text-[10px] text-subtle-foreground">MAP: {m.map}</span>
+                  {/* Vitals grid */}
+                  <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-5 p-4">
+                    {/* HR */}
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold uppercase tracking-wider text-success">HR (bpm)</span>
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className={`font-mono text-4xl font-bold tabular-nums ${m.hr > 100 ? 'animate-pulse text-danger' : 'text-success'}`}>
+                          {m.hr}
+                        </span>
+                        <Activity className="h-5 w-5 text-success opacity-50" aria-hidden />
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-baseline">
-                      <span className={`font-mono text-3xl font-bold tabular-nums text-danger ${(m.map < 65 || m.map > 105) ? 'animate-pulse' : ''}`}>
-                        {m.bp}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* SpO2 */}
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-wider text-info">SpO2 (%)</span>
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className={`font-mono text-4xl font-bold tabular-nums ${m.spo2 < 94 ? 'animate-pulse text-danger' : 'text-info'}`}>
-                        {m.spo2}
-                      </span>
-                      <ProgressRing
-                        value={m.spo2}
-                        size={44}
-                        strokeWidth={4}
-                        tone={m.spo2 < 94 ? 'danger' : 'brand'}
-                      >
-                        <span className="sr-only">{m.spo2}% oxygen saturation</span>
-                        <span aria-hidden className="text-[10px] font-bold">{m.spo2}</span>
-                      </ProgressRing>
+                    {/* BP */}
+                    <div className="flex flex-col">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-danger">NIBP (mmHg)</span>
+                        <span className="font-mono text-[10px] text-subtle-foreground">MAP: {m.map}</span>
+                      </div>
+                      <div className="mt-1 flex items-baseline">
+                        <span className={`font-mono text-3xl font-bold tabular-nums text-danger ${(m.map < 65 || m.map > 105) ? 'animate-pulse' : ''}`}>
+                          {m.bp}
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* RR */}
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-wider text-warning">RR (rpm)</span>
-                    <div className="mt-1 flex items-baseline">
-                      <span className={`font-mono text-4xl font-bold tabular-nums ${m.rr > 25 ? 'text-danger' : 'text-warning'}`}>
-                        {m.rr}
-                      </span>
+                    {/* SpO2 */}
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold uppercase tracking-wider text-info">SpO2 (%)</span>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <span className={`font-mono text-4xl font-bold tabular-nums ${m.spo2 < 94 ? 'animate-pulse text-danger' : 'text-info'}`}>
+                          {m.spo2}
+                        </span>
+                        <ProgressRing
+                          value={m.spo2}
+                          size={44}
+                          strokeWidth={4}
+                          tone={m.spo2 < 94 ? 'danger' : 'brand'}
+                        >
+                          <span className="sr-only">{m.spo2}% oxygen saturation</span>
+                          <span aria-hidden className="text-[10px] font-bold">{m.spo2}</span>
+                        </ProgressRing>
+                      </div>
+                    </div>
+
+                    {/* RR */}
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold uppercase tracking-wider text-warning">RR (rpm)</span>
+                      <div className="mt-1 flex items-baseline">
+                        <span className={`font-mono text-4xl font-bold tabular-nums ${m.rr > 25 ? 'text-danger' : 'text-warning'}`}>
+                          {m.rr}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="ventilators" className="mt-6">

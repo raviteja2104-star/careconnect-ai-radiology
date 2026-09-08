@@ -1,26 +1,58 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Pill, AlertTriangle, Snowflake, CheckCircle, ShieldAlert,
-  ScanBarcode, Printer, Clock, PackageSearch, Truck, ArrowRight,
+  ScanBarcode, Printer, Clock, Truck, ArrowRight,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Button, Badge, Card, CardHeader, CardTitle,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, DataTable, type Column,
-  EmptyState,
+  EmptyState, SkeletonCard,
 } from '@/components/ui';
-import { DrugService } from '@/services/drugService';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins} min${mins !== 1 ? 's' : ''} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  return `${Math.floor(hours / 24)} day${Math.floor(hours / 24) !== 1 ? 's' : ''} ago`;
+}
 
 type RxItem = {
-  rxId: string; patient: string; doctor: string; time: string;
-  status: string; items: number; aiFlag: boolean; aiMsg?: string;
+  rxId: string;
+  patientName: string;
+  doctorName: string;
+  createdAt: string;
+  status: string;
+  items: Array<{ name: string; strength: string; quantity: number; unit: string }>;
+  aiFlag: boolean;
+  aiMsg?: string;
 };
 
-type InventoryItem = ReturnType<typeof DrugService.getAllDrugs>[number] & {
+type InventoryItem = {
+  name: string;
+  category: string;
   stock: number;
+  reorderLevel: number;
   status: string;
+};
+
+type PharmacyStats = {
+  todayRx: number;
+  pendingDispense: number;
+  aiAlerts: number;
+  lowStock: number;
 };
 
 const RX_STATUS_TONE: Record<string, 'warning' | 'info' | 'success'> = {
@@ -31,28 +63,78 @@ const RX_STATUS_TONE: Record<string, 'warning' | 'info' | 'success'> = {
 
 export default function PharmacyDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
+  const queryClient = useQueryClient();
 
-  // Mock Data for Dashboard
-  const stats = [
-    { label: "Today's Rx", value: '142', icon: Pill, tone: 'brand' as const, sub: 'Prescriptions received' },
-    { label: 'Pending Dispense', value: '18', icon: Clock, tone: 'teal' as const, sub: 'In the dispensing queue' },
-    { label: 'AI Alerts (Interactions)', value: '2', icon: ShieldAlert, tone: 'rose' as const, sub: 'Drug interaction flags' },
-    { label: 'Low Stock Items', value: '14', icon: AlertTriangle, tone: 'amber' as const, sub: 'Below reorder threshold' },
+  const statsQuery = useQuery<{ success: boolean; data: PharmacyStats }>({
+    queryKey: ['pharmacy-stats'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/pharmacy/stats`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  const queueQuery = useQuery<{ success: boolean; data: RxItem[] }>({
+    queryKey: ['pharmacy-queue'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/pharmacy/queue`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 15_000,
+  });
+
+  const inventoryQuery = useQuery<{ success: boolean; data: InventoryItem[] }>({
+    queryKey: ['pharmacy-inventory'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/pharmacy/inventory`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60_000,
+  });
+
+  const dispenseMutation = useMutation({
+    mutationFn: async (rxId: string) => {
+      const res = await fetch(`${API_BASE}/api/pharmacy/queue/${rxId}/dispense`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      });
+      if (!res.ok) throw new Error('Dispense failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pharmacy-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['pharmacy-stats'] });
+    },
+  });
+
+  const apiStats = statsQuery.data?.data;
+  const queue: RxItem[] = queueQuery.data?.data ?? [];
+  const inventory: InventoryItem[] = inventoryQuery.data?.data ?? [];
+
+  const statsDisplay = [
+    {
+      label: "Today's Rx",
+      value: apiStats != null ? String(apiStats.todayRx) : '—',
+      icon: Pill,
+      tone: 'brand' as const,
+      sub: 'Prescriptions received',
+    },
+    {
+      label: 'Pending Dispense',
+      value: apiStats != null ? String(apiStats.pendingDispense) : '—',
+      icon: Clock,
+      tone: 'teal' as const,
+      sub: 'In the dispensing queue',
+    },
+    {
+      label: 'AI Alerts (Interactions)',
+      value: apiStats != null ? String(apiStats.aiAlerts) : '—',
+      icon: ShieldAlert,
+      tone: 'rose' as const,
+      sub: 'Drug interaction flags',
+    },
+    {
+      label: 'Low Stock Items',
+      value: apiStats != null ? String(apiStats.lowStock) : '—',
+      icon: AlertTriangle,
+      tone: 'amber' as const,
+      sub: 'Below reorder threshold',
+    },
   ];
-
-  const rxQueue: RxItem[] = [
-    { rxId: 'RX-2026-881', patient: 'Patient A', doctor: 'Dr. Raj Sharma', time: '10 mins ago', status: 'Verification', items: 4, aiFlag: false },
-    { rxId: 'RX-2026-882', patient: 'Priya Patel', doctor: 'Dr. Anita Desai', time: '15 mins ago', status: 'Ready', items: 2, aiFlag: true, aiMsg: 'Potential duplicate therapy detected.' },
-    { rxId: 'RX-2026-883', patient: 'Amit Singh', doctor: 'Dr. Raj Sharma', time: '1 hour ago', status: 'Dispensed', items: 1, aiFlag: false },
-  ];
-
-  const inventory: InventoryItem[] = DrugService.getAllDrugs().map(d => ({
-    ...d,
-    // eslint-disable-next-line react-hooks/purity
-    stock: Math.floor(Math.random() * 500) + 10,
-    // eslint-disable-next-line react-hooks/purity
-    status: Math.random() > 0.8 ? 'Low Stock' : 'In Stock'
-  }));
 
   const queueColumns: Column<RxItem>[] = [
     {
@@ -66,19 +148,19 @@ export default function PharmacyDashboard() {
       key: 'patient',
       header: 'Patient',
       sortable: true,
-      accessor: r => r.patient,
+      accessor: r => r.patientName,
       cell: r => (
         <div>
-          <p className="text-sm font-semibold text-foreground">{r.patient}</p>
-          <p className="text-xs text-muted-foreground">{r.time}</p>
+          <p className="text-sm font-semibold text-foreground">{r.patientName}</p>
+          <p className="text-xs text-muted-foreground">{relativeTime(r.createdAt)}</p>
         </div>
       ),
     },
     {
       key: 'doctor',
       header: 'Doctor',
-      accessor: r => r.doctor,
-      cell: r => <span className="text-sm text-muted-foreground">{r.doctor}</span>,
+      accessor: r => r.doctorName,
+      cell: r => <span className="text-sm text-muted-foreground">{r.doctorName}</span>,
     },
     {
       key: 'status',
@@ -105,41 +187,18 @@ export default function PharmacyDashboard() {
 
   const inventoryColumns: Column<InventoryItem>[] = [
     {
-      key: 'id',
-      header: 'Item ID',
-      accessor: item => item.id,
-      cell: item => <span className="font-mono text-xs text-muted-foreground">{item.id}</span>,
-    },
-    {
-      key: 'brandName',
-      header: 'Brand Name',
+      key: 'name',
+      header: 'Drug Name',
       sortable: true,
-      accessor: item => item.brandName,
-      cell: item => <span className="text-sm font-bold text-foreground">{item.brandName}</span>,
+      accessor: item => item.name,
+      cell: item => <span className="text-sm font-bold text-foreground">{item.name}</span>,
     },
     {
-      key: 'genericName',
-      header: 'Generic Name',
+      key: 'category',
+      header: 'Category',
       sortable: true,
-      accessor: item => item.genericName,
-      cell: item => <span className="text-sm text-muted-foreground">{item.genericName}</span>,
-    },
-    {
-      key: 'strength',
-      header: 'Strength',
-      accessor: item => `${item.strength} ${item.form}`,
-      cell: item => <span className="whitespace-nowrap text-sm text-muted-foreground">{item.strength} · {item.form}</span>,
-    },
-    {
-      key: 'price',
-      header: 'Price (MRP)',
-      sortable: true,
-      accessor: item => item.basePrice * (1 + item.gstRate / 100),
-      cell: item => (
-        <span className="text-sm font-medium text-foreground tabular-nums">
-          ₹{(item.basePrice * (1 + item.gstRate / 100)).toFixed(2)}
-        </span>
-      ),
+      accessor: item => item.category,
+      cell: item => <span className="text-sm text-muted-foreground">{item.category}</span>,
     },
     {
       key: 'stock',
@@ -154,22 +213,21 @@ export default function PharmacyDashboard() {
       ),
     },
     {
-      key: 'tags',
-      header: 'Tags',
-      accessor: item => `${item.schedule ?? ''} ${item.requiresColdChain ? 'Cold' : ''}`,
+      key: 'reorderLevel',
+      header: 'Reorder At',
+      sortable: true,
+      accessor: item => item.reorderLevel,
+      cell: item => <span className="text-sm text-muted-foreground tabular-nums">{item.reorderLevel} Units</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      accessor: item => item.status,
       cell: item => (
-        <div className="flex gap-1">
-          {item.schedule && (
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-500/20 dark:text-red-400" title="Controlled Substance">
-              Rx ({item.schedule})
-            </span>
-          )}
-          {item.requiresColdChain && (
-            <span className="flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
-              <Snowflake className="h-3 w-3" aria-hidden /> Cold
-            </span>
-          )}
-        </div>
+        <Badge tone={item.status === 'Low Stock' ? 'danger' : 'success'} dot>
+          {item.status}
+        </Badge>
       ),
     },
   ];
@@ -197,11 +255,21 @@ export default function PharmacyDashboard() {
         </TabsList>
 
         <TabsContent value="Dashboard" className="mt-6 space-y-6">
-          <StatGrid>
-            {stats.map((s, i) => (
-              <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
-            ))}
-          </StatGrid>
+          {statsQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : statsQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+              Failed to load pharmacy stats. Please refresh.
+            </p>
+          ) : (
+            <StatGrid>
+              {statsDisplay.map((s, i) => (
+                <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
+              ))}
+            </StatGrid>
+          )}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {/* AI Safety Alerts */}
@@ -250,17 +318,33 @@ export default function PharmacyDashboard() {
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ul className="divide-y divide-border">
-                    {rxQueue.filter(r => r.status === 'Ready').map((rx, i) => (
-                      <li key={i} className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/40">
-                        <div>
-                          <p className="text-sm font-bold text-foreground">{rx.rxId}</p>
-                          <p className="text-xs text-muted-foreground">{rx.patient} · {rx.items} items</p>
-                        </div>
-                        <Button size="sm" disabled title="Coming soon">Dispense</Button>
-                      </li>
-                    ))}
-                  </ul>
+                  {queueQuery.isLoading ? (
+                    <div className="space-y-2 p-4">
+                      <div className="h-12 animate-pulse rounded-lg bg-muted" />
+                      <div className="h-12 animate-pulse rounded-lg bg-muted" />
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-border">
+                      {queue.filter(r => r.status === 'Ready').map((rx, i) => (
+                        <li key={i} className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/40">
+                          <div>
+                            <p className="text-sm font-bold text-foreground">{rx.rxId}</p>
+                            <p className="text-xs text-muted-foreground">{rx.patientName} · {rx.items.length} item{rx.items.length !== 1 ? 's' : ''}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            disabled={dispenseMutation.isPending}
+                            onClick={() => dispenseMutation.mutate(rx.rxId)}
+                          >
+                            Dispense
+                          </Button>
+                        </li>
+                      ))}
+                      {!queueQuery.isLoading && queue.filter(r => r.status === 'Ready').length === 0 && (
+                        <li className="px-6 py-8 text-center text-sm text-muted-foreground">No prescriptions ready for dispensing.</li>
+                      )}
+                    </ul>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -268,36 +352,58 @@ export default function PharmacyDashboard() {
         </TabsContent>
 
         <TabsContent value="queue" className="mt-6">
-          <DataTable<RxItem>
-            columns={queueColumns}
-            data={rxQueue}
-            rowKey={(r, i) => `${r.rxId}-${i}`}
-            searchPlaceholder="Search Rx ID or Patient..."
-            exportName="prescription-queue"
-            emptyTitle="No prescriptions in queue"
-            emptyDescription="New prescriptions will appear here as they are received."
-            rowActions={rx => (
-              <div className="flex items-center justify-end gap-2">
-                {rx.status === 'Verification' && <Button variant="secondary" size="sm" disabled title="Coming soon">Verify Rx</Button>}
-                {rx.status === 'Ready' && <Button size="sm" disabled title="Coming soon">Dispense</Button>}
-                <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.rxId}`} disabled title="Coming soon">
-                  <Printer className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          />
+          {queueQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+              Failed to load prescription queue. Please refresh.
+            </p>
+          ) : (
+            <DataTable<RxItem>
+              columns={queueColumns}
+              data={queue}
+              rowKey={(r) => r.rxId}
+              searchPlaceholder="Search Rx ID or Patient..."
+              exportName="prescription-queue"
+              emptyTitle="No prescriptions in queue"
+              emptyDescription="New prescriptions will appear here as they are received."
+              rowActions={rx => (
+                <div className="flex items-center justify-end gap-2">
+                  {rx.status === 'Verification' && (
+                    <Button variant="secondary" size="sm">Verify Rx</Button>
+                  )}
+                  {rx.status === 'Ready' && (
+                    <Button
+                      size="sm"
+                      disabled={dispenseMutation.isPending}
+                      onClick={() => dispenseMutation.mutate(rx.rxId)}
+                    >
+                      Dispense
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.rxId}`} disabled title="Print">
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="Inventory" className="mt-6">
-          <DataTable<InventoryItem>
-            columns={inventoryColumns}
-            data={inventory}
-            rowKey={(item, i) => `${item.id}-${i}`}
-            searchPlaceholder="Search Brand, Generic, ID..."
-            exportName="drug-inventory"
-            emptyTitle="No inventory items"
-            emptyDescription="The master drug inventory is empty."
-          />
+          {inventoryQuery.isError ? (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+              Failed to load inventory. Please refresh.
+            </p>
+          ) : (
+            <DataTable<InventoryItem>
+              columns={inventoryColumns}
+              data={inventory}
+              rowKey={(item) => item.name}
+              searchPlaceholder="Search drug name or category..."
+              exportName="drug-inventory"
+              emptyTitle="No inventory items"
+              emptyDescription="The master drug inventory is empty."
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="Purchase Orders" className="mt-6">

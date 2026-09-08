@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building, Globe, Shield, FileText, Save, CheckCircle2, Cpu, Mail,
-  MessageSquare, Sun, Moon, Monitor, Contrast, Palette,
+  MessageSquare, Sun, Moon, Monitor, Contrast, Palette, Loader2,
 } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/services/prescriptionTranslationService';
 import {
@@ -48,6 +48,7 @@ const THEME_MODES = [
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'rx' | 'languages' | 'security' | 'integrations'>('profile');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { theme, setTheme, highContrast, setHighContrast } = useTheme();
 
   // Form states
@@ -64,10 +65,61 @@ export default function SettingsPage() {
   const [defaultRxLang, setDefaultRxLang] = useState('te');
   const [enableBilingualDefault, setEnableBilingualDefault] = useState(true);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Load hospital info from the API on mount; fall back to hardcoded defaults.
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+    fetch(`${apiUrl}/api/settings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(({ data }) => {
+        if (!data) return;
+        const u = data.user ?? data;
+        setHospitalInfo(prev => ({
+          name: u.hospitalName || u.hospital || prev.name,
+          tagline: u.hospitalTagline || prev.tagline,
+          regNo: u.hospitalRegNo || prev.regNo,
+          phone: u.hospitalPhone || prev.phone,
+          email: u.hospitalEmail || prev.email,
+          address: u.hospitalAddress || prev.address,
+          taxId: u.hospitalTaxId || prev.taxId,
+        }));
+      })
+      .catch(() => {}); // keep defaults on any error
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 4000);
+    setIsSaving(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+      await fetch(`${apiUrl}/api/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          hospitalName: hospitalInfo.name,
+          hospitalTagline: hospitalInfo.tagline,
+          hospitalRegNo: hospitalInfo.regNo,
+          hospitalPhone: hospitalInfo.phone,
+          hospitalEmail: hospitalInfo.email,
+          hospitalAddress: hospitalInfo.address,
+          hospitalTaxId: hospitalInfo.taxId,
+        }),
+      });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 4000);
+    } catch {
+      // noop — keep UI functional even if API is unreachable
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -162,8 +214,10 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <CardFooter className="justify-end border-t border-border !pt-5">
-                <Button type="submit">
-                  <Save className="h-4 w-4" aria-hidden /> Save Profile Settings
+                <Button type="submit" disabled={isSaving} loading={isSaving}>
+                  {isSaving
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…</>
+                    : <><Save className="h-4 w-4" aria-hidden /> Save Profile Settings</>}
                 </Button>
               </CardFooter>
             </Card>
@@ -279,8 +333,10 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <CardFooter className="justify-end border-t border-border !pt-5">
-                <Button type="submit">
-                  <Save className="h-4 w-4" aria-hidden /> Save Multi-Language Settings
+                <Button type="submit" disabled={isSaving} loading={isSaving}>
+                  {isSaving
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…</>
+                    : <><Save className="h-4 w-4" aria-hidden /> Save Multi-Language Settings</>}
                 </Button>
               </CardFooter>
             </Card>

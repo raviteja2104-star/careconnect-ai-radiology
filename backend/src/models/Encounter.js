@@ -60,6 +60,8 @@ const encounterSchema = new mongoose.Schema(
             date: Date,
             instructions: String,
         },
+        // SOAP draft — saved incrementally before signing
+        soapDraft: { type: mongoose.Schema.Types.Mixed },
         // Set when the encounter's active clinical note is signed.
         signedAt: Date,
         signedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

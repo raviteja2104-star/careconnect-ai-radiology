@@ -80,3 +80,67 @@ exports.getToday = async (req, res, next) => {
         res.json({ success: true, data });
     } catch (err) { next(err); }
 };
+
+// PATCH /api/consultations/:id/soap  — save SOAP draft to Encounter
+exports.saveSoap = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { soap } = req.body;
+        if (!soap || typeof soap !== 'object') {
+            return res.status(400).json({ success: false, message: 'soap object is required.' });
+        }
+        const mongoose = require('mongoose');
+        let enc = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            enc = await Encounter.findById(id);
+            if (!enc) {
+                enc = await Encounter.findOne({ appointmentId: id });
+            }
+        }
+        if (!enc) {
+            // No encounter yet — create one attached to this appointment
+            const patientId = req.body.patientId;
+            if (!patientId) {
+                return res.status(400).json({ success: false, message: 'No encounter found and patientId is required to create one.' });
+            }
+            enc = await Encounter.create({
+                appointmentId: mongoose.Types.ObjectId.isValid(id) ? id : undefined,
+                patientId,
+                doctorId: req.user._id,
+                type: 'opd',
+                specialty: 'General Medicine',
+                chiefComplaint: soap.subjective || '',
+                status: 'open',
+            });
+        }
+        enc.soapDraft = soap;
+        await enc.save();
+        res.json({ success: true, data: enc });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
+
+// POST /api/consultations/:id/sign — finalise & mark encounter signed
+exports.signNote = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { soap } = req.body;
+        const mongoose = require('mongoose');
+        let enc = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            enc = await Encounter.findById(id);
+            if (!enc) enc = await Encounter.findOne({ appointmentId: id });
+        }
+        if (!enc) {
+            return res.status(404).json({ success: false, message: 'Encounter not found. Save a draft first.' });
+        }
+        if (soap) enc.soapDraft = soap;
+        enc.status = 'signed';
+        enc.signedAt = new Date();
+        enc.signedBy = req.user._id;
+        await enc.save();
+        // Also mark the appointment completed
+        const Appointment = require('../models/Appointment');
+        await Appointment.findByIdAndUpdate(enc.appointmentId, { status: 'Completed' }).catch(() => {});
+        res.json({ success: true, data: enc });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
