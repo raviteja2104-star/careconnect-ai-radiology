@@ -34,13 +34,19 @@ const protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const resolvedId = decoded.id || decoded._id || decoded.userId;
 
-        // ── Demo / offline mode (graceful fallback) ──────────────────────────────
+        // ── Demo user check (always first) ────────────────────────────────────────
+        // Demo IDs (e.g. 'demo-patient-1') are not valid ObjectIds, so we must
+        // resolve them before any MongoDB query to prevent CastErrors when the
+        // DB is connected — Vercel functions can be connected on one request and
+        // disconnected on another, causing unpredictable 401s for demo sessions.
+        const demoUser = DEMO_USERS.find(u => u._id === resolvedId);
+        if (demoUser) {
+            req.user = demoUser;
+            return next();
+        }
+
+        // ── Offline fallback (non-demo token, DB unreachable) ─────────────────────
         if (!isDBConnected()) {
-            const demoUser = DEMO_USERS.find(u => u._id === resolvedId);
-            if (demoUser) {
-                req.user = demoUser;
-                return next();
-            }
             return res.status(503).json({ success: false, message: 'Service temporarily unavailable. Please try again.' });
         }
 

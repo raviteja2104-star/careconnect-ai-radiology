@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
@@ -14,12 +14,16 @@ import {
   MoreHorizontal,
   CheckCircle2,
   XCircle,
+  X,
+  Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import {
   PageHeader,
   StatCard,
   StatGrid,
   Card,
+  CardContent,
   Badge,
   Button,
   Avatar,
@@ -36,8 +40,14 @@ import {
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api`;
 
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export interface AppointmentData {
   id: string;
+  doctorId: string;
   doctorName: string;
   specialty: string;
   hospital: string;
@@ -49,22 +59,28 @@ export interface AppointmentData {
   room?: string;
 }
 
-type RawAppointment = { _id?: string; id?: string; date?: string; doctorName?: string; doctor?: { name?: string; specialty?: string; hospital?: string; image?: string }; specialty?: string; hospital?: string; room?: string; timeSlot?: string; time?: string; visitType?: string; type?: string; status?: string };
+type RawAppointment = {
+  _id?: string; id?: string; date?: string; doctorName?: string;
+  doctor?: { _id?: string; name?: string; specialty?: string; hospital?: string; image?: string };
+  specialty?: string; hospital?: string; room?: string; timeSlot?: string; time?: string;
+  visitType?: string; type?: string; status?: string;
+};
 
 function mapApiAppointment(raw: RawAppointment): AppointmentData {
-  const dateStr = raw.date ? new Date(raw.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : raw.date;
+  const dateStr = raw.date ? new Date(raw.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const statusMap: Record<string, AppointmentData['status']> = {
-    scheduled: 'Upcoming', confirmed: 'Upcoming', upcoming: 'Upcoming',
+    scheduled: 'Upcoming', confirmed: 'Upcoming', upcoming: 'Upcoming', booked: 'Upcoming',
     completed: 'Completed', done: 'Completed',
     cancelled: 'Cancelled', canceled: 'Cancelled',
   };
   return {
     id: raw._id ?? raw.id ?? '',
+    doctorId: raw.doctor?._id ?? '',
     doctorName: raw.doctorName ?? raw.doctor?.name ?? 'Doctor',
     specialty: raw.specialty ?? raw.doctor?.specialty ?? '',
     hospital: raw.hospital ?? raw.doctor?.hospital ?? 'CareConnect',
     room: raw.room,
-    date: dateStr ?? '',
+    date: dateStr,
     time: raw.timeSlot ?? raw.time ?? '',
     type: (raw.visitType === 'Video Call' || raw.type === 'Video Call') ? 'Video Call' : 'In-Person',
     status: statusMap[String(raw.status).toLowerCase()] ?? 'Upcoming',
@@ -73,19 +89,163 @@ function mapApiAppointment(raw: RawAppointment): AppointmentData {
 }
 
 const statusTone: Record<AppointmentData['status'], 'info' | 'success' | 'danger'> = {
-  Upcoming: 'info',
-  Completed: 'success',
-  Cancelled: 'danger',
+  Upcoming: 'info', Completed: 'success', Cancelled: 'danger',
 };
+
+// ── Reschedule Modal ──────────────────────────────────────────────────────────
+
+interface RescheduleModalProps {
+  appointment: AppointmentData;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function RescheduleModal({ appointment, onClose, onSuccess }: RescheduleModalProps) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  const [selectedDate, setSelectedDate] = useState(tomorrowStr);
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: slotsData, isLoading: slotsLoading } = useQuery({
+    queryKey: ['availability', appointment.doctorId, selectedDate],
+    enabled: !!appointment.doctorId && !!selectedDate,
+    queryFn: () =>
+      fetch(`${API_BASE}/appointments/doctors/${appointment.doctorId}/availability?date=${selectedDate}`)
+        .then(r => r.json()),
+    staleTime: 60_000,
+  });
+
+  const slots: string[] = useMemo(() => {
+    const raw = slotsData?.data ?? slotsData?.slots ?? slotsData;
+    if (Array.isArray(raw)) return raw.map((s: string | { slot?: string; time?: string }) =>
+      typeof s === 'string' ? s : s.slot ?? s.time ?? ''
+    ).filter(Boolean);
+    return [];
+  }, [slotsData]);
+
+  const handleConfirm = async () => {
+    if (!selectedSlot) { setError('Please select a time slot.'); return; }
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/appointments/${appointment.id}/reschedule`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ date: selectedDate, timeSlot: selectedSlot }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? 'Could not reschedule appointment.');
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal aria-label="Reschedule appointment">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-float"
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Reschedule Appointment</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {appointment.doctorName} · {appointment.specialty}
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Current booking */}
+        <div className="mb-5 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current booking</p>
+          <p className="mt-1 font-medium text-foreground">{appointment.date} · {appointment.time}</p>
+        </div>
+
+        {/* Date picker */}
+        <div className="mb-4">
+          <label className="mb-1.5 block text-sm font-semibold text-foreground" htmlFor="reschedule-date">
+            New date
+          </label>
+          <input
+            id="reschedule-date"
+            type="date"
+            min={tomorrowStr}
+            value={selectedDate}
+            onChange={e => { setSelectedDate(e.target.value); setSelectedSlot(''); }}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        {/* Slot picker */}
+        <div className="mb-5">
+          <p className="mb-2 text-sm font-semibold text-foreground">Available time slots</p>
+          {slotsLoading ? (
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 rounded-xl" />)}
+            </div>
+          ) : slots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No slots available on this date. Try another day.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {slots.map(slot => (
+                <button
+                  key={slot}
+                  onClick={() => setSelectedSlot(slot)}
+                  className={`rounded-xl border py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    selectedSlot === slot
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:border-primary/50 hover:bg-muted'
+                  }`}
+                >
+                  {slot}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {error && <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button
+            className="flex-1"
+            onClick={handleConfirm}
+            disabled={saving || !selectedSlot}
+          >
+            {saving ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving…</> : <>Confirm <ChevronRight className="ml-1 h-3.5 w-3.5" /></>}
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Appointment Row ───────────────────────────────────────────────────────────
 
 interface AppointmentRowProps {
   appointment: AppointmentData;
   delay: number;
   onCancel: (id: string) => Promise<void>;
+  onReschedule: (apt: AppointmentData) => void;
   cancelling: boolean;
 }
 
-function AppointmentRow({ appointment, delay, onCancel, cancelling }: AppointmentRowProps) {
+function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling }: AppointmentRowProps) {
   const router = useRouter();
   const isVideo = appointment.type === 'Video Call';
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -159,7 +319,9 @@ function AppointmentRow({ appointment, delay, onCancel, cancelling }: Appointmen
                     <MapPin className="h-4 w-4" aria-hidden /> Directions
                   </Button>
                 )}
-                <Button size="sm" variant="outline" onClick={() => router.push('/appointments/book')}>Reschedule</Button>
+                <Button size="sm" variant="outline" onClick={() => onReschedule(appointment)}>
+                  Reschedule
+                </Button>
                 <Dropdown
                   trigger={
                     <Button size="icon-sm" variant="ghost" aria-label="More options">
@@ -167,7 +329,7 @@ function AppointmentRow({ appointment, delay, onCancel, cancelling }: Appointmen
                     </Button>
                   }
                 >
-                  <DropdownItem onClick={() => router.push(isVideo ? '/telemedicine' : '/appointments/book')}>View details</DropdownItem>
+                  <DropdownItem onClick={() => onReschedule(appointment)}>Reschedule</DropdownItem>
                   <DropdownItem
                     className="text-danger"
                     onClick={() => { setConfirmCancel(true); setCancelError(null); }}
@@ -215,23 +377,22 @@ function AppointmentRow({ appointment, delay, onCancel, cancelling }: Appointmen
   );
 }
 
+// ── Page ─────────────────────────────────────────────────────────────────────
+
 export default function AppointmentsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Past' | 'Cancelled'>('Upcoming');
   const [search, setSearch] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reschedulingAppt, setReschedulingAppt] = useState<AppointmentData | null>(null);
 
   const handleCancel = useCallback(async (id: string) => {
     setCancellingId(id);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/appointments/${id}/cancel`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -243,13 +404,15 @@ export default function AppointmentsPage() {
     }
   }, [queryClient]);
 
+  const handleRescheduleSuccess = useCallback(async () => {
+    setReschedulingAppt(null);
+    await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+  }, [queryClient]);
+
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['appointments'],
     queryFn: async () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch(`${API_BASE}/appointments`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`${API_BASE}/appointments`, { headers: authHeaders() });
       if (!res.ok) return [];
       const json = await res.json();
       return Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
@@ -305,7 +468,6 @@ export default function AppointmentsPage() {
         <StatCard label="Cancelled" value={cancelled} sub={cancelled ? `${cancelled} cancelled` : 'No cancellations'} icon={XCircle} tone="rose" delay={0.15} onClick={() => setActiveTab('Cancelled')} />
       </StatGrid>
 
-      {/* Controls: tabs + search */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
           <TabsList>
@@ -314,7 +476,6 @@ export default function AppointmentsPage() {
             ))}
           </TabsList>
         </Tabs>
-
         <div className="w-full md:w-72">
           <Input
             icon={<Search />}
@@ -326,7 +487,6 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Appointment list */}
       <div className="space-y-4">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
@@ -337,6 +497,7 @@ export default function AppointmentsPage() {
               appointment={apt}
               delay={i * 0.05}
               onCancel={handleCancel}
+              onReschedule={setReschedulingAppt}
               cancelling={cancellingId === apt.id}
             />
           ))
@@ -347,7 +508,7 @@ export default function AppointmentsPage() {
             description={
               search
                 ? `No appointments match "${search}". Try a different search term.`
-                : `You don't have any ${activeTab.toLowerCase()} appointments at the moment. Would you like to schedule one?`
+                : `You don't have any ${activeTab.toLowerCase()} appointments. Would you like to schedule one?`
             }
             action={
               activeTab === 'Upcoming' && !search
@@ -357,6 +518,16 @@ export default function AppointmentsPage() {
           />
         )}
       </div>
+
+      <AnimatePresence>
+        {reschedulingAppt && (
+          <RescheduleModal
+            appointment={reschedulingAppt}
+            onClose={() => setReschedulingAppt(null)}
+            onSuccess={handleRescheduleSuccess}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

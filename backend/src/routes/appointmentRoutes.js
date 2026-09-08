@@ -7,6 +7,7 @@ const {
   bookAppointment,
   getAppointments,
   cancelAppointment,
+  rescheduleAppointment,
 } = require('../controllers/appointmentController');
 const { protect } = require('../middleware/auth');
 const { permit } = require('../middleware/permit');
@@ -40,5 +41,8 @@ router.post(
 // PATCH /:id/cancel — patient cancels own appointment; staff may cancel on their behalf
 // Ownership and status validation are enforced inside the controller.
 router.patch('/:id/cancel', cancelAppointment);
+
+// PATCH /:id/reschedule — patient or staff reschedules to a new date + time slot
+router.patch('/:id/reschedule', rescheduleAppointment);
 
 module.exports = router;

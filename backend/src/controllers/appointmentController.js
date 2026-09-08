@@ -249,6 +249,83 @@ exports.cancelAppointment = async (req, res) => {
   }
 };
 
+// @desc    Reschedule an appointment to a new date + time slot
+// @route   PATCH /api/appointments/:id/reschedule
+exports.rescheduleAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, timeSlot } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid appointment ID.' });
+    }
+    if (!date || !timeSlot) {
+      return res.status(400).json({ success: false, message: 'New date and timeSlot are required.' });
+    }
+
+    const appt = await Appointment.findById(id);
+    if (!appt) {
+      return res.status(404).json({ success: false, message: 'Appointment not found.' });
+    }
+
+    const isOwner = appt.patient.toString() === req.user._id.toString();
+    const isStaff = ['admin', 'staff', 'receptionist', 'nurse'].includes(req.user.role);
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ success: false, message: 'You are not authorised to reschedule this appointment.' });
+    }
+
+    const reschedulableStatuses = ['Booked', 'Confirmed'];
+    if (!reschedulableStatuses.includes(appt.status)) {
+      return res.status(409).json({ success: false, message: `Cannot reschedule an appointment with status "${appt.status}".` });
+    }
+
+    const oldDate = appt.date;
+    const oldSlot = appt.timeSlot;
+
+    const patient = await User.findById(appt.patient);
+    const doctor = await DoctorProfile.findOne({ user: appt.doctor }).populate('user');
+    const traceId = req.headers['x-trace-id'] || uuidv4();
+
+    await TxRunner.run(async (session) => {
+      appt.date = new Date(date);
+      appt.timeSlot = timeSlot;
+      appt.status = 'Booked';
+      if (session) {
+        await appt.save({ session });
+      } else {
+        await appt.save();
+      }
+
+      await EventPublisher.publish({
+        session,
+        eventType: 'AppointmentRescheduled',
+        version: '1.0',
+        aggregateId: appt._id,
+        tenantId: req.headers['x-tenant-id'] || 't-default',
+        traceId,
+        payload: {
+          patientName: patient ? [patient.firstName, patient.lastName].filter(Boolean).join(' ') : 'Valued Patient',
+          doctorName: doctor?.user ? [doctor.user.firstName, doctor.user.lastName].filter(Boolean).join(' ') : 'Your Doctor',
+          oldDate,
+          oldTimeSlot: oldSlot,
+          newDate: appt.date,
+          newTimeSlot: appt.timeSlot,
+        },
+        recipient: {
+          id: appt.patient.toString(),
+          phone: patient?.phone || '+15550000000',
+          email: patient?.email || 'patient@example.com',
+          preferences: { sms: true, email: true, whatsapp: false, push: false },
+        },
+      });
+    });
+
+    res.json({ success: true, data: appt });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Get user appointments (patient-scoped, auth required)
 // @route   GET /api/appointments?type=video&status=Booked
 exports.getAppointments = async (req, res) => {
