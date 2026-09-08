@@ -51,9 +51,11 @@ const LoginScreen = ({ navigation }) => {
         try {
             const response = await authAPI.login(email, password);
             if (response.success) {
-                await AsyncStorage.setItem('authToken', response.data.token);
-                await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
-                navigation.replace('Main', { user: response.data.user });
+                const token = response.data?.token || response.tokens?.accessToken;
+                const user = response.data?.user || response.user;
+                await AsyncStorage.setItem('authToken', token);
+                await AsyncStorage.setItem('user', JSON.stringify(user));
+                navigation.replace('Main', { user: user });
             }
         } catch (error) {
             Alert.alert('Login Failed', error.message || 'Invalid credentials');

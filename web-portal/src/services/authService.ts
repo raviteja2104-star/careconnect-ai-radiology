@@ -97,8 +97,8 @@ export const PERSONAS: Record<string, AuthUserSession> = {
  */
 
 export const AUTH_API_BASE =
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-    'https://api.careconnect.care';
+  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
+  'https://api.careconnect.care';
 export const TOKEN_STORAGE_KEY = 'token';
 export const USER_STORAGE_KEY = 'cc-user';
 
@@ -225,20 +225,24 @@ async function authRequest(path: string, body: Record<string, unknown>): Promise
   } catch {
     throw new AuthApiError(0, 'Cannot reach the CareConnect server. Check your internet connection or try again in a moment.');
   }
-  let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string; permissions?: string[]; workspaces?: string[] } } = {};
+  let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string; permissions?: string[]; workspaces?: string[] }, user?: BackendUser, tokens?: { accessToken?: string }, permissions?: string[], workspaces?: string[] } = {};
   try {
     payload = await res.json();
   } catch {
     /* non-JSON body */
   }
-  if (!res.ok || !payload?.data?.token || !payload?.data?.user) {
+
+  const token = payload?.data?.token || payload?.tokens?.accessToken;
+  const user = payload?.data?.user || payload?.user;
+
+  if (!res.ok || !token || !user) {
     throw new AuthApiError(res.status, payload?.message || `Authentication failed (${res.status || 'network'})`);
   }
   return {
-    user: payload.data.user,
-    token: payload.data.token,
-    permissions: payload.data.permissions,
-    workspaces:  payload.data.workspaces,
+    user: user,
+    token: token,
+    permissions: payload?.data?.permissions || payload?.permissions,
+    workspaces: payload?.data?.workspaces || payload?.workspaces,
   };
 }
 

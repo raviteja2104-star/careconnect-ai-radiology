@@ -41,23 +41,33 @@ const authProvider = new LocalJwtProvider({
 const mockDB = {
   users: [
     {
-      userId: 'u-12345',
+      userId: 'demo-admin-1',
       tenantId: 't-default',
       hospitalId: 'h-apollo-01',
-      email: 'admin@healthcore.com',
-      password: 'password123',
-      roles: ['System Admin'],
+      email: 'admin@careconnect.com',
+      password: 'admin123',
+      roles: ['admin'],
       permissions: ['read:all', 'write:all', 'manage:system'],
       mfaEnabled: false
     },
     {
-      userId: 'u-67890',
+      userId: 'demo-doctor-1',
       tenantId: 't-default',
       hospitalId: 'h-apollo-01',
-      email: 'dr.smith@healthcore.com',
+      email: 'dr.raj@careconnect.com',
       password: 'password123',
-      roles: ['Senior Doctor'],
-      permissions: ['read:patients', 'write:prescriptions', 'read:reports'],
+      roles: ['doctor'],
+      permissions: ['read:clinical', 'write:clinical', 'sign:notes', 'order:all'],
+      mfaEnabled: false
+    },
+    {
+      userId: 'demo-patient-1',
+      tenantId: 't-default',
+      hospitalId: 'h-apollo-01',
+      email: 'ravi@careconnect.com',
+      password: 'password123',
+      roles: ['patient'],
+      permissions: ['read:self', 'book:appointments'],
       mfaEnabled: false
     }
   ],
@@ -66,11 +76,10 @@ const mockDB = {
 
 const getRolePermissions = (role) => {
   const RBAC = {
-    'Patient': ['read:own_records', 'write:appointments'],
-    'Receptionist': ['read:appointments', 'write:appointments', 'read:patients'],
-    'Doctor': ['read:patients', 'write:prescriptions', 'read:reports'],
-    'Senior Doctor': ['read:patients', 'write:prescriptions', 'read:reports', 'approve:protocols'],
-    'System Admin': ['read:all', 'write:all', 'manage:system']
+    'patient': ['read:self', 'book:appointments'],
+    'nurse': ['read:clinical', 'write:vitals'],
+    'doctor': ['read:clinical', 'write:clinical', 'sign:notes', 'order:all'],
+    'admin': ['read:all', 'write:all', 'manage:system']
   };
   return RBAC[role] || [];
 };
@@ -79,15 +88,17 @@ const getRolePermissions = (role) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password, tenantId } = req.body;
-    
+
     const user = mockDB.users.find(u => u.email === email && u.password === password && (!tenantId || u.tenantId === tenantId));
-    
+
     if (user) {
       const dbUser = {
+        _id: user.userId, // Required by frontend
         userId: user.userId,
         tenantId: user.tenantId,
         hospitalId: user.hospitalId,
         email: user.email,
+        role: user.roles[0], // Required by frontend mapping
         roles: user.roles,
         permissions: [...new Set([...user.permissions, ...user.roles.flatMap(getRolePermissions)])],
         mfaEnabled: user.mfaEnabled
@@ -129,10 +140,10 @@ app.post('/api/auth/refresh', async (req, res) => {
 
     // Rotate: Remove old token, issue new pair
     mockDB.refreshTokens.delete(refreshToken);
-    
+
     const tokens = await authProvider.refreshToken(refreshToken);
     mockDB.refreshTokens.add(tokens.refreshToken);
-    
+
     console.log(`[AUTH-SERVICE][${req.traceId}] Token refreshed successfully`);
     res.json({ success: true, tokens });
   } catch (error) {
@@ -151,7 +162,7 @@ app.post('/api/auth/verify', async (req, res) => {
 
     const token = authHeader.split(' ')[1];
     const user = await authProvider.verifyToken(token);
-    
+
     res.json({ success: true, user });
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid or expired token' });
@@ -178,7 +189,7 @@ app.get('/api/auth/me', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ success: false });
-    
+
     const token = authHeader.split(' ')[1];
     const user = await authProvider.verifyToken(token);
     res.json({ success: true, user });
