@@ -682,23 +682,12 @@ export default function EnterpriseWorkflowStudioPage() {
             <p className="text-sm text-muted-foreground">Manage published versions, view change logs, and perform 1-click rollbacks.</p>
           </div>
           <Card>
-            <CardContent className="space-y-3 pt-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-success-soft p-4 text-sm">
-                <div>
-                  <p className="font-semibold text-success">v3.0 Current Active Build</p>
-                  <p className="text-xs text-muted-foreground">Published on 2026-07-25 by Dr. Raj Sharma. Added AI Drug Safety Step.</p>
-                </div>
-                <Badge tone="success" dot>Published</Badge>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">
-                <div>
-                  <p className="font-semibold text-foreground">v2.0 Previous Version</p>
-                  <p className="text-xs text-muted-foreground">Published on 2026-07-10 by Anita Desai. Added ABDM Gateway check.</p>
-                </div>
-                <Button size="sm" variant="outline" disabled title="Coming soon">
-                  <CornerDownLeft className="h-3.5 w-3.5" aria-hidden /> Rollback to v2.0
-                </Button>
-              </div>
+            <CardContent className="py-10">
+              <EmptyState
+                icon={History}
+                title="No version history"
+                description="Version history and rollback will be available once workflow definitions are persisted to the backend. Definitions are currently stored locally in this session."
+              />
             </CardContent>
           </Card>
         </TabsContent>

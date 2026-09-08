@@ -57,7 +57,6 @@ export default function EnterpriseIntegrationHubPage() {
   const [testEndpoint, setTestEndpoint] = useState('https://fhir.careconnect.hospital/r4/Patient');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [testResult, setTestResult] = useState<any>(null);
-  const [backupToast, setBackupToast] = useState(false);
 
   const { data: integrationHealthRes } = useQuery({
     queryKey: ['integrations_health'],
@@ -77,10 +76,6 @@ export default function EnterpriseIntegrationHubPage() {
 
   const handleTestIntegration = () => testMutation.mutate();
 
-  const handleTriggerBackup = () => {
-    setBackupToast(true);
-    setTimeout(() => setBackupToast(false), 3000);
-  };
 
   return (
     <div className="space-y-6">
@@ -354,16 +349,9 @@ export default function EnterpriseIntegrationHubPage() {
               <h2 className="text-lg font-semibold text-foreground">Disaster Recovery & System Backups</h2>
               <p className="text-sm text-muted-foreground">Trigger instant encrypted snapshots and monitor multi-region replication.</p>
             </div>
-            <div className="flex items-center gap-2">
-              {backupToast && (
-                <Badge tone="success" dot pulse>
-                  <Check className="h-3 w-3" aria-hidden /> Snapshot Taken
-                </Badge>
-              )}
-              <Button onClick={handleTriggerBackup}>
-                <HardDrive className="h-4 w-4" aria-hidden /> Trigger Immediate Backup
-              </Button>
-            </div>
+            <Button disabled title="Backup trigger API not yet implemented — run a manual snapshot from your infrastructure console.">
+              <HardDrive className="h-4 w-4" aria-hidden /> Trigger Immediate Backup
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

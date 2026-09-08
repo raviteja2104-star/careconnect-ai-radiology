@@ -9,7 +9,7 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Badge, Button, Card, CardHeader, CardTitle,
   CardDescription, CardContent, Tabs, TabsList, TabsTrigger, TabsContent,
-  Textarea, Label, DataTable, type Column, Progress,
+  Textarea, Label, DataTable, type Column, Progress, EmptyState,
 } from '@/components/ui';
 import { enterpriseProgramService, PortfolioInitiative, TraceabilityMatrixItem, TechDebtItem, ArchitectureRecord } from '@/services/enterpriseProgramService';
 
@@ -53,7 +53,7 @@ export default function EnterpriseProgramPage() {
   const [aiOutput, setAiOutput] = useState<string>('');
 
   const handleRunAiCopilot = () => {
-    setAiOutput(`### CareConnect v1.1.0-Hardened Release Notes\n\n- **Authentication**: OAuth 2.1 with PKCE & WebAuthn passkey support.\n- **Security**: Immutable SHA-256 audit logging & automated HIPAA PHI redaction filter.\n- **Performance**: Verified 10,000 concurrent clinician load benchmarks at 140ms P99 latency.\n- **Compliance**: Certified 100% NABH & ABDM Milestone 1-3 controls.`);
+    // AI copilot backend integration not yet implemented
   };
 
   const initiativeColumns: Column<PortfolioInitiative>[] = [
@@ -325,19 +325,14 @@ export default function EnterpriseProgramPage() {
                   className="font-mono"
                 />
               </div>
-              <Button onClick={handleRunAiCopilot}>
+              <Button onClick={handleRunAiCopilot} disabled title="AI copilot backend integration is not yet connected.">
                 <Sparkles className="h-4 w-4" aria-hidden /> Execute AI Copilot
               </Button>
-              {aiOutput && (
-                <motion.pre
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                  className="overflow-x-auto scrollbar-thin whitespace-pre-wrap rounded-xl border border-border bg-muted/60 p-4 font-mono text-xs leading-relaxed text-foreground"
-                >
-                  {aiOutput}
-                </motion.pre>
-              )}
+              <EmptyState
+                icon={Sparkles}
+                title="AI copilot not yet connected"
+                description="When the engineering copilot service is integrated, it will generate release notes, impact analyses, and review summaries from your live telemetry."
+              />
             </CardContent>
           </Card>
 
