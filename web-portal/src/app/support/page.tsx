@@ -205,12 +205,14 @@ export default function SupportPage() {
                   <MessageCircle className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Live chat</p>
-                  <p className="text-xs text-muted-foreground">Typical reply in under 2 minutes</p>
+                  <p className="text-sm font-semibold text-foreground">Email support</p>
+                  <p className="text-xs text-muted-foreground">We respond within 24 hours</p>
                 </div>
               </div>
-              <Button className="w-full" onClick={() => router.push('/messages')}>
-                <MessageCircle className="h-4 w-4" aria-hidden /> Start a chat
+              <Button className="w-full" asChild>
+                <a href="mailto:support@careconnect.health">
+                  <MessageCircle className="h-4 w-4" aria-hidden /> Email us
+                </a>
               </Button>
             </CardContent>
           </Card>

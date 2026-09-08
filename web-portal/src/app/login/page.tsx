@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { HeartPulse, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { HeartPulse, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
 import { LOGIN_PORTALS } from './_lib/portals';
 
@@ -51,8 +51,6 @@ function PortalGrid() {
  * /login/staff · /login/admin
  */
 export default function LoginChooserPage() {
-    const router = useRouter();
-
     return (
         <div className="flex min-h-screen flex-col items-center justify-center gradient-surface px-4 py-12">
             <motion.div
@@ -87,10 +85,6 @@ export default function LoginChooserPage() {
                     <Link href="/home" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
                         ← Back to Home
                     </Link>
-                    <Button variant="outline" onClick={() => router.push('/')}>
-                        <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-                        Continue in demo mode
-                    </Button>
                     <Badge tone="outline" dot>
                         <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Secured with JWT · Role-based access
                     </Badge>
