@@ -281,7 +281,7 @@ export default function BookAppointmentPage() {
                                 {doc.name}
                                 <ShieldCheck className="h-4 w-4 text-info" aria-hidden />
                               </h3>
-                              <p className="mb-2 text-sm font-medium text-muted-foreground">{doc.specialty} • {doc.exp}</p>
+                              <p className="mb-2 text-sm font-medium text-muted-foreground">{doc.specialty} â€¢ {doc.exp}</p>
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge tone="success">
                                   <Star className="h-3 w-3 fill-current" aria-hidden />
@@ -313,9 +313,9 @@ export default function BookAppointmentPage() {
                       {(() => {
                         const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
                         const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-                        // 0=Sun � 6=Sat ? convert to Mon-first offset
+                        // 0=Sun … 6=Sat ? convert to Mon-first offset
                         const rawFirst = new Date(calYear, calMonth, 1).getDay();
-                        const offset = (rawFirst + 6) % 7; // Mon=0 � Sun=6
+                        const offset = (rawFirst + 6) % 7; // Mon=0 … Sun=6
                         const todayStr = new Date().toISOString().split('T')[0];
                         const canGoPrev = calYear > today.getFullYear() || calMonth > today.getMonth();
                         const prevMonth = () => {
@@ -336,11 +336,11 @@ export default function BookAppointmentPage() {
                               <div className="flex gap-1">
                                 <button onClick={prevMonth} disabled={!canGoPrev} aria-label="Previous month"
                                   className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
-                                  �
+                                  ‹
                                 </button>
                                 <button onClick={nextMonth} aria-label="Next month"
                                   className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted">
-                                  �
+                                  ›
                                 </button>
                               </div>
                             </div>
@@ -464,7 +464,7 @@ export default function BookAppointmentPage() {
                         id="visit-reason"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        placeholder="Briefly describe your symptoms or reason for visit�"
+                        placeholder="Briefly describe your symptoms or reason for visit…"
                         className="min-h-[120px] resize-none"
                       />
                     </div>
@@ -498,7 +498,7 @@ export default function BookAppointmentPage() {
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-6">
                       <div>
                         <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-subtle-foreground">Date & Time</dt>
-                        <dd className="font-semibold text-foreground">{date} • {time}</dd>
+                        <dd className="font-semibold text-foreground">{date} â€¢ {time}</dd>
                       </div>
                       <div>
                         <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-subtle-foreground">Visit Type</dt>
