@@ -125,8 +125,7 @@ app.use(cors({
         if (CORS_ORIGINS.includes(origin)) return callback(null, true);
         // Allow Vercel preview deployments for this project in non-production
         if (process.env.NODE_ENV !== 'production' && /\.vercel\.app$/.test(origin)) return callback(null, true);
-        // In production, also allow Vercel URLs if ALLOWED_ORIGINS is not explicitly set
-        if (!process.env.ALLOWED_ORIGINS && /\.vercel\.app$/.test(origin)) return callback(null, true);
+        // NOTE: Removed unconditional *.vercel.app wildcard that applied in production.
         callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
@@ -144,11 +143,16 @@ app.use(telemetryMiddleware);
 // is unavailable. Mounted after body parsers, before all routes.
 app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
 
-// Prometheus scrape endpoint. Deliberately PUBLIC (no auth): Prometheus does
-// not send JWTs, and the payload contains only aggregate route/latency
-// counters — no PHI or user data. In production keep it network-restricted
-// (compose network / gateway allowlist) rather than token-gated.
+// Prometheus scrape endpoint. Secured via METRICS_TOKEN env var when set.
+// Configure your Prometheus scraper with: Authorization: Bearer <METRICS_TOKEN>
 app.get('/metrics', (req, res) => {
+    const metricsToken = process.env.METRICS_TOKEN;
+    if (metricsToken) {
+        const auth = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
+        if (auth !== metricsToken) {
+            return res.status(401).send('Unauthorized');
+        }
+    }
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(Telemetry.prometheusText());
 });

@@ -20,14 +20,6 @@ const waitForDB = async (maxMs = 12000) => {
     }
 };
 
-// ─── Demo users for when MongoDB is unavailable ──────────────────────────────
-const DEMO_USERS = [
-    { _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', email: 'ravi@careconnect.com', password: 'password123', phone: '+91-9876543001', role: 'patient', isActive: true, isVerified: true, dateOfBirth: new Date('1995-06-15'), gender: 'male', bloodGroup: 'O+', allergies: ['Penicillin'], location: { coordinates: [78.4867, 17.3850], address: 'Hyderabad, Telangana' }, emergencyContact: { name: 'Sita Teja', phone: '+91-9876543099', relationship: 'Mother' } },
-    { _id: 'demo-patient-2', firstName: 'Priya', lastName: 'Sharma', email: 'priya@careconnect.com', password: 'password123', phone: '+91-9876543002', role: 'patient', isActive: true, isVerified: true, dateOfBirth: new Date('1990-03-22'), gender: 'female', bloodGroup: 'A+', allergies: [] },
-    { _id: 'demo-doctor-1', firstName: 'Raj', lastName: 'Sharma', email: 'dr.raj@careconnect.com', password: 'password123', phone: '+91-9876543010', role: 'doctor', isActive: true, isVerified: true, specialization: 'General Physician', licenseNumber: 'MCI-2015-12345', experience: 12, consultationFee: 300, hospital: 'CareConnect City Hospital', department: 'General Medicine', rating: 4.8, availability: { isAvailable: true, days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] } },
-    { _id: 'demo-radiologist-1', firstName: 'Meera', lastName: 'Reddy', email: 'dr.meera@careconnect.com', password: 'password123', phone: '+91-9876543020', role: 'radiologist', isActive: true, isVerified: true, specialization: 'Diagnostic Radiology', experience: 10, certifications: ['ABR Certified', 'FRCR'], subspecialty: 'Musculoskeletal Radiology' },
-    { _id: 'demo-admin-1', firstName: 'Admin', lastName: 'CareConnect', email: 'admin@careconnect.com', password: 'admin123', phone: '+91-9876543000', role: 'admin', isActive: true, isVerified: true },
-];
 
 const isDBConnected = () => {
     return mongoose.connection.readyState === 1;
@@ -41,13 +33,7 @@ const register = async (req, res, next) => {
         const { firstName, lastName, email, password, phone, role, ...rest } = req.body;
 
         if (!isDBConnected()) {
-            const exists = DEMO_USERS.find(u => u.email === email);
-            if (exists) return res.status(400).json({ success: false, message: 'Email already registered.' });
-
-            const newUser = { _id: `demo-${Date.now()}`, firstName, lastName, email, phone, role: role || 'patient', isActive: true, isVerified: true, ...rest };
-            DEMO_USERS.push(newUser);
-            const token = generateToken(newUser._id);
-            return res.status(201).json({ success: true, message: 'Registration successful (demo mode).', data: { user: newUser, token } });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         const existingUser = await User.findOne({ email });
@@ -73,12 +59,7 @@ const login = async (req, res, next) => {
         }
 
         if (!isDBConnected()) {
-            const demoUser = DEMO_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-            if (!demoUser || demoUser.password !== password) {
-                return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-            }
-            const { password: _pw, ...safeUser } = demoUser;
-            return res.json({ success: true, message: 'Login successful (demo mode).', data: { user: safeUser, token: generateToken(demoUser._id) } });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         const user = await User.findOne({ email }).select('+password');
@@ -106,8 +87,8 @@ const sendOtp = async (req, res, next) => {
         const { identifier } = req.body; // email or phone
         if (!identifier) return res.status(400).json({ success: false, message: 'Please provide phone or email.' });
 
-        // Generate a 6 digit OTP (static for demo, random for prod)
-        const otp = process.env.NODE_ENV === 'development' ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
+        // Generate a 6-digit OTP. Set STATIC_OTP env var for testing only — never in production.
+        const otp = process.env.STATIC_OTP || Math.floor(100000 + Math.random() * 900000).toString();
         
         // Store OTP with expiration (5 mins)
         otpStore.set(identifier, { otp, expires: Date.now() + 5 * 60 * 1000 });
@@ -139,7 +120,7 @@ const verifyOtp = async (req, res, next) => {
         otpStore.delete(identifier);
 
         if (!isDBConnected()) {
-             return res.json({ success: true, message: 'OTP Verified (demo).', data: { token: 'demo-token' } });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         // Check if user exists
@@ -180,7 +161,7 @@ const socialLogin = async (req, res, next) => {
         // Expected profile: { email, firstName, lastName, googleId/appleId }
         
         if (!isDBConnected()) {
-            return res.json({ success: true, message: 'Social login demo', data: { token: 'demo-token' } });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         let user = await User.findOne({ email: profile.email });
@@ -217,7 +198,6 @@ const socialLogin = async (req, res, next) => {
 
 const getMe = async (req, res, next) => {
     try {
-        if (!isDBConnected()) return res.json({ success: true, data: req.user });
         const user = await User.findById(req.user._id);
         const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
         res.json({ success: true, data: { ...user.toObject(), permissions, workspaces } });
@@ -228,8 +208,6 @@ const getMe = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
     try {
-        if (!isDBConnected()) return res.json({ success: true, data: { ...req.user, ...req.body } });
-        
         const fieldsToUpdate = { ...req.body };
         ['password', 'pin', 'role', 'email', 'phone'].forEach(k => delete fieldsToUpdate[k]); // Protect sensitive fields
         
@@ -242,8 +220,6 @@ const updateProfile = async (req, res, next) => {
 
 const setupProfile = async (req, res, next) => {
     try {
-        if (!isDBConnected()) return res.json({ success: true, message: 'Profile setup complete (demo).' });
-
         const { firstName, lastName, dateOfBirth, gender, bloodGroup, height, weight, nationality, language, occupation, emergencyContact, location } = req.body;
         
         const user = await User.findByIdAndUpdate(
@@ -259,8 +235,6 @@ const setupProfile = async (req, res, next) => {
 
 const setupMedicalProfile = async (req, res, next) => {
     try {
-        if (!isDBConnected()) return res.json({ success: true, message: 'Medical profile setup complete (demo).' });
-
         const { allergies, chronicDiseases, medications, surgeries, familyHistory, lifestyle, pregnancyStatus, disabilityInfo, insurance } = req.body;
         
         const user = await User.findByIdAndUpdate(
@@ -276,8 +250,6 @@ const setupMedicalProfile = async (req, res, next) => {
 
 const setupSecurity = async (req, res, next) => {
     try {
-        if (!isDBConnected()) return res.json({ success: true, message: 'Security setup complete (demo).' });
-
         const { twoFactorEnabled, pin, recoveryEmail } = req.body;
         
         const user = await User.findById(req.user._id);
@@ -294,8 +266,6 @@ const setupSecurity = async (req, res, next) => {
 
 const changePassword = async (req, res, next) => {
     try {
-        if (!isDBConnected()) return res.json({ success: true, data: { token: generateToken(req.user._id) } });
-
         const { currentPassword, newPassword } = req.body;
         const user = await User.findById(req.user._id).select('+password');
         const isMatch = await user.comparePassword(currentPassword);

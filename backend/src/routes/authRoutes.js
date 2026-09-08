@@ -1,9 +1,9 @@
 const express = require('express');
-const { 
-    register, 
-    login, 
-    getMe, 
-    updateProfile, 
+const {
+    register,
+    login,
+    getMe,
+    updateProfile,
     changePassword,
     sendOtp,
     verifyOtp,
@@ -13,19 +13,23 @@ const {
     setupSecurity
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const rateLimit = require('../middleware/rateLimit');
 
 const router = express.Router();
 
+// Stricter per-endpoint rate limit for credential and OTP endpoints (10 req / 15 min per IP)
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+
 // Standard Auth
-router.post('/register', register);
-router.post('/login', login);
+router.post('/register', authRateLimit, register);
+router.post('/login', authRateLimit, login);
 
 // OTP Auth
-router.post('/send-otp', sendOtp);
-router.post('/verify-otp', verifyOtp);
+router.post('/send-otp', authRateLimit, sendOtp);
+router.post('/verify-otp', authRateLimit, verifyOtp);
 
 // Social Login
-router.post('/social-login', socialLogin);
+router.post('/social-login', authRateLimit, socialLogin);
 
 // Profile & Setup
 router.get('/me', protect, getMe);

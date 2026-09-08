@@ -1,18 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// ─── Demo users mirror (must match authController) ───────────────────────────
-const DEMO_USERS = [
-    { _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', email: 'ravi@careconnect.com', role: 'patient', isActive: true, isVerified: true, bloodGroup: 'O+', allergies: ['Penicillin'], gender: 'male' },
-    { _id: 'demo-patient-2', firstName: 'Priya', lastName: 'Sharma', email: 'priya@careconnect.com', role: 'patient', isActive: true, isVerified: true },
-    { _id: 'demo-doctor-1', firstName: 'Raj', lastName: 'Sharma', email: 'dr.raj@careconnect.com', role: 'doctor', isActive: true, specialization: 'General Physician', hospital: 'CareConnect City Hospital', rating: 4.8, consultationFee: 300 },
-    { _id: 'demo-doctor-2', firstName: 'Anita', lastName: 'Desai', email: 'dr.anita@careconnect.com', role: 'doctor', isActive: true, specialization: 'Orthopedic Surgeon', consultationFee: 500, rating: 4.9 },
-    { _id: 'demo-doctor-3', firstName: 'Vikram', lastName: 'Patel', email: 'dr.vikram@careconnect.com', role: 'doctor', isActive: true, specialization: 'Cardiologist', consultationFee: 800, rating: 4.7 },
-    { _id: 'demo-radiologist-1', firstName: 'Meera', lastName: 'Reddy', email: 'dr.meera@careconnect.com', role: 'radiologist', isActive: true, specialization: 'Diagnostic Radiology', certifications: ['ABR Certified', 'FRCR'] },
-    { _id: 'demo-radiologist-2', firstName: 'Arjun', lastName: 'Nair', email: 'dr.arjun@careconnect.com', role: 'radiologist', isActive: true, specialization: 'Neuroradiology' },
-    { _id: 'demo-admin-1', firstName: 'Admin', lastName: 'CareConnect', email: 'admin@careconnect.com', role: 'admin', isActive: true },
-];
-
 const isDBConnected = () => {
     const mongoose = require('mongoose');
     return mongoose.connection.readyState === 1;
@@ -34,18 +22,7 @@ const protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const resolvedId = decoded.id || decoded._id || decoded.userId;
 
-        // ── Demo user check (always first) ────────────────────────────────────────
-        // Demo IDs (e.g. 'demo-patient-1') are not valid ObjectIds, so we must
-        // resolve them before any MongoDB query to prevent CastErrors when the
-        // DB is connected — Vercel functions can be connected on one request and
-        // disconnected on another, causing unpredictable 401s for demo sessions.
-        const demoUser = DEMO_USERS.find(u => u._id === resolvedId);
-        if (demoUser) {
-            req.user = demoUser;
-            return next();
-        }
-
-        // ── Offline fallback (non-demo token, DB unreachable) ─────────────────────
+        // ── Offline fallback ──────────────────────────────────────────────────────
         if (!isDBConnected()) {
             return res.status(503).json({ success: false, message: 'Service temporarily unavailable. Please try again.' });
         }
@@ -78,7 +55,7 @@ const authorize = (...roles) => {
 // Generate JWT Token
 const generateToken = (userId) => {
     return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+        expiresIn: process.env.JWT_EXPIRE || '7d',
     });
 };
 
