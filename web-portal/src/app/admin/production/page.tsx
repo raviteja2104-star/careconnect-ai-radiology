@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Lock, Key, Activity, Play, Smartphone,
+  Lock, Key, Activity, Smartphone,
   Sparkles, Award, HeartPulse, GraduationCap, ScanSearch, UploadCloud,
   Fingerprint, Server, FlaskConical, Gauge, Users, Plus,
 } from 'lucide-react';
@@ -14,9 +15,25 @@ import {
 } from '@/components/ui';
 import { authService, AuthUserSession } from '@/services/authService';
 import { securityAuditService, AuditLogEntry, INITIAL_AUDIT_LOGS } from '@/services/securityAuditService';
-import { hospitalMigrationService, MigrationJobRecord } from '@/services/hospitalMigrationService';
 import { testingSuiteService, QualityMetricsData } from '@/services/testingSuiteService';
 import { productionHardeningService, RegulatoryComplianceStatus, ClinicalDeviceInterface, AISafetyValidationMetric, MobileAppHealthStatus } from '@/services/productionHardeningService';
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
+interface MigrationJobRecord {
+  id: string;
+  sourceSystem: 'EPIC_EHR' | 'CERNER' | 'LOCAL_EXCEL' | 'ORTHANC_PACS' | 'LEGACY_LIS';
+  dataType: 'PATIENTS' | 'EMR_ENCOUNTERS' | 'LAB_RESULTS' | 'DICOM_IMAGES' | 'BILLING_MASTERS';
+  recordCount: number;
+  processedCount: number;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  startedAt: string;
+  completedAt?: string | null;
+}
 
 const COMPLIANCE_TONE: Record<RegulatoryComplianceStatus['status'], 'success' | 'info' | 'warning'> = {
   COMPLIANT: 'success',
@@ -39,16 +56,29 @@ const MIGRATION_STATUS_TONE: Record<MigrationJobRecord['status'], 'neutral' | 'i
 
 export default function ProductionHardeningPage() {
   const [activeTab, setActiveTab] = useState<'AUTH' | 'COMPLIANCE' | 'HARDWARE' | 'TESTING' | 'MOBILE' | 'AI_SAFETY' | 'GOLIVE'>('AUTH');
+  const queryClient = useQueryClient();
 
-  // Service Data States
+  // Static service data
   const [session] = useState<AuthUserSession>(authService.getCurrentSession());
   const [policy] = useState(authService.getSecurityPolicy());
   const [logs, setLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
-  const [migrationJobs, setMigrationJobs] = useState<MigrationJobRecord[]>(hospitalMigrationService.getJobs());
-  const [testMetrics, setTestMetrics] = useState<QualityMetricsData>(testingSuiteService.getTestMetrics());
+  const [testMetrics] = useState<QualityMetricsData>(testingSuiteService.getTestMetrics());
+  const [compliance] = useState<RegulatoryComplianceStatus[]>(productionHardeningService.getCompliance());
+  const [devices] = useState<ClinicalDeviceInterface[]>(productionHardeningService.getDevices());
+  const [aiSafety] = useState<AISafetyValidationMetric[]>(productionHardeningService.getAISafety());
+  const [mobileApps] = useState<MobileAppHealthStatus[]>(productionHardeningService.getMobileApps());
+  const [goLive] = useState(productionHardeningService.getGoLiveChecklist());
 
-  // Audit trail is fetched from the real backend when a session token exists;
-  // otherwise the labeled demo rows remain in place.
+  // Interactive Migration Form
+  const [importSystem, setImportSystem] = useState('LOCAL_EXCEL');
+  const [importRecords, setImportRecords] = useState(1420);
+
+  // Interactive PHI Scanner State
+  const [rawText, setRawText] = useState('Patient Rajesh Rao (SSN: 901-28-4920, Phone: 9876543210, Email: rajesh@example.com) presented with acute dyspnea.');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [phiResult, setPhiResult] = useState<any>(null);
+
+  // Real audit log fetch
   useEffect(() => {
     let active = true;
     securityAuditService.getAuditLogs()
@@ -57,20 +87,25 @@ export default function ProductionHardeningPage() {
     return () => { active = false; };
   }, []);
 
-  const [compliance] = useState<RegulatoryComplianceStatus[]>(productionHardeningService.getCompliance());
-  const [devices] = useState<ClinicalDeviceInterface[]>(productionHardeningService.getDevices());
-  const [aiSafety] = useState<AISafetyValidationMetric[]>(productionHardeningService.getAISafety());
-  const [mobileApps] = useState<MobileAppHealthStatus[]>(productionHardeningService.getMobileApps());
-  const [goLive] = useState(productionHardeningService.getGoLiveChecklist());
+  // Real migration jobs from DB
+  const { data: migrationRes } = useQuery({
+    queryKey: ['migration-jobs'],
+    queryFn: () =>
+      fetch(`${API}/api/admin/migration-jobs`, { headers: authHeaders() }).then((r) => r.json()),
+    refetchInterval: 10000,
+  });
+  const migrationJobs: MigrationJobRecord[] = migrationRes?.data ?? [];
 
-  // Interactive PHI Scanner State
-  const [rawText, setRawText] = useState('Patient Rajesh Rao (SSN: 901-28-4920, Phone: 9876543210, Email: rajesh@example.com) presented with acute dyspnea.');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [phiResult, setPhiResult] = useState<any>(null);
-
-  // Interactive Migration Form
-  const [importSystem, setImportSystem] = useState('LOCAL_EXCEL');
-  const [importRecords, setImportRecords] = useState(1420);
+  // Create migration job mutation
+  const createJobMutation = useMutation({
+    mutationFn: (body: { sourceSystem: string; dataType: string; recordCount: number }) =>
+      fetch(`${API}/api/admin/migration-jobs`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['migration-jobs'] }),
+  });
 
   const handleScanPHI = () => {
     setPhiResult(securityAuditService.scanAndRedactPHI(rawText));
@@ -78,12 +113,7 @@ export default function ProductionHardeningPage() {
 
   const handleStartMigration = (e: React.FormEvent) => {
     e.preventDefault();
-    hospitalMigrationService.uploadAndMigrate(importSystem, 'PATIENTS', importRecords);
-    setMigrationJobs([...hospitalMigrationService.getJobs()]);
-  };
-
-  const handleRunTestSuites = () => {
-    setTestMetrics(testingSuiteService.triggerFullTestSuite());
+    createJobMutation.mutate({ sourceSystem: importSystem, dataType: 'PATIENTS', recordCount: importRecords });
   };
 
   const avgCompliancePct = compliance.reduce((sum, c) => sum + c.compliancePct, 0) / (compliance.length || 1);
@@ -377,9 +407,7 @@ export default function ProductionHardeningPage() {
               <h2 className="text-lg font-semibold text-foreground">Automated QA Testing Suite & Coverage Telemetry</h2>
               <p className="text-sm text-muted-foreground">Vitest unit tests, Playwright E2E suites, k6 10,000 clinician load tests (&gt;90% target).</p>
             </div>
-            <Button onClick={handleRunTestSuites}>
-              <Play className="h-4 w-4" aria-hidden /> Trigger Full Test Suite
-            </Button>
+            <Badge tone="info" dot>Test runs triggered via CI/CD pipeline</Badge>
           </div>
 
           <Card>
@@ -568,8 +596,8 @@ export default function ProductionHardeningPage() {
                     onChange={(e) => setImportRecords(Number(e.target.value))}
                   />
                 </div>
-                <Button type="submit" className="shrink-0">
-                  <Plus className="h-4 w-4" aria-hidden /> Start Migration
+                <Button type="submit" className="shrink-0" disabled={createJobMutation.isPending}>
+                  <Plus className="h-4 w-4" aria-hidden /> {createJobMutation.isPending ? 'Queuing…' : 'Start Migration'}
                 </Button>
               </form>
 

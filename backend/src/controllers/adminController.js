@@ -195,6 +195,130 @@ exports.getOrganizations = async (req, res) => {
   }
 };
 
+exports.getMigrationJobs = async (req, res) => {
+  try {
+    const isDBConnected = () => require('mongoose').connection.readyState === 1;
+    if (!isDBConnected()) {
+      return res.json({ success: true, data: [] });
+    }
+    const MigrationJob = require('../models/MigrationJob');
+    const jobs = await MigrationJob.find().sort({ createdAt: -1 }).limit(50).lean();
+    const data = jobs.map((j) => ({
+      id: j._id.toString(),
+      sourceSystem: j.sourceSystem,
+      dataType: j.dataType,
+      recordCount: j.recordCount,
+      processedCount: j.processedCount,
+      status: j.status,
+      startedAt: j.createdAt,
+      completedAt: j.completedAt || null,
+    }));
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.createMigrationJob = async (req, res) => {
+  try {
+    const isDBConnected = () => require('mongoose').connection.readyState === 1;
+    if (!isDBConnected()) {
+      return res.status(503).json({ success: false, message: 'Database unavailable — cannot create migration job.' });
+    }
+    const { sourceSystem, dataType, recordCount } = req.body;
+    if (!sourceSystem || !dataType || !recordCount) {
+      return res.status(400).json({ success: false, message: 'sourceSystem, dataType, and recordCount are required.' });
+    }
+    const MigrationJob = require('../models/MigrationJob');
+    const job = await MigrationJob.create({
+      sourceSystem,
+      dataType,
+      recordCount: Number(recordCount),
+      processedCount: 0,
+      status: 'PENDING',
+      createdBy: req.user?._id || null,
+    });
+    res.json({
+      success: true,
+      data: {
+        id: job._id.toString(),
+        sourceSystem: job.sourceSystem,
+        dataType: job.dataType,
+        recordCount: job.recordCount,
+        processedCount: job.processedCount,
+        status: job.status,
+        startedAt: job.createdAt,
+        completedAt: null,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.getSupportTickets = async (req, res) => {
+  try {
+    const isDBConnected = () => require('mongoose').connection.readyState === 1;
+    if (!isDBConnected()) {
+      return res.json({ success: true, data: [] });
+    }
+    const SupportTicket = require('../models/SupportTicket');
+    const tickets = await SupportTicket.find({ status: { $ne: 'RESOLVED' } }).sort({ createdAt: -1 }).limit(100).lean();
+    const data = tickets.map((t) => ({
+      id: t._id.toString(),
+      hospitalName: t.hospitalName,
+      title: t.title,
+      severity: t.severity,
+      status: t.status,
+      assignedEngineer: t.assignedEngineer,
+      slaExpiresInMins: t.slaExpiresInMins,
+      createdAt: t.createdAt,
+    }));
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.createSupportTicket = async (req, res) => {
+  try {
+    const isDBConnected = () => require('mongoose').connection.readyState === 1;
+    if (!isDBConnected()) {
+      return res.status(503).json({ success: false, message: 'Database unavailable — cannot create ticket.' });
+    }
+    const { hospitalName, title, severity } = req.body;
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'title is required.' });
+    }
+    const SupportTicket = require('../models/SupportTicket');
+    const slaMap = { CRITICAL: 30, MAJOR: 120, MINOR: 240 };
+    const ticket = await SupportTicket.create({
+      hospitalName: hospitalName || 'CareConnect Platform',
+      title,
+      severity: severity || 'MINOR',
+      status: 'OPEN',
+      assignedEngineer: 'Unassigned',
+      slaExpiresInMins: slaMap[severity] || 240,
+      createdBy: req.user?._id || null,
+    });
+    res.json({
+      success: true,
+      data: {
+        id: ticket._id.toString(),
+        hospitalName: ticket.hospitalName,
+        title: ticket.title,
+        severity: ticket.severity,
+        status: ticket.status,
+        assignedEngineer: ticket.assignedEngineer,
+        slaExpiresInMins: ticket.slaExpiresInMins,
+        createdAt: ticket.createdAt,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 exports.getAdminAuditLogs = async (req, res) => {
   try {
     const mongoose = require('mongoose');

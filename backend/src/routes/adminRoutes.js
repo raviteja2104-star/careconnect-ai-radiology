@@ -9,6 +9,10 @@ const {
   getSystemHealth,
   getOrganizations,
   getAdminAuditLogs,
+  getMigrationJobs,
+  createMigrationJob,
+  getSupportTickets,
+  createSupportTicket,
 } = require('../controllers/adminController');
 
 router.get('/command-center', protect, authorize('admin'), getCommandCenter);
@@ -18,5 +22,9 @@ router.post('/invoices', protect, authorize('admin'), createInvoice);
 router.get('/system-health', protect, authorize('admin'), getSystemHealth);
 router.get('/organizations', protect, authorize('admin'), getOrganizations);
 router.get('/audit-logs', protect, authorize('admin'), getAdminAuditLogs);
+router.get('/migration-jobs', protect, authorize('admin'), getMigrationJobs);
+router.post('/migration-jobs', protect, authorize('admin'), createMigrationJob);
+router.get('/support-tickets', protect, authorize('admin'), getSupportTickets);
+router.post('/support-tickets', protect, authorize('admin'), createSupportTicket);
 
 module.exports = router;

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, HardDrive, GraduationCap, LifeBuoy, TrendingUp,
   GitBranch, Clock, Users, Plus, Award, Stethoscope, FileSignature, Star,
@@ -16,6 +17,12 @@ import {
   Progress, DataTable, type Column,
 } from '@/components/ui';
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
 type OpsTab = 'PROJECTS' | 'DEVICES' | 'LMS' | 'SUPPORT' | 'ADOPTION' | 'RELEASES';
 
 const sevTone: Record<SupportTicketRecord['severity'], 'neutral' | 'warning' | 'danger'> = {
@@ -26,24 +33,51 @@ const sevTone: Record<SupportTicketRecord['severity'], 'neutral' | 'warning' | '
 
 export default function EnterpriseOperationsPage() {
   const [activeTab, setActiveTab] = useState<OpsTab>('PROJECTS');
+  const queryClient = useQueryClient();
 
-  // States
+  // Static data from service singletons (no real backend source for these)
   const [projects] = useState<HospitalCustomerProject[]>(enterpriseOperationsService.getProjects());
   const [devices] = useState<DeviceInstallationRecord[]>(enterpriseOperationsService.getDevices());
-  const [tickets, setTickets] = useState<SupportTicketRecord[]>(enterpriseOperationsService.getTickets());
   const [courses] = useState<LMSTrainingCourse[]>(enterpriseOperationsService.getLMS());
   const [releases] = useState<ReleaseEnvironmentStatus[]>(enterpriseOperationsService.getReleases());
-  const [adoption] = useState(enterpriseOperationsService.getCustomerAdoptionMetrics());
+
+  // Real support tickets from DB
+  const { data: ticketsRes } = useQuery({
+    queryKey: ['admin-support-tickets'],
+    queryFn: () =>
+      fetch(`${API}/api/admin/support-tickets`, { headers: authHeaders() }).then((r) => r.json()),
+    refetchInterval: 30000,
+  });
+  const tickets: SupportTicketRecord[] = ticketsRes?.data ?? [];
+
+  // Real adoption stats from platform-stats endpoint
+  const { data: statsRes } = useQuery({
+    queryKey: ['platform-stats-ops'],
+    queryFn: () =>
+      fetch(`${API}/api/admin/platform-stats`, { headers: authHeaders() }).then((r) => r.json()),
+  });
+  const realStats = statsRes?.data;
+  const staticAdoption = enterpriseOperationsService.getCustomerAdoptionMetrics();
 
   // Ticket Form State
   const [newHosp, setNewHosp] = useState('Apollo Super Specialty Hospital Main');
   const [newTitle, setNewTitle] = useState('PACS DICOM Gateway WADO-RS connection latency check');
   const [newSev, setNewSev] = useState<'MINOR' | 'MAJOR' | 'CRITICAL'>('MINOR');
 
+  const createTicketMutation = useMutation({
+    mutationFn: (body: { hospitalName: string; title: string; severity: string }) =>
+      fetch(`${API}/api/admin/support-tickets`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-support-tickets'] }),
+  });
+
   const handleCreateTicket = (e: React.FormEvent) => {
     e.preventDefault();
-    enterpriseOperationsService.createTicket(newHosp, newTitle, newSev);
-    setTickets([...enterpriseOperationsService.getTickets()]);
+    if (!newTitle.trim()) return;
+    createTicketMutation.mutate({ hospitalName: newHosp, title: newTitle, severity: newSev });
   };
 
   const deviceColumns: Column<DeviceInstallationRecord>[] = [
@@ -287,8 +321,8 @@ export default function EnterpriseOperationsPage() {
                     <option value="CRITICAL">CRITICAL</option>
                   </Select>
                 </div>
-                <Button type="submit" className="shrink-0">
-                  <Plus className="h-4 w-4" aria-hidden /> Open Ticket
+                <Button type="submit" className="shrink-0" disabled={createTicketMutation.isPending}>
+                  <Plus className="h-4 w-4" aria-hidden /> {createTicketMutation.isPending ? 'Creating…' : 'Open Ticket'}
                 </Button>
               </form>
             </CardContent>
@@ -315,8 +349,8 @@ export default function EnterpriseOperationsPage() {
           <StatGrid>
             <StatCard
               label="Monthly Active Users"
-              value={adoption.activeMonthlyUsers.toLocaleString()}
-              sub="+18% growth this month"
+              value={realStats ? realStats.activeUsers.toLocaleString() : staticAdoption.activeMonthlyUsers.toLocaleString()}
+              sub={realStats ? 'Active users in platform' : '+18% growth this month'}
               trend="up"
               trendPositive
               icon={Users}
@@ -325,23 +359,23 @@ export default function EnterpriseOperationsPage() {
             />
             <StatCard
               label="AI Scribe Adoption"
-              value={`${adoption.aiScribeAdoptionPct}%`}
+              value={`${staticAdoption.aiScribeAdoptionPct}%`}
               sub="Clinician usage"
               icon={Stethoscope}
               tone="violet"
               delay={0.05}
             />
             <StatCard
-              label="30d EMR Prescriptions"
-              value={adoption.emrPrescriptionVolume30d.toLocaleString()}
-              sub="Prescriptions signed"
+              label="30d Appointments"
+              value={realStats ? realStats.todayAppointments.toLocaleString() : staticAdoption.emrPrescriptionVolume30d.toLocaleString()}
+              sub={realStats ? "Today's scheduled appointments" : 'Appointments booked'}
               icon={FileSignature}
               tone="emerald"
               delay={0.1}
             />
             <StatCard
               label="Customer CSAT"
-              value={`${adoption.customerSatisfactionCSAT} / 5.0`}
+              value={`${staticAdoption.customerSatisfactionCSAT} / 5.0`}
               sub="CSAT survey score"
               icon={Star}
               tone="amber"
