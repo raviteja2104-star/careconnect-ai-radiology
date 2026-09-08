@@ -1,7 +1,8 @@
 ﻿'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import Pusher from 'pusher-js';
 import {
   Users, Clock, ArrowRight, Play, CheckCircle, Microscope,
   Pill, FileText, Banknote, MapPin, Timer,
@@ -11,13 +12,60 @@ import {
   PageHeader, StatCard, StatGrid, Badge, Button, Avatar,
   Card, CardHeader, CardTitle, CardContent, Dialog,
   EmptyState, Skeleton, SkeletonCard, Textarea, Label,
+  useToast,
 } from '@/components/ui';
+
+function getDoctorIdFromToken(): string | null {
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.id ?? payload._id ?? null) as string | null;
+  } catch {
+    return null;
+  }
+}
 
 export default function DoctorQueueWorkspace() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const department = 'OPD'; // Hardcoded for demo
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTarget, setTransferTarget] = useState('Laboratory');
+
+  // Subscribe to private-doctor-{userId} so PATIENT_JOINED_WAITING_ROOM
+  // arrives instantly via Pusher instead of waiting for the next React Query poll.
+  useEffect(() => {
+    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    if (!pusherKey) return;
+    const userId = getDoctorIdFromToken();
+    if (!userId) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('token') ?? '') : '';
+
+    const pusherClient = new Pusher(pusherKey, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1',
+      channelAuthorization: {
+        endpoint: `${apiUrl}/api/pusher/auth`,
+        transport: 'ajax',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    });
+
+    const channel = pusherClient.subscribe(`private-doctor-${userId}`);
+
+    channel.bind('PATIENT_JOINED_WAITING_ROOM', (data: { patientName?: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['queue', department] });
+      toast('info', 'Patient arrived', `${data.patientName ?? 'A patient'} has joined the waiting room.`);
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusherClient.unsubscribe(`private-doctor-${userId}`);
+      pusherClient.disconnect();
+    };
+  }, [queryClient, department, toast]);
 
   const getAuthHeader = (): Record<string, string> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
