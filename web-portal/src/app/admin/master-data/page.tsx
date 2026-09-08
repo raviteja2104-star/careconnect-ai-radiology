@@ -4,19 +4,15 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  Building, Layers, Globe, Palette,
-  Plus, Save, ShieldCheck, Sliders, Check, CornerDownLeft,
-  Landmark, GitBranch, Languages, ToggleRight, History, Network,
+  Layers, Plus, ShieldCheck, Sliders, Check,
+  ToggleRight, Construction,
 } from 'lucide-react';
 import {
-  PageHeader, StatCard, StatGrid, Badge, Button, Card, CardHeader, CardTitle,
-  CardDescription, CardContent, Tabs, TabsList, TabsTrigger, TabsContent,
-  Input, Select, Label, DataTable, type Column, Switch, Timeline, TimelineItem, Progress,
+  PageHeader, StatCard, StatGrid, Badge, Button, Card, CardContent,
+  Tabs, TabsList, TabsTrigger, TabsContent,
+  Input, Label, DataTable, type Column, Switch, EmptyState,
 } from '@/components/ui';
-import {
-  masterDataService, MasterDataItem, HospitalHierarchyNode,
-  FeatureFlagConfig, LanguageResourceConfig,
-} from '@/services/masterDataService';
+import { MasterDataItem, FeatureFlagConfig } from '@/services/masterDataService';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 function authHeaders(): Record<string, string> {
@@ -28,18 +24,6 @@ interface ApiMasterItem { key: string; value: string; category: string; descript
 
 const MASTER_CATEGORIES = ['PATIENT', 'CLINICAL', 'PHARMACY', 'LABORATORY', 'RADIOLOGY', 'BILLING'] as const;
 
-const NODE_TYPE_TONE: Record<HospitalHierarchyNode['type'], 'brand' | 'info' | 'neutral' | 'success' | 'warning'> = {
-  ORGANIZATION: 'brand',
-  HOSPITAL: 'brand',
-  CAMPUS: 'info',
-  BUILDING: 'info',
-  FLOOR: 'neutral',
-  DEPARTMENT: 'success',
-  WARD: 'warning',
-  ROOM: 'neutral',
-  BED: 'neutral',
-};
-
 const FLAG_CATEGORY_TONE: Record<FeatureFlagConfig['category'], 'brand' | 'info' | 'warning' | 'success'> = {
   CLINICAL: 'success',
   MODULE: 'brand',
@@ -49,19 +33,15 @@ const FLAG_CATEGORY_TONE: Record<FeatureFlagConfig['category'], 'brand' | 'info'
 
 export default function MasterDataManagementPage() {
   const [activeTab, setActiveTab] = useState<'HIERARCHY' | 'MASTERS' | 'LANGUAGES' | 'BRANDING' | 'FEATURE_FLAGS' | 'VERSIONS'>('HIERARCHY');
-
   const queryClient = useQueryClient();
 
-  // Service States
-  const [hierarchy] = useState<HospitalHierarchyNode[]>(masterDataService.getHierarchy());
-  const [masterItems, setMasterItems] = useState<MasterDataItem[]>(masterDataService.getMasterItems());
   const [selectedCategory, setSelectedCategory] = useState<string>('CLINICAL');
-  const [featureFlags, setFeatureFlags] = useState<FeatureFlagConfig[]>(masterDataService.getFeatureFlags());
-  const [languages] = useState<LanguageResourceConfig[]>(masterDataService.getLanguages());
-  const [branding, setBranding] = useState(masterDataService.getBranding());
-  const [versions] = useState(masterDataService.getVersions());
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemCode, setNewItemCode] = useState('');
+  const [newItemSubCategory, setNewItemSubCategory] = useState('Diagnosis');
+  const [saveToast, setSaveToast] = useState(false);
 
-  // API queries
+  // Real API queries
   const { data: flagsRes } = useQuery({
     queryKey: ['master_feature_flags'],
     queryFn: () => fetch(`${API}/api/master-data/feature-flags`, { headers: authHeaders() }).then(r => r.json()),
@@ -84,115 +64,55 @@ export default function MasterDataManagementPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['master_feature_flags'] }),
   });
 
-  // Modal / Form state
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemCode, setNewItemCode] = useState('');
-  const [newItemSubCategory, setNewItemSubCategory] = useState('Diagnosis');
-  const [saveToast, setSaveToast] = useState(false);
+  const addItemMutation = useMutation({
+    mutationFn: (item: { key: string; value: string; category: string; description?: string }) =>
+      fetch(`${API}/api/master-data/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(item),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['master_data_items'] });
+      setSaveToast(true);
+      setTimeout(() => setSaveToast(false), 3000);
+    },
+  });
 
-  const liveFlags: Array<{ key: string; label?: string; name?: string; description?: string; isEnabled: boolean; category: FeatureFlagConfig['category'] }> = flagsRes?.data ?? featureFlags;
+  const liveFlags: Array<{ key: string; label?: string; name?: string; description?: string; isEnabled: boolean; category: FeatureFlagConfig['category'] }> =
+    flagsRes?.data ?? [];
 
   const handleToggleFlag = (key: string) => {
     const flag = liveFlags.find((f) => f.key === key);
     if (!flag) return;
     toggleFlagMutation.mutate({ key, isEnabled: !flag.isEnabled });
-    // Keep local state in sync as optimistic fallback
-    masterDataService.toggleFeatureFlag(key);
-    setFeatureFlags([...masterDataService.getFeatureFlags()]);
   };
 
   const handleAddMaster = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName || !newItemCode) return;
-
-    const created = masterDataService.addMasterItem({
-      id: `m-custom-${Date.now()}`,
-      category: selectedCategory as MasterDataItem['category'],
-      subCategory: newItemSubCategory,
-      code: newItemCode,
-      name: newItemName,
-      status: 'ACTIVE'
+    addItemMutation.mutate({
+      key: newItemCode,
+      value: newItemName,
+      category: selectedCategory,
+      description: newItemSubCategory || undefined,
     });
-
-    setMasterItems([...masterDataService.getMasterItems()]);
     setNewItemName('');
     setNewItemCode('');
   };
 
-  const handleSaveBranding = () => {
-    masterDataService.updateBranding(branding);
-    setSaveToast(true);
-    setTimeout(() => setSaveToast(false), 3000);
-  };
-
-  const handlePublish = () => {
-    masterDataService.publishConfiguration('Master Data Configuration published via Admin Hub.');
-    setSaveToast(true);
-    setTimeout(() => setSaveToast(false), 3000);
-  };
-
   const enabledFlags = liveFlags.filter((f) => f.isEnabled).length;
-  const maxKeys = Math.max(...languages.map((l) => l.translatedCount), 1);
 
-  // Master items: prefer API data when available, mapped to display shape
   const apiItems: ApiMasterItem[] = itemsRes?.data ?? [];
-  const apiMappedItems: MasterDataItem[] = apiItems.map((item) => ({
+  const liveMasterItems: MasterDataItem[] = apiItems.map((item) => ({
     id: item.key,
     category: item.category as MasterDataItem['category'],
-    subCategory: '',
+    subCategory: item.description ?? '',
     code: item.key,
     name: item.value,
     description: item.description,
     status: 'ACTIVE' as const,
   }));
-  const liveMasterItems = apiMappedItems.length > 0 ? apiMappedItems : masterItems;
   const filteredMasters = liveMasterItems.filter((m) => m.category === selectedCategory);
-
-  const hierarchyColumns: Column<HospitalHierarchyNode>[] = [
-    {
-      key: 'name',
-      header: 'Unit',
-      sortable: true,
-      cell: (node) => (
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
-            <Building className="h-4 w-4" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <p className="font-semibold text-foreground truncate">{node.name}</p>
-            <p className="font-mono text-xs text-subtle-foreground">{node.id}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      sortable: true,
-      cell: (node) => <Badge tone={NODE_TYPE_TONE[node.type]}>{node.type}</Badge>,
-    },
-    {
-      key: 'childrenCount',
-      header: 'Child units',
-      align: 'right',
-      sortable: true,
-      accessor: (node) => node.childrenCount ?? 0,
-      cell: (node) => (
-        <span className="tabular-nums text-muted-foreground">
-          {node.childrenCount != null ? node.childrenCount : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (node) => (
-        <Badge tone={node.status === 'ACTIVE' ? 'success' : 'neutral'} dot>
-          {node.status}
-        </Badge>
-      ),
-    },
-  ];
 
   const masterColumns: Column<MasterDataItem>[] = [
     {
@@ -228,64 +148,57 @@ export default function MasterDataManagementPage() {
     <div className="space-y-6">
       <PageHeader
         title="Master Data & Config Hub"
-        description={`Central catalogue, hierarchy, branding and platform switches for ${branding.hospitalName}.`}
+        description="Central catalogue, hierarchy, branding and platform switches."
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Master Data' }]}
         actions={
-          <>
-            {saveToast && (
-              <Badge tone="success" dot pulse>
-                <Check className="h-3 w-3" aria-hidden /> Saved
-              </Badge>
-            )}
-            <Badge tone="info">v{versions[0].version}.0 Active</Badge>
-            <Button onClick={handlePublish}>
-              <Save className="h-4 w-4" aria-hidden /> Publish Config
-            </Button>
-          </>
+          saveToast ? (
+            <Badge tone="success" dot pulse>
+              <Check className="h-3 w-3" aria-hidden /> Saved
+            </Badge>
+          ) : undefined
         }
       />
 
       <StatGrid>
-        <StatCard label="Hierarchy units" value={hierarchy.length} sub="Org → Campus → Ward → Bed" icon={Network} tone="brand" delay={0} />
-        <StatCard label="Master records" value={masterItems.length} sub={`${MASTER_CATEGORIES.length} catalogue domains`} icon={Layers} tone="violet" delay={0.05} />
-        <StatCard label="Languages" value={languages.length} sub="Prescription & portal locales" icon={Languages} tone="teal" delay={0.1} />
-        <StatCard label="Feature flags" value={`${enabledFlags}/${liveFlags.length}`} sub="Modules currently enabled" icon={ToggleRight} tone="emerald" delay={0.15} />
+        <StatCard
+          label="Master records"
+          value={liveMasterItems.length}
+          sub={`${MASTER_CATEGORIES.length} catalogue domains`}
+          icon={Layers}
+          tone="violet"
+          delay={0}
+        />
+        <StatCard
+          label="Feature flags"
+          value={liveFlags.length > 0 ? `${enabledFlags}/${liveFlags.length}` : '—'}
+          sub="Modules currently enabled"
+          icon={ToggleRight}
+          tone="emerald"
+          delay={0.05}
+        />
       </StatGrid>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="HIERARCHY"><Building className="h-4 w-4" aria-hidden /> Structure</TabsTrigger>
+          <TabsTrigger value="HIERARCHY">Structure</TabsTrigger>
           <TabsTrigger value="MASTERS"><Layers className="h-4 w-4" aria-hidden /> Masters</TabsTrigger>
-          <TabsTrigger value="LANGUAGES"><Globe className="h-4 w-4" aria-hidden /> Multilingual</TabsTrigger>
-          <TabsTrigger value="BRANDING"><Palette className="h-4 w-4" aria-hidden /> Branding</TabsTrigger>
+          <TabsTrigger value="LANGUAGES">Multilingual</TabsTrigger>
+          <TabsTrigger value="BRANDING">Branding</TabsTrigger>
           <TabsTrigger value="FEATURE_FLAGS"><Sliders className="h-4 w-4" aria-hidden /> Feature Flags</TabsTrigger>
           <TabsTrigger value="VERSIONS"><ShieldCheck className="h-4 w-4" aria-hidden /> Audit & Versions</TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: ORGANISATION HIERARCHY */}
-        <TabsContent value="HIERARCHY" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Hospital Organisation Hierarchy</h2>
-              <p className="text-sm text-muted-foreground">Configure multi-tenant groups, campuses, departments, wards & beds.</p>
-            </div>
-            <Button variant="secondary" disabled title="Coming soon">
-              <Plus className="h-4 w-4" aria-hidden /> Add Node
-            </Button>
-          </div>
-          <DataTable<HospitalHierarchyNode>
-            columns={hierarchyColumns}
-            data={hierarchy}
-            rowKey={(node) => node.id}
-            searchPlaceholder="Search units…"
-            exportName="hospital-hierarchy"
-            emptyTitle="No organisation units"
-            emptyDescription="Add your first hospital, campus or department node to begin."
+        {/* TAB 1: ORGANISATION HIERARCHY — no backend endpoint */}
+        <TabsContent value="HIERARCHY" className="mt-6">
+          <EmptyState
+            icon={Construction}
+            title="Hospital hierarchy not yet available"
+            description="Organisation structure (hospitals, campuses, departments, wards, beds) is not yet managed via the API. Configure it directly in your database or contact the platform team."
           />
         </TabsContent>
 
-        {/* TAB 2: MASTER DATA CATALOGUES */}
-        <TabsContent value="MASTERS" className="space-y-4">
+        {/* TAB 2: MASTER DATA CATALOGUES — real API: GET /api/master-data/items, POST /api/master-data/items */}
+        <TabsContent value="MASTERS" className="space-y-4 mt-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-foreground">Master Data Catalogue</h2>
@@ -340,7 +253,7 @@ export default function MasterDataManagementPage() {
                     onChange={(e) => setNewItemSubCategory(e.target.value)}
                   />
                 </div>
-                <Button type="submit" className="shrink-0">
+                <Button type="submit" className="shrink-0" loading={addItemMutation.isPending}>
                   <Plus className="h-4 w-4" aria-hidden /> Add to {selectedCategory}
                 </Button>
               </form>
@@ -358,175 +271,79 @@ export default function MasterDataManagementPage() {
           />
         </TabsContent>
 
-        {/* TAB 3: MULTILINGUAL DEFAULTS */}
-        <TabsContent value="LANGUAGES" className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Multilingual Resources & Patient Defaults</h2>
-            <p className="text-sm text-muted-foreground">Locales for prescriptions, patient portal & WhatsApp dispatches.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {languages.map((lang, i) => (
-              <motion.div
-                key={lang.code}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card className="h-full">
-                  <CardContent className="space-y-3 pt-5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{lang.name}</p>
-                        <p className="text-sm text-muted-foreground">{lang.nativeName}</p>
-                      </div>
-                      <Badge tone="brand" className="font-mono uppercase">{lang.code}</Badge>
-                    </div>
-                    <Progress
-                      value={Math.round((lang.translatedCount / maxKeys) * 100)}
-                      tone={lang.translatedCount === maxKeys ? 'success' : 'brand'}
-                      label={`${lang.translatedCount} keys`}
-                      showValue
-                    />
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {lang.isDefaultPrescriptionLanguage && <Badge tone="success" dot>Default Rx</Badge>}
-                      {lang.direction === 'rtl' && <Badge tone="outline">RTL</Badge>}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+        {/* TAB 3: MULTILINGUAL — no backend endpoint */}
+        <TabsContent value="LANGUAGES" className="mt-6">
+          <EmptyState
+            icon={Construction}
+            title="Multilingual configuration not yet available"
+            description="Language and locale management is not yet implemented in the backend API. This feature is planned for a future release."
+          />
         </TabsContent>
 
-        {/* TAB 4: BRANDING & IDENTITY */}
-        <TabsContent value="BRANDING">
-          <Card>
-            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-              <div>
-                <CardTitle>Branding & Hospital Legal Identity</CardTitle>
-                <CardDescription>Hospital identity, NABH registration & prescription headers.</CardDescription>
-              </div>
-              <Button onClick={handleSaveBranding} className="shrink-0">
-                <Save className="h-4 w-4" aria-hidden /> Save Branding
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="branding-name">Hospital official name</Label>
-                  <Input
-                    id="branding-name"
-                    icon={<Landmark />}
-                    value={branding.hospitalName}
-                    onChange={(e) => setBranding({ ...branding, hospitalName: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="branding-nabh">NABH registration no.</Label>
-                  <Input
-                    id="branding-nabh"
-                    value={branding.nabhRegistrationNo}
-                    onChange={(e) => setBranding({ ...branding, nabhRegistrationNo: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="branding-gstin">GSTIN tax ID</Label>
-                  <Input
-                    id="branding-gstin"
-                    value={branding.gstinNo}
-                    onChange={(e) => setBranding({ ...branding, gstinNo: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="branding-header">Prescription header layout</Label>
-                  <Select
-                    id="branding-header"
-                    value={branding.prescriptionHeaderLayout}
-                    onChange={(e) => setBranding({ ...branding, prescriptionHeaderLayout: e.target.value as 'HEADER_FULL' | 'HEADER_COMPACT' | 'LETTERHEAD_PREPRINTED' })}
-                  >
-                    <option value="HEADER_FULL">Full Standard Header with Logo</option>
-                    <option value="HEADER_COMPACT">Compact Modern Header</option>
-                    <option value="LETTERHEAD_PREPRINTED">Pre-Printed Letterhead Margins</option>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* TAB 4: BRANDING — no backend endpoint */}
+        <TabsContent value="BRANDING" className="mt-6">
+          <EmptyState
+            icon={Construction}
+            title="Branding configuration not yet available"
+            description="Hospital branding, NABH registration, and prescription header settings are not yet managed via the API. Configure these directly in the database or contact the platform team."
+          />
         </TabsContent>
 
-        {/* TAB 5: FEATURE FLAGS MANAGER */}
-        <TabsContent value="FEATURE_FLAGS" className="space-y-4">
+        {/* TAB 5: FEATURE FLAGS — real API: GET /api/master-data/feature-flags, PATCH /api/master-data/feature-flags/:key */}
+        <TabsContent value="FEATURE_FLAGS" className="space-y-4 mt-6">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Feature Flags & Module Switches</h2>
             <p className="text-sm text-muted-foreground">Toggle live platform capabilities across Telemedicine, AI Scribe, Multilingual Rx & ABDM Sync.</p>
           </div>
-          <div className="space-y-3">
-            {liveFlags.map((flag, i) => {
-              const displayName = flag.label ?? flag.name ?? flag.key;
-              const tone = FLAG_CATEGORY_TONE[flag.category as FeatureFlagConfig['category']] ?? 'neutral';
-              return (
-                <motion.div
-                  key={flag.key}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Card>
-                    <CardContent className="flex items-center justify-between gap-4 py-4">
-                      <div className="min-w-0">
-                        <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <h3 className="font-semibold text-foreground">{displayName}</h3>
-                          <Badge tone={tone}>{flag.category}</Badge>
+          {liveFlags.length === 0 ? (
+            <EmptyState
+              icon={Construction}
+              title="No feature flags configured"
+              description="Feature flags will appear here once configured in the backend. Contact the platform team to set up feature flags."
+            />
+          ) : (
+            <div className="space-y-3">
+              {liveFlags.map((flag, i) => {
+                const displayName = flag.label ?? flag.name ?? flag.key;
+                const tone = FLAG_CATEGORY_TONE[flag.category as FeatureFlagConfig['category']] ?? 'neutral';
+                return (
+                  <motion.div
+                    key={flag.key}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <Card>
+                      <CardContent className="flex items-center justify-between gap-4 py-4">
+                        <div className="min-w-0">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-foreground">{displayName}</h3>
+                            <Badge tone={tone}>{flag.category}</Badge>
+                          </div>
+                          {flag.description && <p className="text-sm text-muted-foreground">{flag.description}</p>}
+                          <p className="mt-1 font-mono text-xs text-subtle-foreground">{flag.key}</p>
                         </div>
-                        {flag.description && <p className="text-sm text-muted-foreground">{flag.description}</p>}
-                        <p className="mt-1 font-mono text-xs text-subtle-foreground">{flag.key}</p>
-                      </div>
-                      <Switch
-                        checked={flag.isEnabled}
-                        onCheckedChange={() => handleToggleFlag(flag.key)}
-                        label={`Toggle ${displayName}`}
-                      />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </div>
+                        <Switch
+                          checked={flag.isEnabled}
+                          onCheckedChange={() => handleToggleFlag(flag.key)}
+                          label={`Toggle ${displayName}`}
+                        />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
-        {/* TAB 6: AUDIT & VERSIONS */}
-        <TabsContent value="VERSIONS">
-          <Card>
-            <CardHeader>
-              <CardTitle>Master Configuration Version Audit</CardTitle>
-              <CardDescription>Track master data additions, feature flag toggles and pricing updates.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Timeline>
-                {versions.map((ver) => (
-                  <TimelineItem
-                    key={ver.version}
-                    icon={ver.status === 'PUBLISHED' ? GitBranch : History}
-                    tone={ver.status === 'PUBLISHED' ? 'success' : 'neutral'}
-                    title={
-                      <span className="inline-flex items-center gap-2">
-                        Version v{ver.version}.0
-                        <Badge tone={ver.status === 'PUBLISHED' ? 'success' : 'neutral'}>{ver.status}</Badge>
-                      </span>
-                    }
-                    meta={`${ver.publishedAt} · ${ver.publishedBy}`}
-                  >
-                    <p>{ver.changeSummary}</p>
-                    {ver.status !== 'PUBLISHED' && (
-                      <Button variant="outline" size="sm" className="mt-2" disabled title="Coming soon">
-                        <CornerDownLeft className="h-3.5 w-3.5" aria-hidden /> Rollback to v{ver.version}.0
-                      </Button>
-                    )}
-                  </TimelineItem>
-                ))}
-              </Timeline>
-            </CardContent>
-          </Card>
+        {/* TAB 6: AUDIT & VERSIONS — no backend endpoint */}
+        <TabsContent value="VERSIONS" className="mt-6">
+          <EmptyState
+            icon={Construction}
+            title="Configuration audit log not yet available"
+            description="Version history and audit trail for master data configuration changes are not yet implemented in the backend API."
+          />
         </TabsContent>
       </Tabs>
     </div>

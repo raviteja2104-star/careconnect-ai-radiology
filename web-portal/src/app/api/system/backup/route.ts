@@ -1,8 +1,6 @@
-import { NextResponse } from 'next/server';
-
 export async function POST() {
-  return NextResponse.json(
-    { success: false, error: 'Database backup is not yet implemented. Configure a backup service on the backend.' },
+  return Response.json(
+    { success: false, message: 'System backup API not implemented. Configure backup via your MongoDB Atlas or infrastructure console.' },
     { status: 501 }
   );
 }

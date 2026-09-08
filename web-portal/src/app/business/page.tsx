@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { Metadata } from 'next';
 import { ProviderTabs } from './_tabs';
 import { ContactForm }  from './_form';
@@ -308,9 +308,8 @@ export default function BusinessPage() {
                         <p className="biz-contact-p">Fill in the form and our provider team will reach out within one business day. No commitment required — listing your profile is free.</p>
                         <div className="biz-contact-ways">
                             {[
-                                { icon: '📞', label: 'Call our provider team', val: '1800-XXX-XXXX (Mon–Sat, 9 AM–6 PM)', bg: '#EBF1FB' },
-                                { icon: '✉️', label: 'Email us', val: 'providers@careconnect.in', bg: '#E6F7F8' },
-                                { icon: '💬', label: 'Chat with us', val: 'Live chat available on this page', bg: '#E6F7EE' },
+                                { icon: '📞', label: 'Call our provider team', val: '1800-123-4567 (Mon–Sat, 9 AM–6 PM)', bg: '#EBF1FB' },
+                                { icon: '✉️', label: 'Email us', val: 'providers@careconnect.health', bg: '#E6F7F8' },
                             ].map(w => (
                                 <div key={w.label} className="biz-contact-way">
                                     <div className="biz-contact-way-icon" style={{ background: w.bg }}>{w.icon}</div>
@@ -338,16 +337,39 @@ export default function BusinessPage() {
                         </div>
                         <p className="biz-footer-tagline">The provider network connecting India&apos;s healthcare ecosystem — doctors, hospitals, labs, and pharmacies on one platform.</p>
                     </div>
-                    {[
-                        { title: 'Provider Tools', links: ['Doctor Profile', 'Clinic Management', 'Lab Dashboard', 'Pharmacy Portal', 'Enterprise'] },
-                        { title: 'Resources', links: ['Getting Started', 'API Documentation', 'Integration Guides', 'Webinars', 'Provider Blog'] },
-                        { title: 'Support', links: ['Help Centre', 'Contact Provider Team', 'System Status', 'Report an Issue'] },
-                        { title: 'Company', links: ['For Patients', 'About CareConnect', 'Careers', 'Privacy Policy', 'Terms of Service'] },
-                    ].map(col => (
+                    {([
+                        { title: 'Provider Tools', links: [
+                            { label: 'Doctor Profile', href: '/login' },
+                            { label: 'Clinic Management', href: '/login' },
+                            { label: 'Lab Dashboard', href: '/login' },
+                            { label: 'Pharmacy Portal', href: '/login' },
+                            { label: 'Enterprise', href: '/login' },
+                        ]},
+                        { title: 'Resources', links: [
+                            { label: 'Getting Started', href: '/provider/register' },
+                            { label: 'API Documentation', href: '/support' },
+                            { label: 'Integration Guides', href: '/support' },
+                            { label: 'Webinars', href: '/support' },
+                            { label: 'Provider Blog', href: '/support' },
+                        ]},
+                        { title: 'Support', links: [
+                            { label: 'Help Centre', href: '/support' },
+                            { label: 'Contact Provider Team', href: 'mailto:providers@careconnect.health' },
+                            { label: 'System Status', href: '/api/health' },
+                            { label: 'Report an Issue', href: '/support' },
+                        ]},
+                        { title: 'Company', links: [
+                            { label: 'For Patients', href: '/home' },
+                            { label: 'About CareConnect', href: '/home' },
+                            { label: 'Careers', href: 'mailto:careers@careconnect.in' },
+                            { label: 'Privacy Policy', href: '/privacy' },
+                            { label: 'Terms of Service', href: '/terms' },
+                        ]},
+                    ] as { title: string; links: { label: string; href: string }[] }[]).map(col => (
                         <div key={col.title}>
                             <div className="biz-footer-col-title">{col.title}</div>
                             <div className="biz-footer-links">
-                                {col.links.map(l => <a key={l} href="#">{l}</a>)}
+                                {col.links.map(l => <a key={l.label} href={l.href}>{l.label}</a>)}
                             </div>
                         </div>
                     ))}
@@ -355,7 +377,7 @@ export default function BusinessPage() {
                 <div className="biz-footer-bottom">
                     <p className="biz-footer-copy">© 2025 CareConnect Health Technologies Pvt. Ltd. · All rights reserved.</p>
                     <div className="biz-footer-legal">
-                        <a href="#">Privacy</a><a href="#">Terms</a><a href="#">Accessibility</a>
+                        <a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/support">Accessibility</a>
                     </div>
                 </div>
             </footer>

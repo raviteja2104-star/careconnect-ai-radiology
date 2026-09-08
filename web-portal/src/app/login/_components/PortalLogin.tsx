@@ -180,7 +180,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                 </motion.div>
 
                 <p className="relative text-xs text-white/60">
-                    Apollo CareConnect Super Specialty · HIPAA &amp; NDHM aligned · TLS 1.3
+                    CareConnect · HIPAA &amp; NDHM aligned · TLS 1.3
                 </p>
             </div>
 
