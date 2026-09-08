@@ -69,17 +69,21 @@ router.post('/verify', protect, async (req, res, next) => {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount, purpose } = req.body;
 
         if (!isLive()) {
-            // Demo mode — auto-verify, credit wallet
+            // Block payment verification in production when Razorpay is not configured —
+            // auto-crediting wallets without signature verification is a security hole.
+            if (process.env.NODE_ENV === 'production') {
+                return res.status(503).json({ success: false, message: 'Payment gateway not configured. Contact support.' });
+            }
+            // Development / staging only: simulate wallet credit for testing flows
             const User = require('../models/User');
             const WalletTransaction = require('../models/WalletTransaction');
             const dbConnected = require('mongoose').connection.readyState === 1;
             const creditAmount = (amount || 50000) / 100;
-
             if (dbConnected) {
                 await User.findByIdAndUpdate(req.user._id, { $inc: { 'wallet.balance': creditAmount } });
-                await WalletTransaction.create({ userId: req.user._id, type: 'credit', amount: creditAmount, description: `Wallet top-up (demo) — ₹${creditAmount}`, status: 'completed', paymentId: `pay_demo_${Date.now()}` });
+                await WalletTransaction.create({ userId: req.user._id, type: 'credit', amount: creditAmount, description: `Wallet top-up (dev sandbox) — ₹${creditAmount}`, status: 'completed', paymentId: `pay_dev_${Date.now()}` });
             }
-            return res.json({ success: true, demo: true, message: `₹${creditAmount} credited to wallet (demo mode).`, data: { paymentId: `pay_demo_${Date.now()}`, newBalance: (req.user.wallet?.balance || 0) + creditAmount } });
+            return res.json({ success: true, demo: true, message: `₹${creditAmount} credited to wallet (dev sandbox).`, data: { paymentId: `pay_dev_${Date.now()}`, newBalance: (req.user.wallet?.balance || 0) + creditAmount } });
         }
 
         // Verify signature
@@ -127,7 +131,12 @@ router.post('/verify', protect, async (req, res, next) => {
 router.post('/refund', protect, authorize('admin'), async (req, res, next) => {
     try {
         const { paymentId, amount } = req.body;
-        if (!isLive()) return res.json({ success: true, demo: true, message: 'Refund initiated (demo).' });
+        if (!isLive()) {
+            if (process.env.NODE_ENV === 'production') {
+                return res.status(503).json({ success: false, message: 'Payment gateway not configured. Contact support.' });
+            }
+            return res.json({ success: true, demo: true, message: 'Refund simulated (dev sandbox).' });
+        }
         const rz = getRazorpay();
         const refund = await rz.payments.refund(paymentId, { amount: amount * 100 });
         res.json({ success: true, data: refund });

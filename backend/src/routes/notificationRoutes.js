@@ -75,12 +75,7 @@ router.post('/register-device', protect, async (req, res, next) => {
 router.get('/', protect, async (req, res, next) => {
     try {
         if (!isDB()) {
-            return res.json({ success: true, data: [
-                { _id: 'n1', type: 'report_ready', title: 'Report Approved', message: 'Your CT Head report has been approved.', read: false, createdAt: new Date() },
-                { _id: 'n2', type: 'appointment', title: 'Upcoming Appointment', message: 'Dr. Raj Sharma — Tomorrow 3:00 PM', read: false, createdAt: new Date(Date.now() - 3600000) },
-                { _id: 'n3', type: 'wallet', title: 'Payment Received', message: '₹500 credited to your wallet.', read: true, createdAt: new Date(Date.now() - 86400000) },
-                { _id: 'n4', type: 'system', title: 'Welcome to CareConnect', message: 'Your account has been verified.', read: true, createdAt: new Date(Date.now() - 172800000) },
-            ], unreadCount: 2 });
+            return res.status(503).json({ success: false, message: 'Service temporarily unavailable. Please try again.' });
         }
         const notifications = await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50);
         const unreadCount = await Notification.countDocuments({ userId: req.user._id, read: false });
