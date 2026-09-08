@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Mic, Wifi, CheckCircle, AlertTriangle, Monitor, ShieldCheck, Clock, Video } from 'lucide-react';
@@ -38,6 +38,7 @@ export default function TelemedicineWaitingRoom({ sessionId, doctorName, departm
 
   useEffect(() => {
     if (checks.camera === 'passed' && checks.mic === 'passed' && checks.network === 'passed' && checks.browser === 'passed' && consentGiven) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllPassed(true);
     } else {
       setAllPassed(false);

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { lowCodeWorkflowService } from '@/services/lowCodeWorkflowService';
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const saved = lowCodeWorkflowService.saveDefinition(body);
     return NextResponse.json({ success: true, data: saved });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
   }
 }

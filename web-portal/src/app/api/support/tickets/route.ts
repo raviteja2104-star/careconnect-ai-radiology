@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { enterpriseOperationsService } from '@/services/enterpriseOperationsService';
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const { hospitalName, title, severity } = await req.json();
     const created = enterpriseOperationsService.createTicket(hospitalName, title, severity);
     return NextResponse.json({ success: true, data: created });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
   }
 }

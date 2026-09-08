@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }, [blocked, router, session.role]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
     }, []);
 
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }, []);
 
     // Close the mobile drawer on route change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => setMobileNav(false), [pathname]);
 
     // Full-bleed routes (kiosk, TV display) skip all chrome.

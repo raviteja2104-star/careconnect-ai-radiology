@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -28,9 +28,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const inputRef = React.useRef<HTMLInputElement>(null);
     const { session } = useSession();
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => setMounted(true), []);
     React.useEffect(() => {
         if (open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setQuery('');
             setActive(0);
             setTimeout(() => inputRef.current?.focus(), 30);

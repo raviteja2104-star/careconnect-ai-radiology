@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -35,6 +35,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     const [rect, setRect] = React.useState<SpotRect | null>(null);
     const [waiting, setWaiting] = React.useState(false);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => setMounted(true), []);
 
     const step = tour?.steps[stepIndex] ?? null;
@@ -58,6 +59,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     React.useEffect(() => {
         if (!step) return;
         if (pathname !== step.route) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setWaiting(true);
             router.push(step.route);
         }
@@ -91,6 +93,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
                 setWaiting(false);
             }
         };
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setWaiting(true);
         measure();
 

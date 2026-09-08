@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { HeartHandshake, Plus, ShieldCheck, ShieldX, WifiOff } from 'lucide-react';
@@ -64,6 +64,7 @@ export default function CaregiversPage() {
 
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         setError(null);
         fetchCaregivers(patientId)

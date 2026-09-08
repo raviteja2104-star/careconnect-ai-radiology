@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Button, Dialog, FieldHint, Input, Label, Switch } from '@/components/ui';
@@ -24,6 +24,7 @@ export function EditProviderDialog({ open, onClose, provider, saving, onSave }: 
 
     React.useEffect(() => {
         if (!open) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setName(provider?.name ?? '');
         setType(provider?.type ?? '');
         setSubtype(provider?.subtype ?? '');

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
@@ -403,6 +403,7 @@ export default function PrescriptionSettingsPage() {
     /* Load persisted templates on mount (client only — avoids hydration mismatch). */
     useEffect(() => {
         const loaded = loadStore();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStore(loaded);
         const active = loaded.templates.find((t) => t.id === loaded.activeId) || loaded.templates[0];
         if (active) {

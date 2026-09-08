@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -48,6 +48,7 @@ export default function EnterpriseIntegrationHubPage() {
   const [health] = useState(integrationHubService.getSystemHealth());
 
   const [testEndpoint, setTestEndpoint] = useState('https://fhir.careconnect.hospital/r4/Patient');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [testResult, setTestResult] = useState<any>(null);
   const [backupToast, setBackupToast] = useState(false);
 

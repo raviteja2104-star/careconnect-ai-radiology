@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CareConnect Hospital Data Migration & Go-Live Toolkit Service (Phase 17)
  * Automated Excel/CSV Legacy HIS Import Wizard, PACS DICOM migration queue, & LMS User Training.
  */
@@ -41,11 +41,11 @@ class HospitalMigrationService {
 
   public getJobs() { return this.jobs; }
 
-  public uploadAndMigrate(sourceSystem: any, dataType: any, recordCount: number) {
+  public uploadAndMigrate(sourceSystem: unknown, dataType: unknown, recordCount: number) {
     const job: MigrationJobRecord = {
       id: `mig-${Date.now()}`,
-      sourceSystem: sourceSystem || 'LOCAL_EXCEL',
-      dataType: dataType || 'PATIENTS',
+      sourceSystem: (sourceSystem as 'EPIC_EHR' | 'CERNER' | 'LOCAL_EXCEL' | 'ORTHANC_PACS' | 'LEGACY_LIS') || 'LOCAL_EXCEL',
+      dataType: (dataType as 'PATIENTS' | 'EMR_ENCOUNTERS' | 'LAB_RESULTS' | 'DICOM_IMAGES' | 'BILLING_MASTERS') || 'PATIENTS',
       recordCount: recordCount || 1200,
       processedCount: recordCount || 1200,
       status: 'COMPLETED',

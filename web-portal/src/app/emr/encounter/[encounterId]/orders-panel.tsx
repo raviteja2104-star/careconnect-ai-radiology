@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -86,6 +86,7 @@ export function OrdersPanel({
         setAiSugs(res);
         setAiLoading(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/use-memo
     }, [dxSignature, allergies.join('|'), currentMedications.join('|'), patientMeta.age, patientMeta.gender]);
 
     // Auto-fetch once per diagnosis set when the medication tab is open.

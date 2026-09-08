@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Button, Dialog, FieldHint, Input, Label, Select } from '@/components/ui';
@@ -21,6 +21,7 @@ export function ExceptionDialog({ open, onClose, saving, onSave }: ExceptionDial
 
     React.useEffect(() => {
         if (!open) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDate('');
         setType('HOLIDAY');
         setReason('');

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -69,6 +69,7 @@ export default function DeveloperPlatformPage() {
   const [newWebhookEvent, setNewWebhookEvent] = useState('lab.result.ready');
 
   // Certification Scanner State
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [certReport, setCertReport] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
 

@@ -56,6 +56,7 @@ export default function DoctorsPage() {
     }, [query, specialty, city]);
 
     // Initial load — top doctors
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { search(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); search(); };

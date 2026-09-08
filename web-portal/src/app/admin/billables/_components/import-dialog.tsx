@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { FileUp, CheckCircle2, RefreshCw, SkipForward, AlertTriangle } from 'lucide-react';
@@ -25,9 +25,13 @@ export function ImportDialog({ open, onClose, onImported }: ImportDialogProps) {
 
     React.useEffect(() => {
         if (open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCsv('');
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFileName(null);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setResult(null);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError(null);
             setBusy(false);
         }

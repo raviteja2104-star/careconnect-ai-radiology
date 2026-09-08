@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
@@ -36,6 +36,7 @@ interface SidebarProps {
 function usePersistedList(key: string, limit: number) {
     const [list, setList] = React.useState<string[]>([]);
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         try { setList(JSON.parse(localStorage.getItem(key) || '[]')); } catch { /* ignore */ }
     }, [key]);
     const update = React.useCallback((next: string[]) => {

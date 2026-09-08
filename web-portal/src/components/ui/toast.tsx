@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -33,6 +33,7 @@ let nextId = 1;
 export function ToastProvider({ children }: { children: React.ReactNode }) {
     const [items, setItems] = React.useState<ToastItem[]>([]);
     const [mounted, setMounted] = React.useState(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => setMounted(true), []);
 
     const dismiss = React.useCallback((id: number) => {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -48,7 +48,9 @@ export default function PharmacyDashboard() {
 
   const inventory: InventoryItem[] = DrugService.getAllDrugs().map(d => ({
     ...d,
+    // eslint-disable-next-line react-hooks/purity
     stock: Math.floor(Math.random() * 500) + 10,
+    // eslint-disable-next-line react-hooks/purity
     status: Math.random() > 0.8 ? 'Low Stock' : 'In Stock'
   }));
 

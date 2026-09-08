@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useCallback } from 'react';
 import {
@@ -17,18 +17,18 @@ import {
 import { CHART_COLORS, chartGrid, chartAxis, chartTooltip } from '@/lib/chart-theme';
 
 const DEPT_REVENUE = [
-  { dept: 'Cardiology & Catheterization', rev: '₹ 44,50,000', pct: 30 },
-  { dept: 'Orthopedics & Joint Replacement', rev: '₹ 32,80,000', pct: 22 },
-  { dept: 'ICU & Emergency Care', rev: '₹ 26,40,000', pct: 18 },
-  { dept: 'Pharmacy & Drug Sales', rev: '₹ 18,20,000', pct: 12 },
-  { dept: 'Laboratory & Radiology Services', rev: '₹ 14,80,000', pct: 10 },
-  { dept: 'General Surgery & Day Care', rev: '₹ 11,80,000', pct: 8 },
+  { dept: 'Cardiology & Catheterization', rev: 'â‚¹ 44,50,000', pct: 30 },
+  { dept: 'Orthopedics & Joint Replacement', rev: 'â‚¹ 32,80,000', pct: 22 },
+  { dept: 'ICU & Emergency Care', rev: 'â‚¹ 26,40,000', pct: 18 },
+  { dept: 'Pharmacy & Drug Sales', rev: 'â‚¹ 18,20,000', pct: 12 },
+  { dept: 'Laboratory & Radiology Services', rev: 'â‚¹ 14,80,000', pct: 10 },
+  { dept: 'General Surgery & Day Care', rev: 'â‚¹ 11,80,000', pct: 8 },
 ];
 
 const PAYMENT_MODES = [
-  { label: 'TPA / Health Insurance', amount: '₹ 82,40,000 (55.5%)', badge: '540 Claims', tone: 'info' as const, icon: Landmark },
-  { label: 'UPI / Card / NetBanking', amount: '₹ 48,10,000 (32.4%)', badge: 'Digital', tone: 'success' as const, icon: Smartphone },
-  { label: 'Cash Receipts', amount: '₹ 18,00,000 (12.1%)', badge: 'Desk Counter', tone: 'warning' as const, icon: Banknote },
+  { label: 'TPA / Health Insurance', amount: 'â‚¹ 82,40,000 (55.5%)', badge: '540 Claims', tone: 'info' as const, icon: Landmark },
+  { label: 'UPI / Card / NetBanking', amount: 'â‚¹ 48,10,000 (32.4%)', badge: 'Digital', tone: 'success' as const, icon: Smartphone },
+  { label: 'Cash Receipts', amount: 'â‚¹ 18,00,000 (12.1%)', badge: 'Desk Counter', tone: 'warning' as const, icon: Banknote },
 ];
 
 const WARD_OCCUPANCY = [
@@ -99,7 +99,7 @@ function PatientReportTab() {
               className="max-w-sm font-mono text-sm"
             />
             <Button onClick={fetch_} disabled={!patientId.trim() || loading}>
-              <Search className="h-4 w-4" aria-hidden /> {loading ? 'Loading…' : 'Fetch Summary'}
+              <Search className="h-4 w-4" aria-hidden /> {loading ? 'Loadingâ€¦' : 'Fetch Summary'}
             </Button>
           </div>
           {error && <p className="mt-3 text-sm text-danger">{error}</p>}
@@ -145,7 +145,7 @@ function PatientReportTab() {
                 {summary.medications.map((m, i) => (
                   <div key={i} className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
                     <p className="font-medium">{m.name}</p>
-                    {(m.dosage || m.frequency) && <p className="text-xs text-muted-foreground">{m.dosage}{m.frequency ? ` · ${m.frequency}` : ''}</p>}
+                    {(m.dosage || m.frequency) && <p className="text-xs text-muted-foreground">{m.dosage}{m.frequency ? ` Â· ${m.frequency}` : ''}</p>}
                   </div>
                 ))}
               </CardContent>
@@ -170,7 +170,7 @@ function PatientReportTab() {
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Clock className="h-4 w-4" /> Surgical History</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                {summary.surgeries.map((s, i) => <p key={i} className="text-muted-foreground">• {s}</p>)}
+                {summary.surgeries.map((s, i) => <p key={i} className="text-muted-foreground">â€¢ {s}</p>)}
               </CardContent>
             </Card>
           )}
@@ -238,8 +238,8 @@ export default function ReportsPage() {
       <StatGrid>
         <StatCard
           label="Gross Revenue (Jul 2026)"
-          value="₹ 1,48,50,000"
-          sub="+14.2% · OPD: ₹42.5L | IPD: ₹88.0L | Pharmacy: ₹18.0L"
+          value="â‚¹ 1,48,50,000"
+          sub="+14.2% Â· OPD: â‚¹42.5L | IPD: â‚¹88.0L | Pharmacy: â‚¹18.0L"
           icon={IndianRupee}
           trend="up"
           trendPositive
@@ -249,7 +249,7 @@ export default function ReportsPage() {
         <StatCard
           label="Bed Occupancy Rate"
           value="86.4%"
-          sub="+5.1% · 216 of 250 Beds Occupied (ICU: 92%)"
+          sub="+5.1% Â· 216 of 250 Beds Occupied (ICU: 92%)"
           icon={Bed}
           trend="up"
           trendPositive
@@ -259,7 +259,7 @@ export default function ReportsPage() {
         <StatCard
           label="Total Patient Footfall"
           value="3,842 Patients"
-          sub="+8.7% · OPD: 3,120 | IPD Admissions: 722"
+          sub="+8.7% Â· OPD: 3,120 | IPD Admissions: 722"
           icon={Users}
           trend="up"
           trendPositive
@@ -269,7 +269,7 @@ export default function ReportsPage() {
         <StatCard
           label="Avg Length of Stay (ALOS)"
           value="3.8 Days"
-          sub="-0.4 Days · Readmission Rate: 2.1% (Low)"
+          sub="-0.4 Days Â· Readmission Rate: 2.1% (Low)"
           icon={Activity}
           trend="down"
           trendPositive
@@ -278,7 +278,7 @@ export default function ReportsPage() {
         />
       </StatGrid>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'financial' | 'occupancy' | 'clinical' | 'opd-ipd' | 'patient')}>
         <TabsList className="max-w-full overflow-x-auto no-scrollbar">
           <TabsTrigger value="financial">
             <CreditCard className="h-4 w-4" aria-hidden /> Financial & Revenue
@@ -304,9 +304,9 @@ export default function ReportsPage() {
               <CardHeader className="flex-row items-start justify-between space-y-0">
                 <div>
                   <CardTitle>Departmental Revenue Breakdown</CardTitle>
-                  <CardDescription className="mt-1.5">Jul 2026 · share of gross revenue by service line</CardDescription>
+                  <CardDescription className="mt-1.5">Jul 2026 Â· share of gross revenue by service line</CardDescription>
                 </div>
-                <Badge tone="brand">Total: ₹ 1.48 Cr</Badge>
+                <Badge tone="brand">Total: â‚¹ 1.48 Cr</Badge>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -316,7 +316,7 @@ export default function ReportsPage() {
                     <YAxis {...chartAxis} type="category" dataKey="dept" width={220} />
                     <Tooltip
                       {...chartTooltip}
-                      formatter={(value: any, _name: any, entry: any) => [
+                      formatter={(value, _name, entry: { payload?: { rev?: string } }) => [
                         `${entry?.payload?.rev} (${value}%)`,
                         'Revenue',
                       ]}
@@ -443,7 +443,7 @@ export default function ReportsPage() {
           />
         </TabsContent>
 
-        {/* TAB 5: PATIENT CLINICAL REPORT — uses real backend */}
+        {/* TAB 5: PATIENT CLINICAL REPORT â€” uses real backend */}
         <TabsContent value="patient" className="mt-6">
           <PatientReportTab />
         </TabsContent>

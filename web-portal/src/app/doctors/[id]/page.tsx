@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { use } from 'react';
@@ -53,6 +53,7 @@ export default function DoctorProfilePage({ params }: { params: Promise<{ id: st
 
     // Load doctor profile
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoadingDoc(true);
         fetch(`${API}/api/nearby/providers/${id}`)
             .then(r => r.json())

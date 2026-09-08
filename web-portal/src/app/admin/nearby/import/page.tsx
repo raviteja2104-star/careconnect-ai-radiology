@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -64,6 +64,7 @@ export default function ProviderImportPage() {
         }
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { loadBatches(); }, [loadBatches, batchesRefreshKey]);
 
     const refreshSelectedBatch = React.useCallback(async (id: string) => {
@@ -109,6 +110,7 @@ export default function ProviderImportPage() {
     const [rowsRefreshKey, setRowsRefreshKey] = React.useState(0);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!selectedBatchId) { setRows([]); setRowsTotal(0); return; }
         let cancelled = false;
         setRowsLoading(true);

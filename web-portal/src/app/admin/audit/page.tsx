@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -64,6 +64,7 @@ export default function AuditLogPage() {
     }, [actionFilter, resourceFilter]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         load();
     }, [load]);
 

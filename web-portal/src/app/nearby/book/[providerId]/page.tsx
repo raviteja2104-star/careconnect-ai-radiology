@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -84,6 +84,7 @@ export default function BookAppointmentPage() {
             .catch((err) => { setError(err instanceof Error ? err.message : 'Failed to load provider'); setLoading(false); });
     }, [providerId]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { load(); }, [load]);
 
     const bookableDoctors = React.useMemo(
@@ -108,6 +109,7 @@ export default function BookAppointmentPage() {
     }, [providerId, doctorId, date]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (step === 2) loadSlots();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, date, doctorId]);

@@ -12,7 +12,7 @@ export interface DashboardState {
 }
 
 // Global state outside the hook
-let globalState = {
+const globalState = {
   isSidebarOpen: true,
   showCopilot: false,
   darkMode: false,

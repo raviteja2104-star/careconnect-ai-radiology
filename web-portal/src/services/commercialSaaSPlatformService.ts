@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CareConnect Enterprise Commercial Platform & SaaS Monetization Service (Phase 19)
  * Multi-tenant SaaS provisioning, subscription & licensing tiers, revenue platform (MRR/ARR),
  * partner commissions, marketplace commerce, & executive commercial intelligence.
@@ -69,11 +69,11 @@ class CommercialSaaSPlatformService {
   public getFinancials() { return this.financial; }
   public getPartners() { return this.partners; }
 
-  public createTenant(hospitalName: string, planTier: any) {
+  public createTenant(hospitalName: string, planTier: unknown) {
     const tenant: TenantAccountRecord = {
       tenantId: `tenant-${Date.now()}`,
       hospitalName: hospitalName || 'New Hospital Partner',
-      planTier: planTier || 'HOSPITAL_CORE',
+      planTier: (planTier as 'ENTERPRISE_UNLIMITED' | 'HOSPITAL_CORE' | 'CLINIC_STARTER' | 'SANDBOX_TRIAL') || 'HOSPITAL_CORE',
       status: 'ACTIVE_PRODUCTION',
       monthlySubscriptionUsd: 8200,
       activeDoctorsLimit: 150,

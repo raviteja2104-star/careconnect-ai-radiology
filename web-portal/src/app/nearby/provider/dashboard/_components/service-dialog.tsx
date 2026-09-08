@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Button, Dialog, FieldHint, Input, Label, Switch } from '@/components/ui';
@@ -24,6 +24,7 @@ export function ServiceDialog({ open, onClose, service, saving, onSave }: Servic
 
     React.useEffect(() => {
         if (!open) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setName(service?.name ?? '');
         setCategory(service?.category ?? '');
         setPrice(service?.price != null ? String(service.price) : '');

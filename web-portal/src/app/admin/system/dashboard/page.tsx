@@ -41,6 +41,7 @@ export default function ProductionDashboard() {
   const [history, setHistory] = React.useState<{ time: string; cpu: number; memory: number }[]>([]);
   React.useEffect(() => {
     if (!perfRes) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistory((h) => [
       ...h.slice(-23),
       {
@@ -206,7 +207,7 @@ export default function ProductionDashboard() {
               />
             ) : (
               <ul className="space-y-2.5">
-                {services.map(([service, status]: any, i) => (
+                {(services as [string, string][]).map(([service, status], i) => (
                   <motion.li
                     key={service}
                     initial={{ opacity: 0, x: -8 }}

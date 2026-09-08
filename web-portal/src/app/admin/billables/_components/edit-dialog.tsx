@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Button, Dialog, FieldHint, Input, Label, Select, Switch, Textarea } from '@/components/ui';
@@ -114,7 +114,9 @@ export function EditDialog({ open, onClose, item, defaultType, onSaved }: EditDi
 
     React.useEffect(() => {
         if (open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setDraft(toDraft(item, defaultType));
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError(null);
         }
     }, [open, item, defaultType]);

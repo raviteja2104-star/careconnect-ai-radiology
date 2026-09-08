@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Health Record Capture — document review page.
@@ -81,6 +81,7 @@ function MedicineSuggestionPicker({
 
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         setError(null);
         fetchMedicineSuggestions(rawText)
@@ -254,6 +255,7 @@ function OriginalPageViewer({ documentId, pages }: { documentId: string; pages: 
     React.useEffect(() => {
         let cancelled = false;
         let objectUrl: string | null = null;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         setError(null);
         setBlobUrl(null);
@@ -337,6 +339,7 @@ function WholeDocumentReviewDialog({
     busy: boolean;
 }) {
     const [notes, setNotes] = React.useState('');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { if (open) setNotes(''); }, [open]);
     const title = decision === 'REJECT' ? 'Reject Document' : 'Request Rescan';
     return (
@@ -392,6 +395,7 @@ export default function DocumentReviewPage() {
             .finally(() => setLoading(false));
     }, [documentId]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { load(); }, [load]);
 
     function updateExtraction(extraction: import('@/app/health-records/_lib/capture-api').DocumentExtraction) {

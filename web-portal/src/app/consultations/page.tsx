@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -118,7 +118,7 @@ export default function ConsultationsPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Consultations" description="SOAP documentation for today's encounters" crumbs={[{ label: 'Clinical', href: '/dashboard' }, { label: 'Consultations' }]} />
-        <p className="text-sm text-muted-foreground">Loading today's consultations…</p>
+        <p className="text-sm text-muted-foreground">Loading today&apos;s consultations…</p>
       </div>
     );
   }

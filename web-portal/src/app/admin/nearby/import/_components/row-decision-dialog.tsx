@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { AlertTriangle, Copy, XCircle } from 'lucide-react';
@@ -40,6 +40,7 @@ export function RowDecisionDialog({ open, onClose, row, saving, onDecide }: RowD
 
     React.useEffect(() => {
         if (!open) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTypeInput(row?.normalizedData?.type ?? '');
         setLocalityInput(row?.normalizedData?.locality ?? '');
         setReviewNotes('');

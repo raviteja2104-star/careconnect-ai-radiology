@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -186,6 +186,7 @@ export default function MyAppointmentsPage() {
             .catch((err) => { setError(err instanceof Error ? err.message : 'Failed to load appointments'); setLoading(false); });
     }, []);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { load(); }, [load]);
 
     const today = todayIso();
@@ -212,6 +213,7 @@ export default function MyAppointmentsPage() {
 
     React.useEffect(() => {
         if (!rescheduleTarget || !newDate) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setNewSlotsLoading(true);
         setSelectedNewSlot(null);
         fetchAvailability(rescheduleTarget.providerId, rescheduleTarget.doctorId, newDate)

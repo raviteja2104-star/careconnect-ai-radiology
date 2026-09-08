@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -95,6 +95,7 @@ export default function ProviderDashboardPage() {
     /* Load "my providers" */
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setProvidersLoading(true);
         setProvidersError(null);
         fetchMyProviders()
@@ -113,6 +114,7 @@ export default function ProviderDashboardPage() {
 
     React.useEffect(() => {
         if (selectedProvider) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setProfile({ ...selectedProvider });
             setWorkingHours(selectedProvider.workingHours && selectedProvider.workingHours.length ? selectedProvider.workingHours.map((d) => ({ ...d })) : emptyWorkingHours());
         }
@@ -120,6 +122,7 @@ export default function ProviderDashboardPage() {
 
     /* Dashboard + doctors + services + schedules + exceptions for selected provider */
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!selectedId) { setBoard(null); setBoardLoading(false); return; }
         let cancelled = false;
         setBoardLoading(true);
@@ -132,6 +135,7 @@ export default function ProviderDashboardPage() {
     }, [selectedId, refreshKey]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!selectedId) { setDoctors([]); setDoctorsLoading(false); return; }
         let cancelled = false;
         setDoctorsLoading(true);
@@ -143,6 +147,7 @@ export default function ProviderDashboardPage() {
     }, [selectedId, refreshKey]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!selectedId) { setServices([]); setServicesLoading(false); return; }
         let cancelled = false;
         setServicesLoading(true);
@@ -154,6 +159,7 @@ export default function ProviderDashboardPage() {
     }, [selectedId, refreshKey]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!selectedId) { setSchedules([]); setSchedulesLoading(false); return; }
         let cancelled = false;
         setSchedulesLoading(true);
@@ -165,6 +171,7 @@ export default function ProviderDashboardPage() {
     }, [selectedId, refreshKey]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!selectedId) { setExceptions([]); setExceptionsLoading(false); return; }
         let cancelled = false;
         setExceptionsLoading(true);

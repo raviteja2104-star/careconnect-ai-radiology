@@ -12,7 +12,7 @@ export interface MasterDataItem {
   name: string;
   description?: string;
   status: 'ACTIVE' | 'INACTIVE';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface HospitalHierarchyNode {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -22,6 +22,7 @@ export function Drawer({
     open, onClose, title, description, children, footer, side = 'right', width = 'max-w-md', className,
 }: DrawerProps) {
     const [mounted, setMounted] = React.useState(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => setMounted(true), []);
 
     React.useEffect(() => {

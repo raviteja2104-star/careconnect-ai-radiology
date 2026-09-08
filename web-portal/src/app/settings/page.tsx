@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -94,7 +94,7 @@ export default function SettingsPage() {
         }
       />
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'appearance' | 'rx' | 'languages' | 'security' | 'integrations')}>
         <TabsList className="max-w-full overflow-x-auto no-scrollbar">
           <TabsTrigger value="profile"><Building className="h-4 w-4" aria-hidden /> Hospital Profile</TabsTrigger>
           <TabsTrigger value="appearance"><Palette className="h-4 w-4" aria-hidden /> Appearance</TabsTrigger>

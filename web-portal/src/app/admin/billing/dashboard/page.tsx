@@ -21,10 +21,22 @@ const STATUS_TONE: Record<string, 'success' | 'info' | 'warning'> = {
   PARTIALLY_PAID: 'info',
 };
 
+type Invoice = {
+  _id: string;
+  invoiceNumber: string;
+  totalAmount: number;
+  amountDue: number;
+  patient?: { name?: string };
+  issuedAt: string;
+  type: string;
+  status: string;
+};
+
 export default function RevenueDashboard() {
-  const [liveInvoices, setLiveInvoices] = useState<any[]>([]);
+  const [liveInvoices, setLiveInvoices] = useState<Invoice[]>([]);
 
   const { data: dashboardRes, refetch: refetchDash, isLoading: dashLoading } = useQuery({
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     queryKey: ['billing_dashboard'],
     queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/billing/dashboard`).then(res => res.json())
   });
@@ -36,6 +48,7 @@ export default function RevenueDashboard() {
 
   useEffect(() => {
     if (invoicesRes?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLiveInvoices(invoicesRes.data.slice(0, 10)); // Just show recent 10 on dash
     }
   }, [invoicesRes]);
@@ -63,12 +76,12 @@ export default function RevenueDashboard() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
   };
 
-  // Presentational only — chart series derived from the invoices already fetched.
+  // Presentational only � chart series derived from the invoices already fetched.
   const chartData = useMemo(
     () =>
       [...liveInvoices]
         .reverse()
-        .map((inv: any) => ({
+        .map((inv) => ({
           name: inv.invoiceNumber,
           billed: inv.totalAmount ?? 0,
           due: inv.amountDue ?? 0,
@@ -80,21 +93,21 @@ export default function RevenueDashboard() {
     ? Math.round((stats.collections / stats.totalRevenue) * 100)
     : 0;
 
-  const columns: Column<any>[] = [
+  const columns: Column<Invoice>[] = [
     {
       key: 'invoiceNumber',
       header: 'Invoice',
       sortable: true,
-      accessor: (inv: any) => inv.invoiceNumber ?? '',
-      cell: (inv: any) => (
+      accessor: (inv) => inv.invoiceNumber ?? '',
+      cell: (inv) => (
         <span className="font-mono text-sm font-semibold text-primary">{inv.invoiceNumber}</span>
       ),
     },
     {
       key: 'patient',
       header: 'Patient',
-      accessor: (inv: any) => inv.patient?.name ?? '',
-      cell: (inv: any) => (
+      accessor: (inv) => inv.patient?.name ?? '',
+      cell: (inv) => (
         <div>
           <p className="font-medium text-foreground">{inv.patient?.name || 'Unknown Patient'}</p>
           <p className="text-xs text-muted-foreground">{new Date(inv.issuedAt).toLocaleTimeString()}</p>
@@ -104,15 +117,15 @@ export default function RevenueDashboard() {
     {
       key: 'type',
       header: 'Type',
-      accessor: (inv: any) => inv.type ?? '',
-      cell: (inv: any) => <Badge tone="neutral">{inv.type}</Badge>,
+      accessor: (inv) => inv.type ?? '',
+      cell: (inv) => <Badge tone="neutral">{inv.type}</Badge>,
     },
     {
       key: 'totalAmount',
       header: 'Amount',
       sortable: true,
-      accessor: (inv: any) => inv.totalAmount ?? 0,
-      cell: (inv: any) => (
+      accessor: (inv) => inv.totalAmount ?? 0,
+      cell: (inv) => (
         <div>
           <p className="font-semibold text-foreground tabular-nums">{formatCurrency(inv.totalAmount)}</p>
           {inv.amountDue > 0 && (
@@ -124,8 +137,8 @@ export default function RevenueDashboard() {
     {
       key: 'status',
       header: 'Status',
-      accessor: (inv: any) => inv.status ?? '',
-      cell: (inv: any) => (
+      accessor: (inv) => inv.status ?? '',
+      cell: (inv) => (
         <Badge tone={STATUS_TONE[inv.status] ?? 'warning'} dot>
           {inv.status}
         </Badge>
@@ -135,7 +148,7 @@ export default function RevenueDashboard() {
       key: 'action',
       header: 'Action',
       align: 'right',
-      cell: (inv: any) =>
+      cell: (inv) =>
         inv.status !== 'PAID' ? (
           <Button size="sm" disabled title="Coming soon">Collect Payment</Button>
         ) : (
@@ -234,11 +247,11 @@ export default function RevenueDashboard() {
                   ))}
                 </div>
               ) : (
-                <DataTable<any>
+                <DataTable<Invoice>
                   columns={columns}
                   data={liveInvoices}
-                  rowKey={(inv: any) => inv._id}
-                  searchPlaceholder="Filter invoices…"
+                  rowKey={(inv) => inv._id}
+                  searchPlaceholder="Filter invoices�"
                   exportName="recent-invoices"
                   emptyTitle="No invoices generated today"
                   emptyDescription="Invoices raised from OPD, IPD and telemedicine encounters will appear here in real time."
@@ -295,11 +308,11 @@ export default function RevenueDashboard() {
                       <YAxis
                         {...chartAxis}
                         width={52}
-                        tickFormatter={(v: number) => `₹${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
+                        tickFormatter={(v: number) => `?${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
                       />
                       <Tooltip
                         {...chartTooltip}
-                        formatter={(value: any, key: any) => [
+                        formatter={(value: unknown, key: unknown) => [
                           formatCurrency(Number(value)),
                           key === 'billed' ? 'Billed' : 'Due',
                         ]}

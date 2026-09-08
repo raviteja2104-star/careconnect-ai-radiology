@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -21,6 +21,7 @@ const sizeClasses = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-
 
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md', className }: DialogProps) {
     const [mounted, setMounted] = React.useState(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => setMounted(true), []);
 
     React.useEffect(() => {

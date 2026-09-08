@@ -172,7 +172,7 @@ export default function ObservabilityDashboard() {
   });
 
   const [activeTrace, setActiveTrace] = useState<string>('9c1f-4b2a-8d3e');
-  const [traces] = useState<any[]>([
+  const [traces] = useState<{ id: string; workflow: string; status: string; events: { time: string; source: string; name: string }[] }[]>([
     {
       id: '9c1f-4b2a-8d3e',
       workflow: 'Telemedicine Journey',
@@ -315,7 +315,7 @@ export default function ObservabilityDashboard() {
   const handleExportMermaid = () => {
     if (!selectedTrace) return;
     const lines = ['sequenceDiagram'];
-    selectedTrace.events.forEach((evt: any, i: number) => {
+    selectedTrace.events.forEach((evt, i: number) => {
       const next = selectedTrace.events[i + 1];
       if (next) {
         lines.push(`    ${evt.source}->>+${next.source}: ${evt.name}`);
@@ -740,7 +740,7 @@ export default function ObservabilityDashboard() {
                     </div>
 
                     <ol className="max-h-96 space-y-1 overflow-y-auto pr-2 scrollbar-thin">
-                      {selectedTrace.events.map((evt: any, i: number) => (
+                      {selectedTrace.events.map((evt, i: number) => (
                         <li key={i} className="group relative flex items-start gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
                           <span className="flex w-24 shrink-0 items-center gap-1.5 text-subtle-foreground tabular-nums">
                             <Clock className="h-3 w-3" aria-hidden /> {evt.time}

@@ -55,7 +55,7 @@ export default function DoctorQueueWorkspace() {
   });
 
   const transferMutation = useMutation({
-    mutationFn: (data: any) =>
+    mutationFn: (data: object) =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/transfers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -68,7 +68,9 @@ export default function DoctorQueueWorkspace() {
   });
 
   const tokens = queueData?.data || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const waitingTokens = tokens.filter((t: any) => t.status === 'WAITING');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeToken = tokens.find((t: any) => t.status === 'CALLED' || t.status === 'IN_PROGRESS');
 
   return (
@@ -178,6 +180,7 @@ export default function DoctorQueueWorkspace() {
                 <EmptyState icon={Clock} title="Queue is empty" description="Waiting patients will appear here." />
               ) : (
                 <div className="space-y-3">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {waitingTokens.map((token: any, i: number) => (
                     <motion.div
                       key={token._id}

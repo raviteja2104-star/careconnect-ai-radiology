@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -83,7 +83,9 @@ export default function BillablesMasterPage() {
     /* Main list */
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoadError(null);
         fetchBillables({
             type: tab,

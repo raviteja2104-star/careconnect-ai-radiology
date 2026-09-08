@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
@@ -39,6 +39,7 @@ export default function HealthRecordsDashboardPage() {
     const refresh = React.useCallback(() => setRefreshKey((k) => k + 1), []);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (!allowed) { setLoading(false); return; }
         let cancelled = false;
         setLoading(true);

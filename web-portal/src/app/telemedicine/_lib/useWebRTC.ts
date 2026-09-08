@@ -83,6 +83,7 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     endedRef.current = false;
     let cancelled = false;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState('media-denied');
       setError('This browser does not support camera/microphone capture.');
       return;

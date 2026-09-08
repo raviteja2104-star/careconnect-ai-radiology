@@ -42,7 +42,7 @@ export interface EventBusMessage {
   sourceModule: string;
   timestamp: string;
   status: 'DELIVERED' | 'RETRY' | 'DEAD_LETTER';
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
 }
 
 export interface DeveloperOAuthApp {

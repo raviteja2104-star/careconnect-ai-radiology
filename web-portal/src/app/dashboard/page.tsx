@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -56,6 +56,7 @@ export default function DashboardPage() {
 
   const [today, setToday] = React.useState('');
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setToday(new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
   }, []);
 
@@ -116,12 +117,13 @@ export default function DashboardPage() {
     queueFilter === 'All' || t.type === queueFilter
   );
 
-  const rawNotifs: any[] = notifData?.data ?? notifData?.notifications ?? [];
+  const rawNotifs = notifData?.data ?? notifData?.notifications ?? [];
   const activeAlerts = rawNotifs
-    .filter(n => !n.read && !n.isRead && !dismissedAlerts.includes(n._id ?? n.id))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((n: any) => !n.read && !n.isRead && !dismissedAlerts.includes(n._id ?? n.id))
     .slice(0, 4);
 
-  const upcomingAppts: any[] = upcomingData?.data ?? [];
+  const upcomingAppts = upcomingData?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -163,6 +165,7 @@ export default function DashboardPage() {
       {/* ── Unread Notifications Banner ── */}
       {activeAlerts.length > 0 && (
         <div className="space-y-2">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {activeAlerts.map((alert: any, i: number) => {
             const id = alert._id ?? alert.id;
             return (
@@ -335,6 +338,7 @@ export default function DashboardPage() {
               {upcomingAppts.length === 0 ? (
                 <EmptyState icon={Calendar} title="No upcoming appointments" description="Your schedule for today is clear." className="py-6" />
               ) : (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 upcomingAppts.map((a: any, i: number) => (
                   <Link key={a._id ?? i} href="/appointments" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-muted/60">
                     <span className="w-14 text-center font-mono text-sm font-bold text-primary">{a.time}</span>

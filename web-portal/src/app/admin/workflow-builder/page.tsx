@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -57,9 +57,11 @@ export default function EnterpriseWorkflowStudioPage() {
 
   const handleAddNode = (type: NodeType, label: string) => {
     const newNode: WorkflowNode = {
+      // eslint-disable-next-line react-hooks/purity
       id: `node-${Date.now()}`,
       type,
       label,
+      // eslint-disable-next-line react-hooks/purity
       position: { x: 300 + Math.random() * 200, y: 200 + Math.random() * 100 },
       assignedRole: type === 'USER_TASK' ? 'DOCTOR' : undefined,
       slaMinutes: type === 'USER_TASK' ? 15 : undefined
@@ -145,6 +147,7 @@ export default function EnterpriseWorkflowStudioPage() {
     if (!template) return;
     const cloned: WorkflowDefinition = {
       ...template,
+      // eslint-disable-next-line react-hooks/purity
       id: `wf-clone-${Date.now()}`,
       name: `${itemTitle} (Cloned)`,
       status: 'DRAFT',

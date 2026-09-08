@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { integrationHubService } from '@/services/integrationHubService';
 
 export async function GET(req: Request) {
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       data: resource
     });
     return NextResponse.json(created, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }

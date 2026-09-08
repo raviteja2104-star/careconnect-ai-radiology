@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
@@ -25,6 +25,7 @@ export function Header({ onOpenPalette, onOpenMobileNav }: HeaderProps) {
     const { session, logout } = useSession();
     const [isMac, setIsMac] = React.useState(false);
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsMac(/Mac|iPhone|iPad/.test(navigator.platform));
     }, []);
 

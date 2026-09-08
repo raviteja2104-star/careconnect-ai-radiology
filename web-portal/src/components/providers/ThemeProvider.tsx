@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -45,6 +45,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const storedTheme = (localStorage.getItem(STORAGE_KEY) as ThemeMode) || 'system';
         const storedContrast = localStorage.getItem(CONTRAST_KEY) === '1';
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setThemeState(storedTheme);
         setHighContrastState(storedContrast);
         applyTheme(storedTheme, storedContrast);

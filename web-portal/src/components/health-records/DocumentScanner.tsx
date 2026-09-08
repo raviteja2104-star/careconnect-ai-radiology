@@ -259,7 +259,7 @@ export function DocumentScanner({ patientId, defaultDocumentType, onUploaded, cl
                     ) : (
                         <div className="space-y-3">
                             <div className="overflow-hidden rounded-xl border border-border bg-black">
-                                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                                { }
                                 <video ref={videoRef} autoPlay playsInline muted className="aspect-[4/3] w-full object-cover" />
                             </div>
                             <div className="flex gap-3">

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { 
@@ -15,6 +15,7 @@ interface SpecialtySelectorModalProps {
   onSelectSpecialty: (specialty: Specialty) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ICON_MAP: Record<string, any> = {
   Stethoscope, Baby, HeartPulse, Activity, Bone, Brain, Droplets,
   Wind, Flame, Sparkles, Ear, Eye, Heart, Smile, Target, Shield, Zap,

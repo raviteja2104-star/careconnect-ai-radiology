@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { masterDataService } from '@/services/masterDataService';
 
 export async function GET(req: Request) {
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const item = await req.json();
     const created = masterDataService.addMasterItem(item);
     return NextResponse.json({ success: true, data: created });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
   }
 }

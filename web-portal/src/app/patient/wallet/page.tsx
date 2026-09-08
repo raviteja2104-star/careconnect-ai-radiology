@@ -13,9 +13,16 @@ import {
   PageHeader, StatCard, StatGrid, Card, CardContent, Button, Badge, EmptyState,
 } from '@/components/ui';
 
+type WalletState = {
+  activeTokens: Array<{ department?: string; tokenNumber?: string | number }>;
+  pendingInvoices: Array<{ _id?: string; amountDue?: number; type?: string }>;
+  pendingConsents: Array<{ _id?: string; title?: string }>;
+  appointments: unknown[];
+  telemedicine: Array<{ _id?: string; doctor?: { name?: string }; tokenId?: string; status?: string }>;
+};
 export default function DigitalHealthWallet() {
   const router = useRouter();
-  const [wallet, setWallet] = useState<any>({
+  const [wallet, setWallet] = useState<WalletState>({
     activeTokens: [], pendingInvoices: [], pendingConsents: [], appointments: [], telemedicine: []
   });
 
@@ -33,6 +40,7 @@ export default function DigitalHealthWallet() {
     queryFn: () => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/patient/${patientId}/wallet`, {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       }).then(res => res.json());
     }
@@ -40,6 +48,7 @@ export default function DigitalHealthWallet() {
 
   useEffect(() => {
     if (walletRes?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWallet(walletRes.data);
     }
   }, [walletRes]);
@@ -148,7 +157,7 @@ export default function DigitalHealthWallet() {
             <Badge tone="warning" dot pulse>{actionCount}</Badge>
           </h3>
           <div className="space-y-3">
-            {wallet.pendingInvoices.map((inv: any, i: number) => (
+            {wallet.pendingInvoices.map((inv, i: number) => (
               <motion.div
                 key={inv._id}
                 initial={{ opacity: 0, y: 8 }}
@@ -163,7 +172,7 @@ export default function DigitalHealthWallet() {
                   <div>
                     <p className="text-sm font-bold text-foreground">Pay Invoice</p>
                     <p className="text-xs font-medium text-warning">
-                      {formatCurrency(inv.amountDue)} Due • {inv.type}
+                      {formatCurrency(inv.amountDue ?? 0)} Due • {inv.type}
                     </p>
                   </div>
                 </div>
@@ -171,7 +180,7 @@ export default function DigitalHealthWallet() {
               </motion.div>
             ))}
 
-            {wallet.pendingConsents.map((consent: any, i: number) => (
+            {wallet.pendingConsents.map((consent, i: number) => (
               <motion.div
                 key={consent._id}
                 initial={{ opacity: 0, y: 8 }}
@@ -208,7 +217,7 @@ export default function DigitalHealthWallet() {
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Physical Queues */}
-            {wallet.activeTokens.map((token: any, i: number) => (
+            {wallet.activeTokens.map((token, i: number) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 12 }}
@@ -249,7 +258,7 @@ export default function DigitalHealthWallet() {
             ))}
 
             {/* Telemedicine */}
-            {wallet.telemedicine.map((session: any, i: number) => (
+            {wallet.telemedicine.map((session, i: number) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 12 }}

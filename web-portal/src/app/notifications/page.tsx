@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,7 +58,7 @@ function getGroup(createdAt?: string): AppNotification['group'] {
 }
 
 function formatTime(createdAt?: string): string {
-  if (!createdAt) return '—';
+  if (!createdAt) return 'â€”';
   const d = new Date(createdAt);
   const group = getGroup(createdAt);
   if (group === 'Today' || group === 'Yesterday') {
@@ -67,6 +67,7 @@ function formatTime(createdAt?: string): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapNotification(n: any): AppNotification {
   const category = (n.category || n.type || 'general').toLowerCase() as NotificationCategory;
   return {
@@ -161,7 +162,7 @@ export default function NotificationsPage() {
           </TabsList>
         </Tabs>
         <span className="text-sm text-muted-foreground tabular-nums">
-          {isLoading ? 'Loading…' : unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+          {isLoading ? 'Loadingâ€¦' : unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
         </span>
       </div>
 

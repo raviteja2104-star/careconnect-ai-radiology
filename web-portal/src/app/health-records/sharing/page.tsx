@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Share2, Plus, ShieldX, WifiOff, History } from 'lucide-react';
@@ -56,6 +56,7 @@ export default function RecordSharingPage() {
 
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSharesLoading(true);
         setSharesError(null);
         fetchShares(patientId)
@@ -67,6 +68,7 @@ export default function RecordSharingPage() {
 
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setHistoryLoading(true);
         setHistoryError(null);
         fetchAccessHistory(patientId)

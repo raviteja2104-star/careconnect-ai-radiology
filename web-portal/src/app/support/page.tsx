@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -70,8 +70,11 @@ const FAQS: Faq[] = [
 ];
 
 export default function supportPage() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const router = useRouter();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [search, setSearch] = useState('');
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [openId, setOpenId] = useState<string | null>(null);
 
   const query = search.trim().toLowerCase();

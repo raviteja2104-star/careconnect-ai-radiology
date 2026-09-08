@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -155,7 +155,9 @@ function SearchPageInner() {
             });
     }, [filters, q, userLoc]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { runSearch(); }, [runSearch]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { setPage(1); }, [filters, q, userLoc]);
 
     // Contract gaps filled client-side: /search has no `appointmentAvailable`

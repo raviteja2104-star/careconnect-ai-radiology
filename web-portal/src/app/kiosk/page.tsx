@@ -16,12 +16,14 @@ const stepMotion = {
   transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
 };
 
+type GeneratedToken = { tokenNumber?: string | number; patientName?: string; department?: string };
+
 export default function KioskApp() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<KioskStep>('WELCOME');
   const [phone, setPhone] = useState('');
   const [walkinData, setWalkinData] = useState({ patientName: '', department: 'General Medicine' });
-  const [generatedToken, setGeneratedToken] = useState<any>(null);
+  const [generatedToken, setGeneratedToken] = useState<GeneratedToken | null>(null);
 
   const checkinMutation = useMutation({
     mutationFn: (identifier: string) =>
@@ -41,7 +43,7 @@ export default function KioskApp() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: (data: any) =>
+    mutationFn: (data: object) =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/kiosk/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -49,7 +49,7 @@ export default function WalkInRegistration() {
   const doctors = doctorsRes?.data || [];
 
   const registerMutation = useMutation({
-    mutationFn: (data: any) =>
+    mutationFn: (data: object) =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/walkin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -156,6 +156,7 @@ export default function WalkInRegistration() {
                         onChange={e => setFormData({ ...formData, doctorId: e.target.value })}
                       >
                         <option value="">Auto-Assign (Any Available)</option>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {doctors.map((doc: any) => (
                           <option key={doc._id} value={doc._id}>{doc.name}</option>
                         ))}

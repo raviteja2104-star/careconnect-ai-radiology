@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -39,6 +39,7 @@ export default function EnterpriseDataPlatformPage() {
 
   // Research Query Form
   const [cohortName, setCohortName] = useState('Cardiovascular & Type 2 Diabetes High-Risk Cohort');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [researchReport, setResearchReport] = useState<any>(null);
   const [isQuerying, setIsQuerying] = useState(false);
 

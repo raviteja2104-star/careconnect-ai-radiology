@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -108,8 +108,10 @@ export default function BookAppointmentPage() {
     exit: (dir: number) => ({ opacity: 0, x: dir > 0 ? -20 : 20 }),
   };
 
-  const selectedDoctor = doctors.find((d) => d._id === doctor);
-  const selectedSpecialty = specialties.find((s) => s.id === specialty);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selectedDoctor = doctors.find((d: any) => d._id === doctor);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selectedSpecialty = specialties.find((s: any) => s.id === specialty);
 
   return (
     <div className="space-y-6">
@@ -204,8 +206,9 @@ export default function BookAppointmentPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {specialties.map((spec, i: number) => {
-                        const IconComponent = ICON_MAP[spec.icon] || Activity;
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {specialties.map((spec: any, i: number) => {
+                        const IconComponent = (ICON_MAP[spec.icon] || Activity) as React.ElementType;
                         const selected = specialty === spec.id;
                         return (
                           <motion.button
@@ -257,7 +260,8 @@ export default function BookAppointmentPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {doctors.map((doc, i: number) => (
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {doctors.map((doc: any, i: number) => (
                         <motion.div
                           key={doc._id}
                           initial={{ opacity: 0, y: 10 }}

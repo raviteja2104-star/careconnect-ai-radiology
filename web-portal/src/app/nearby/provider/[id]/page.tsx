@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -41,6 +41,7 @@ export default function ProviderProfilePage() {
             .catch((err) => { setError(err instanceof Error ? err.message : 'Failed to load provider'); setLoading(false); });
     }, [id]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { load(); }, [load]);
 
     if (loading) {

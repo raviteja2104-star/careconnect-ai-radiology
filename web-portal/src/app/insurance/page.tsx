@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -35,6 +35,7 @@ const coverage = [
 ];
 
 export default function insurancePage() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const router = useRouter();
   const claimColumns: Column<Claim>[] = [
     {

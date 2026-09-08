@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { CLINICAL_CALCULATORS } from '@/services/specialtyService';
 
 export async function GET(request: Request) {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       calculatorId,
       result
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }
 }

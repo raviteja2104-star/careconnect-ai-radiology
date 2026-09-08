@@ -17,7 +17,7 @@ export default function LiveOperationsWall() {
     activeTransfers: 0, telemedicineActive: 0, totalInSystem: 0
   });
 
-  const [eventStream, setEventStream] = useState<any[]>([]);
+  const [eventStream, setEventStream] = useState<{ id: number; type: string; data: unknown; time: Date }[]>([]);
 
   // Fetch initial state
   const { data: liveData } = useQuery({
@@ -32,6 +32,7 @@ export default function LiveOperationsWall() {
 
   useEffect(() => {
     if (liveData?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStats(liveData.data);
     }
   }, [liveData]);
@@ -40,7 +41,7 @@ export default function LiveOperationsWall() {
   useEffect(() => {
     const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care');
 
-    const handleEvent = (eventName: string) => (data: any) => {
+    const handleEvent = (eventName: string) => (data: unknown) => {
       // Invalidate queries to refresh counts
       // Alternatively, update stats optimistically here for true zero-latency
 
@@ -109,7 +110,7 @@ export default function LiveOperationsWall() {
               />
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {heatmap.map((dept: any, i: number) => (
+                {(heatmap as { department: string; count: number }[]).map((dept, i: number) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, y: 12 }}

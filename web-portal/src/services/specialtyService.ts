@@ -1,4 +1,4 @@
-export interface Specialty {
+﻿export interface Specialty {
   id: string;
   name: string;
   category: string;
@@ -13,8 +13,8 @@ export interface ClinicalCalculator {
   name: string;
   specialtyId: string;
   description: string;
-  inputs: { id: string; label: string; type: 'number' | 'select' | 'boolean'; options?: string[]; defaultValue?: any }[];
-  calculate: (inputs: Record<string, any>) => { score: number | string; interpretation: string; riskLevel: 'low' | 'moderate' | 'high' | 'critical' };
+  inputs: { id: string; label: string; type: 'number' | 'select' | 'boolean'; options?: string[]; defaultValue?: unknown }[];
+  calculate: (inputs: Record<string, unknown>) => { score: number | string; interpretation: string; riskLevel: 'low' | 'moderate' | 'high' | 'critical' };
 }
 
 export interface VaccineItem {
@@ -100,7 +100,7 @@ export const CLINICAL_CALCULATORS: Record<string, ClinicalCalculator> = {
     calculate: (inputs) => {
       const w = Number(inputs.weightKg) || 1;
       const mg = Number(inputs.mgPerKg) || 10;
-      const freqDiv = inputs.frequency.includes('BID') ? 2 : inputs.frequency.includes('TID') ? 3 : inputs.frequency.includes('QID') ? 4 : 1;
+      const freqDiv = (inputs.frequency as string).includes('BID') ? 2 : (inputs.frequency as string).includes('TID') ? 3 : (inputs.frequency as string).includes('QID') ? 4 : 1;
       const totalDailyMg = w * mg;
       const singleDoseMg = totalDailyMg / freqDiv;
       return {
@@ -126,8 +126,8 @@ export const CLINICAL_CALCULATORS: Record<string, ClinicalCalculator> = {
     ],
     calculate: (inputs) => {
       let score = 0;
-      if (inputs.age.includes('+1')) score += 1;
-      if (inputs.age.includes('+2')) score += 2;
+      if ((inputs.age as string).includes('+1')) score += 1;
+      if ((inputs.age as string).includes('+2')) score += 2;
       if (inputs.female) score += 1;
       if (inputs.chf) score += 1;
       if (inputs.hypertension) score += 1;
@@ -161,10 +161,10 @@ export const CLINICAL_CALCULATORS: Record<string, ClinicalCalculator> = {
     ],
     calculate: (inputs) => {
       let score = 0;
-      score += Number(inputs.loc?.charAt(0)) || 0;
-      score += Number(inputs.gaze?.charAt(0)) || 0;
-      score += Number(inputs.motorArm?.charAt(0)) || 0;
-      score += Number(inputs.facial?.charAt(0)) || 0;
+      score += Number((inputs.loc as string)?.charAt(0)) || 0;
+      score += Number((inputs.gaze as string)?.charAt(0)) || 0;
+      score += Number((inputs.motorArm as string)?.charAt(0)) || 0;
+      score += Number((inputs.facial as string)?.charAt(0)) || 0;
 
       let risk: 'low' | 'moderate' | 'high' | 'critical' = 'low';
       let interp = 'Minor Stroke';
@@ -192,10 +192,10 @@ export const CLINICAL_CALCULATORS: Record<string, ClinicalCalculator> = {
     ],
     calculate: (inputs) => {
       let score = 0;
-      score += Number(inputs.q1?.charAt(0)) || 0;
-      score += Number(inputs.q2?.charAt(0)) || 0;
-      score += Number(inputs.q3?.charAt(0)) || 0;
-      score += Number(inputs.q4?.charAt(0)) || 0;
+      score += Number((inputs.q1 as string)?.charAt(0)) || 0;
+      score += Number((inputs.q2 as string)?.charAt(0)) || 0;
+      score += Number((inputs.q3 as string)?.charAt(0)) || 0;
+      score += Number((inputs.q4 as string)?.charAt(0)) || 0;
 
       let risk: 'low' | 'moderate' | 'high' | 'critical' = 'low';
       let interp = 'Minimal Depression';
@@ -223,10 +223,10 @@ export const CLINICAL_CALCULATORS: Record<string, ClinicalCalculator> = {
     ],
     calculate: (inputs) => {
       let score = 0;
-      score += Number(inputs.pao2fio2?.charAt(0)) || 0;
-      score += Number(inputs.platelets?.charAt(0)) || 0;
-      score += Number(inputs.map?.charAt(0)) || 0;
-      score += Number(inputs.creatinine?.charAt(0)) || 0;
+      score += Number((inputs.pao2fio2 as string)?.charAt(0)) || 0;
+      score += Number((inputs.platelets as string)?.charAt(0)) || 0;
+      score += Number((inputs.map as string)?.charAt(0)) || 0;
+      score += Number((inputs.creatinine as string)?.charAt(0)) || 0;
 
       let risk: 'low' | 'moderate' | 'high' | 'critical' = 'low';
       let mortality = '< 10%';

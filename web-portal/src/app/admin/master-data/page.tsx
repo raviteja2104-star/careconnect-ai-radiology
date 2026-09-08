@@ -67,7 +67,7 @@ export default function MasterDataManagementPage() {
 
     const created = masterDataService.addMasterItem({
       id: `m-custom-${Date.now()}`,
-      category: selectedCategory as any,
+      category: selectedCategory as MasterDataItem['category'],
       subCategory: newItemSubCategory,
       code: newItemCode,
       name: newItemName,
@@ -389,7 +389,7 @@ export default function MasterDataManagementPage() {
                   <Select
                     id="branding-header"
                     value={branding.prescriptionHeaderLayout}
-                    onChange={(e) => setBranding({ ...branding, prescriptionHeaderLayout: e.target.value as any })}
+                    onChange={(e) => setBranding({ ...branding, prescriptionHeaderLayout: e.target.value as 'HEADER_FULL' | 'HEADER_COMPACT' | 'LETTERHEAD_PREPRINTED' })}
                   >
                     <option value="HEADER_FULL">Full Standard Header with Logo</option>
                     <option value="HEADER_COMPACT">Compact Modern Header</option>

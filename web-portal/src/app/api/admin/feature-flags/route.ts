@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { masterDataService } from '@/services/masterDataService';
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function PUT(req: Request) {
     const { key } = await req.json();
     const updated = masterDataService.toggleFeatureFlag(key);
     return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
   }
 }

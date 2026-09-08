@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -281,7 +281,7 @@ export default function EnterpriseOperationsPage() {
                 </div>
                 <div className="w-full space-y-1.5 sm:w-40">
                   <Label htmlFor="ops-incident-sev">Severity</Label>
-                  <Select id="ops-incident-sev" value={newSev} onChange={(e) => setNewSev(e.target.value as any)}>
+                  <Select id="ops-incident-sev" value={newSev} onChange={(e) => setNewSev(e.target.value as 'CRITICAL' | 'MAJOR' | 'MINOR')}>
                     <option value="MINOR">MINOR</option>
                     <option value="MAJOR">MAJOR</option>
                     <option value="CRITICAL">CRITICAL</option>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -86,6 +86,7 @@ export default function EnterpriseAIPlatformPage() {
 
   // Interactive Scribe State
   const [dictationText, setDictationText] = useState('Patient is a 54yo male complaining of shortness of breath and fever for 2 days. History of hypertension. BP 138/86, HR 80. Chest reveals mild rhonchi.');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [scribeOutput, setScribeOutput] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 

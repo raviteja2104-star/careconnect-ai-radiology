@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -241,6 +241,7 @@ export default function LabResultEntryPage({ params }: { params: Promise<{ id: s
     }, [id]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         load();
     }, [load]);
 

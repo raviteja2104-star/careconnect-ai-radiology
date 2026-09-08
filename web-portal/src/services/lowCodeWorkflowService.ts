@@ -105,7 +105,7 @@ export interface WorkflowInstance {
   startedAt: string;
   updatedAt: string;
   slaDueAt: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   auditTrail: {
     id: string;
     timestamp: string;

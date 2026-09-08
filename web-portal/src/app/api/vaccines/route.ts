@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { INITIAL_PEDIATRIC_VACCINES } from '@/services/specialtyService';
 
 type Vaccine = (typeof INITIAL_PEDIATRIC_VACCINES)[number];
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       message: 'Vaccination record updated successfully',
       vaccines,
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }
 }

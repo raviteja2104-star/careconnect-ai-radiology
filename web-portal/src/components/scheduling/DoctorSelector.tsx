@@ -54,6 +54,7 @@ export const DoctorSelector = ({ selected, onSelect }: { selected: string, onSel
             description="Doctors registered for this hospital will appear here."
           />
         ) : (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           doctors.map((doc: any) => (
             <button
               key={doc._id}

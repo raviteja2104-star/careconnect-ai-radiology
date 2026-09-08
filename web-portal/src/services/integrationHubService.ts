@@ -9,7 +9,7 @@ export interface FHIRResourceRecord {
   id: string;
   meta: { versionId: string; lastUpdated: string };
   status: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 export interface HL7MessageRecord {
@@ -31,7 +31,7 @@ export interface DeviceTelemetryRecord {
   batteryPct: number;
   status: 'ONLINE' | 'WARNING' | 'CRITICAL' | 'OFFLINE';
   lastPing: string;
-  readings: Record<string, any>;
+  readings: Record<string, unknown>;
 }
 
 export interface CommandCenterData {

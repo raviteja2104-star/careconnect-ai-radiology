@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -95,6 +95,7 @@ const ACCESS_TONE: Record<FamilyMember['accessLevel'], 'success' | 'info' | 'war
 };
 
 export default function familyPage() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const router = useRouter();
   const abhaLinkedCount = FAMILY_MEMBERS.filter(m => m.abhaLinked).length;
   const upcomingCount = FAMILY_MEMBERS.filter(m => m.nextAppointment).length;

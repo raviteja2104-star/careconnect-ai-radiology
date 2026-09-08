@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CareConnect Enterprise Delivery, Operations & Customer Success Platform Service (Phase 18)
  * Internal OS for implementation teams, customer success, hospital onboarding, device installation,
  * LMS training, UAT sign-off, support ticketing, & canary release management.
@@ -94,12 +94,12 @@ class EnterpriseOperationsService {
   public getLMS() { return this.lms; }
   public getReleases() { return this.releases; }
 
-  public createTicket(hospitalName: string, title: string, severity: any) {
+  public createTicket(hospitalName: string, title: string, severity: unknown) {
     const ticket: SupportTicketRecord = {
       id: `tkt-${Date.now()}`,
       hospitalName: hospitalName || 'Apollo Main',
       title: title || 'Support Inquiry',
-      severity: severity || 'MINOR',
+      severity: (severity as 'CRITICAL' | 'MAJOR' | 'MINOR') || 'MINOR',
       status: 'OPEN',
       slaExpiresInMins: 60,
       assignedEngineer: 'Unassigned',

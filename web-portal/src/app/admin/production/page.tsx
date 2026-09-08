@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -65,6 +65,7 @@ export default function ProductionHardeningPage() {
 
   // Interactive PHI Scanner State
   const [rawText, setRawText] = useState('Patient Rajesh Rao (SSN: 901-28-4920, Phone: 9876543210, Email: rajesh@example.com) presented with acute dyspnea.');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [phiResult, setPhiResult] = useState<any>(null);
 
   // Interactive Migration Form
@@ -77,7 +78,7 @@ export default function ProductionHardeningPage() {
 
   const handleStartMigration = (e: React.FormEvent) => {
     e.preventDefault();
-    hospitalMigrationService.uploadAndMigrate(importSystem as any, 'PATIENTS', importRecords);
+    hospitalMigrationService.uploadAndMigrate(importSystem, 'PATIENTS', importRecords);
     setMigrationJobs([...hospitalMigrationService.getJobs()]);
   };
 

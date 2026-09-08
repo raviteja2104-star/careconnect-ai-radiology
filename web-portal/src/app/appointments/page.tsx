@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -49,7 +49,9 @@ export interface AppointmentData {
   room?: string;
 }
 
-function mapApiAppointment(raw: any): AppointmentData {
+type RawAppointment = { _id?: string; id?: string; date?: string; doctorName?: string; doctor?: { name?: string; specialty?: string; hospital?: string; image?: string }; specialty?: string; hospital?: string; room?: string; timeSlot?: string; time?: string; visitType?: string; type?: string; status?: string };
+
+function mapApiAppointment(raw: RawAppointment): AppointmentData {
   const dateStr = raw.date ? new Date(raw.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : raw.date;
   const statusMap: Record<string, AppointmentData['status']> = {
     scheduled: 'Upcoming', confirmed: 'Upcoming', upcoming: 'Upcoming',
@@ -57,12 +59,12 @@ function mapApiAppointment(raw: any): AppointmentData {
     cancelled: 'Cancelled', canceled: 'Cancelled',
   };
   return {
-    id: raw._id ?? raw.id,
+    id: raw._id ?? raw.id ?? '',
     doctorName: raw.doctorName ?? raw.doctor?.name ?? 'Doctor',
     specialty: raw.specialty ?? raw.doctor?.specialty ?? '',
     hospital: raw.hospital ?? raw.doctor?.hospital ?? 'CareConnect',
     room: raw.room,
-    date: dateStr,
+    date: dateStr ?? '',
     time: raw.timeSlot ?? raw.time ?? '',
     type: (raw.visitType === 'Video Call' || raw.type === 'Video Call') ? 'Video Call' : 'In-Person',
     status: statusMap[String(raw.status).toLowerCase()] ?? 'Upcoming',

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -57,6 +57,7 @@ export default function NearbyAdminConsolePage() {
 
     React.useEffect(() => {
         let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         setError(null);
         fetchAdminProviders()
@@ -67,6 +68,7 @@ export default function NearbyAdminConsolePage() {
     }, [refreshKey]);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (providers.length === 0) { setDoctors([]); setDoctorsLoading(false); return; }
         let cancelled = false;
         setDoctorsLoading(true);

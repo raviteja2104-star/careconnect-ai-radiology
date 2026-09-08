@@ -26,12 +26,22 @@ const CHANNEL_META: Record<string, { icon: React.ElementType; classes: string }>
   },
 };
 
+type CommLog = {
+  _id?: string;
+  channel: string;
+  patient?: { name?: string };
+  relatedEvent?: string;
+  content?: string;
+  status: string;
+};
+
 export default function CommunicationDashboard() {
-  const [liveLogs, setLiveLogs] = useState<any[]>([]);
+  const [liveLogs, setLiveLogs] = useState<CommLog[]>([]);
 
   const { data: analyticsRes, isLoading: analyticsLoading } = useQuery({
     queryKey: ['communication_analytics'],
     queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/communication/analytics`).then(res => res.json())
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   });
 
   const { data: historyRes, isLoading: historyLoading } = useQuery({
@@ -41,6 +51,7 @@ export default function CommunicationDashboard() {
 
   useEffect(() => {
     if (historyRes?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLiveLogs(historyRes.data);
     }
   }, [historyRes]);
@@ -66,13 +77,13 @@ export default function CommunicationDashboard() {
     ];
   }, [stats.channels.whatsapp, stats.channels.sms, stats.channels.email]);
 
-  const columns: Column<any>[] = [
+  const columns: Column<CommLog>[] = [
     {
       key: 'channel',
       header: 'Channel',
       sortable: true,
-      accessor: (log: any) => log.channel ?? '',
-      cell: (log: any) => {
+      accessor: (log) => log.channel ?? '',
+      cell: (log) => {
         const meta = CHANNEL_META[log.channel] ?? CHANNEL_META.SMS;
         const Icon = meta.icon;
         return (
@@ -87,16 +98,16 @@ export default function CommunicationDashboard() {
       key: 'patient',
       header: 'Patient',
       sortable: true,
-      accessor: (log: any) => log.patient?.name ?? '',
-      cell: (log: any) => (
+      accessor: (log) => log.patient?.name ?? '',
+      cell: (log) => (
         <p className="font-medium text-foreground">{log.patient?.name || 'Unknown'}</p>
       ),
     },
     {
       key: 'relatedEvent',
       header: 'Trigger Event',
-      accessor: (log: any) => log.relatedEvent ?? 'MANUAL_SEND',
-      cell: (log: any) => (
+      accessor: (log) => log.relatedEvent ?? 'MANUAL_SEND',
+      cell: (log) => (
         <code className="rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted-foreground">
           {log.relatedEvent || 'MANUAL_SEND'}
         </code>
@@ -105,8 +116,8 @@ export default function CommunicationDashboard() {
     {
       key: 'content',
       header: 'Content Snippet',
-      accessor: (log: any) => log.content ?? '',
-      cell: (log: any) => (
+      accessor: (log) => log.content ?? '',
+      cell: (log) => (
         <p className="max-w-xs truncate text-sm text-muted-foreground">{log.content}</p>
       ),
     },
@@ -115,8 +126,8 @@ export default function CommunicationDashboard() {
       header: 'Status',
       align: 'right',
       sortable: true,
-      accessor: (log: any) => log.status ?? '',
-      cell: (log: any) => {
+      accessor: (log) => log.status ?? '',
+      cell: (log) => {
         const ok = log.status === 'DELIVERED' || log.status === 'SENT';
         return (
           <Badge tone={ok ? 'success' : 'danger'} dot>
@@ -217,11 +228,11 @@ export default function CommunicationDashboard() {
                   ))}
                 </div>
               ) : (
-                <DataTable<any>
+                <DataTable<CommLog>
                   columns={columns}
                   data={liveLogs}
-                  rowKey={(log: any, i: number) => log._id || String(i)}
-                  searchPlaceholder="Search messages…"
+                  rowKey={(log, i: number) => log._id || String(i)}
+                  searchPlaceholder="Search messages�"
                   exportName="delivery-log"
                   emptyTitle="No messages found"
                   emptyDescription="Outbound SMS, WhatsApp and email messages will stream in here as they are sent."
@@ -259,7 +270,7 @@ export default function CommunicationDashboard() {
                         {label}
                       </span>
                       <span className="tabular-nums text-muted-foreground">
-                        {count} <span className="text-subtle-foreground">· {pct}%</span>
+                        {count} <span className="text-subtle-foreground">� {pct}%</span>
                       </span>
                     </div>
                     <Progress value={pct} tone={tone} />
@@ -267,7 +278,7 @@ export default function CommunicationDashboard() {
                 ))
               )}
               <div className="rounded-2xl border border-border bg-muted/40 p-4 text-xs text-muted-foreground">
-                Delivery events arrive over the socket event bus — counters refresh automatically as
+                Delivery events arrive over the socket event bus � counters refresh automatically as
                 messages fan out to patients.
               </div>
             </CardContent>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Plus, X } from 'lucide-react';
@@ -32,6 +32,7 @@ export function DoctorDialog({ open, onClose, doctor, schedule, saving, onSave }
 
     React.useEffect(() => {
         if (!open) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setName(doctor?.name ?? '');
         setSpecialty(doctor?.specialty ?? '');
         setQualification(doctor?.qualification ?? '');

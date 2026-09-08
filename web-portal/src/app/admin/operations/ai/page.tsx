@@ -75,6 +75,7 @@ export default function SmartQueueAIOptimiser() {
                 />
               </div>
             ) : (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               predictions.map((p: any, i: number) => (
                 <motion.div
                   key={i}
@@ -169,6 +170,7 @@ export default function SmartQueueAIOptimiser() {
               </motion.div>
             )}
 
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {recommendations.map((rec: any, i: number) => (
               <motion.div
                 key={rec._id || i}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import {
@@ -49,6 +49,7 @@ function LabBookingPanel({
 
     React.useEffect(() => {
         if (!date) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSlotsLoading(true);
         setSelectedSlot(null);
         fetchAvailability(provider._id, undefined, date)
@@ -298,6 +299,7 @@ export default function LabBookingPage() {
             .catch((err) => { setError(err instanceof Error ? err.message : 'Search failed'); setLoading(false); });
     }, [userLoc]);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     React.useEffect(() => { load(); }, [load]);
 
     async function handleUseMyLocation() {

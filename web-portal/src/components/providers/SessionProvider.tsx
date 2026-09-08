@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -49,6 +49,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (stored) {
             const real = sessionFromBackendUser(stored.user, stored.token);
             authService.setActiveSession(real);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSession(real);
             setIsAuthenticated(true);
         } else {

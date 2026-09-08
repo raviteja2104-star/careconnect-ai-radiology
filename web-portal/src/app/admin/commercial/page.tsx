@@ -73,7 +73,7 @@ export default function EnterpriseCommercialPage() {
 
   const handleCreateTenant = (e: React.FormEvent) => {
     e.preventDefault();
-    commercialSaaSPlatformService.createTenant(newHosp, newTier as any);
+    commercialSaaSPlatformService.createTenant(newHosp, newTier);
     setTenants([...commercialSaaSPlatformService.getTenants()]);
   };
 

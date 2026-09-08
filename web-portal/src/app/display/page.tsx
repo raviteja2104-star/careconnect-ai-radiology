@@ -58,7 +58,9 @@ export default function PatientDisplayBoard() {
   }, []);
 
   const tokens = queueData?.data || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentlyCalling = tokens.filter((t: any) => t.status === 'CALLED' || t.status === 'IN_PROGRESS');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const waitingTokens = tokens.filter((t: any) => t.status === 'WAITING').slice(0, 8); // Next 8
 
   const ticker = [...TICKER_ITEMS, ...TICKER_ITEMS];
@@ -107,6 +109,7 @@ export default function PatientDisplayBoard() {
               </div>
             ) : (
               <AnimatePresence initial={false}>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {currentlyCalling.map((token: any) => (
                   <motion.div
                     key={token._id}
@@ -158,6 +161,7 @@ export default function PatientDisplayBoard() {
                 Queue is empty
               </div>
             ) : (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               waitingTokens.map((token: any, index: number) => (
                 <motion.div
                   key={token._id}

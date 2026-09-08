@@ -7,6 +7,15 @@ import {
   PageHeader, Button, Badge, DataTable, SkeletonTable, type Column,
 } from '@/components/ui';
 
+type CheckinAppt = {
+  _id: string;
+  timeSlot?: string;
+  patient?: { name?: string; phone?: string };
+  doctor?: { name?: string };
+  specialty?: string;
+  visitType?: string;
+  status?: string;
+};
 export default function AppointmentCheckIn() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -30,9 +39,10 @@ export default function AppointmentCheckIn() {
   });
 
   const appointments = appointmentsRes?.data || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingAppointments = appointments.filter((a: any) => a.status === 'Booked' || a.status === 'Confirmed');
 
-  const columns: Column<any>[] = [
+  const columns: Column<CheckinAppt>[] = [
     {
       key: 'timeSlot',
       header: 'Time',
@@ -119,7 +129,7 @@ export default function AppointmentCheckIn() {
         <DataTable
           columns={columns}
           data={pendingAppointments}
-          rowKey={(apt: any) => apt._id}
+          rowKey={(apt) => apt._id}
           searchPlaceholder="Search by name, UHID, phone…"
           exportName="pending-checkins"
           emptyTitle="No pending appointments"

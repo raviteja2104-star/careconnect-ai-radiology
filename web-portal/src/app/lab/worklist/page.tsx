@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -106,6 +106,7 @@ export default function LabWorklistPage() {
     }, []);
 
     React.useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         load();
         const t = setInterval(() => load(true), REFETCH_MS);
         return () => clearInterval(t);

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -55,6 +55,7 @@ function getCurrentUser(): { id: string; name: string } {
   return { id: '', name: 'Me' };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapChannel(raw: any): Channel {
   const lastMsg = raw.lastMessage?.text || raw.lastMessage?.content || (typeof raw.lastMessage === 'string' ? raw.lastMessage : '') || '';
   const updatedAt = raw.updatedAt || raw.lastMessage?.createdAt;
@@ -69,6 +70,7 @@ function mapChannel(raw: any): Channel {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapMessage(raw: any, currentUserId: string): Message {
   const senderId = raw.sender?._id || raw.sender?.id || raw.senderId || '';
   return {
@@ -128,7 +130,7 @@ export default function MessagesPage() {
   const currentUser = getCurrentUser();
   const rawMessages: Message[] = (() => {
     const list = threadData?.data || threadData?.messages || [];
-    return Array.isArray(list) ? list.map((m: any) => mapMessage(m, currentUser.id)) : [];
+    return Array.isArray(list) ? list.map((m) => mapMessage(m, currentUser.id)) : [];
   })();
 
   const messages = [...rawMessages, ...optimisticMessages];
@@ -183,7 +185,7 @@ export default function MessagesPage() {
             <Input
               icon={<Search />}
               type="text"
-              placeholder="Search doctors, patients, wards…"
+              placeholder="Search doctors, patients, wardsâ€¦"
               aria-label="Search conversations"
               className="h-9"
             />
@@ -307,7 +309,7 @@ export default function MessagesPage() {
                     >
                       <div className="mb-1 flex items-center gap-1.5 text-[11px] text-subtle-foreground">
                         <span className="font-semibold text-muted-foreground">{msg.sender}</span>
-                        <span>• {msg.time}</span>
+                        <span>â€¢ {msg.time}</span>
                       </div>
 
                       <div
@@ -345,13 +347,13 @@ export default function MessagesPage() {
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type your message or clinical advice…"
+                  placeholder="Type your message or clinical adviceâ€¦"
                   aria-label="Message"
                   className="flex-1"
                 />
 
                 <Button type="submit" variant="primary" disabled={sendMutation.isPending || !inputText.trim()}>
-                  <Send className="h-4 w-4" aria-hidden /> {sendMutation.isPending ? 'Sending…' : 'Send'}
+                  <Send className="h-4 w-4" aria-hidden /> {sendMutation.isPending ? 'Sendingâ€¦' : 'Send'}
                 </Button>
               </form>
             </>
