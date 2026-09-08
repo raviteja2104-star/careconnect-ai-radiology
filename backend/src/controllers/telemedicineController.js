@@ -283,6 +283,42 @@ exports.startConsultation = async (req, res) => {
     }
 };
 
+// @desc    Get telemedicine session by its own MongoDB _id (or falls back to appointment lookup)
+// @route   GET /api/telemedicine/:id
+// @access  Private (patient or doctor on the session)
+exports.getSessionById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const populate = [
+            { path: 'patient', select: 'firstName lastName email' },
+            { path: 'doctor',  select: 'firstName lastName specialization department' },
+            { path: 'appointment', select: 'date timeSlot visitType department' },
+        ];
+
+        let session = await TelemedicineSession.findById(id).populate(populate).lean().catch(() => null);
+
+        // Fall back: caller may have passed the appointment _id instead
+        if (!session) {
+            session = await TelemedicineSession.findOne({ appointment: id }).populate(populate).lean();
+        }
+
+        if (!session) {
+            return res.status(404).json({ success: false, error: 'Session not found.' });
+        }
+
+        const userId = req.user._id.toString();
+        const pId = session.patient?._id?.toString() ?? session.patient?.toString();
+        const dId = session.doctor?._id?.toString()  ?? session.doctor?.toString();
+        if (pId !== userId && dId !== userId) {
+            return res.status(403).json({ success: false, error: 'Not authorised to view this session.' });
+        }
+
+        return res.json({ success: true, data: session });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 // @desc    End consultation
 // @route   POST /api/telemedicine/end
 // @access  Private (doctor, admin)

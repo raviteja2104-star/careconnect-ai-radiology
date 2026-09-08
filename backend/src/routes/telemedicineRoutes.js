@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   joinWaitingRoom,
   getSession,
+  getSessionById,
   startConsultation,
   endConsultation,
 } = require('../controllers/telemedicineController');
@@ -23,5 +24,9 @@ router.get('/session/:appointmentId', permitAny('PATIENT.USE_TELEMEDICINE', 'DOC
 // Doctor: control the consultation lifecycle
 router.post('/start', permit('DOCTOR.START_TELEMEDICINE'), startConsultation);
 router.post('/end',   permit('DOCTOR.END_TELEMEDICINE'),   endConsultation);
+
+// Fetch session by its own _id (patient or doctor on the session).
+// Registered last so it does not shadow the more-specific routes above.
+router.get('/:id', permitAny('PATIENT.USE_TELEMEDICINE', 'DOCTOR.START_TELEMEDICINE'), getSessionById);
 
 module.exports = router;
