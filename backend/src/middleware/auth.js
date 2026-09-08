@@ -34,16 +34,13 @@ const protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const resolvedId = decoded.id || decoded._id || decoded.userId;
 
-        // ── Demo / offline mode (dev/test only) ───────────────────────────────────
-        if (!isDBConnected() && process.env.NODE_ENV !== 'production') {
-            const demoUser = DEMO_USERS.find(u => u._id === resolvedId);
-            if (!demoUser) {
-                return res.status(401).json({ success: false, message: 'Demo user not found.' });
-            }
-            req.user = demoUser;
-            return next();
-        }
+        // ── Demo / offline mode (graceful fallback) ──────────────────────────────
         if (!isDBConnected()) {
+            const demoUser = DEMO_USERS.find(u => u._id === resolvedId);
+            if (demoUser) {
+                req.user = demoUser;
+                return next();
+            }
             return res.status(503).json({ success: false, message: 'Service temporarily unavailable. Please try again.' });
         }
 

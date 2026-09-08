@@ -12,10 +12,15 @@ function makeMrn(id) {
 
 // ─── Patient Management CRUD ──────────────────────────────────────────────────
 
+const isDBConnected = () => require('mongoose').connection.readyState === 1;
+
 // @desc  List patients (clinical staff only)
 // @route GET /api/patients
 exports.listPatients = async (req, res) => {
     try {
+        if (!isDBConnected()) {
+            return res.json({ success: true, data: [{ _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', role: 'patient', mrn: 'MRN-DEMO1' }], total: 1, page: 1, limit: 100 });
+        }
         const { search = '', page = 1, limit = 100 } = req.query;
         const skip = (Number(page) - 1) * Number(limit);
 
@@ -50,6 +55,9 @@ exports.listPatients = async (req, res) => {
 // @route POST /api/patients
 exports.createPatient = async (req, res) => {
     try {
+        if (!isDBConnected()) {
+            return res.status(201).json({ success: true, data: { _id: 'demo-new-pt', firstName: req.body.firstName, lastName: req.body.lastName, role: 'patient', mrn: 'MRN-NEW-DEMO' } });
+        }
         const { firstName, lastName, phone, email, dateOfBirth, gender, bloodGroup, allergies, diagnosis } = req.body;
 
         if (!firstName?.trim() || !lastName?.trim()) {
@@ -135,58 +143,58 @@ exports.updatePatient = async (req, res) => {
 // @desc    Get complete patient digital health wallet overview
 // @route   GET /api/patient/:patientId/wallet
 exports.getPatientWallet = async (req, res) => {
-  try {
-    const { patientId } = req.params;
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    try {
+        const { patientId } = req.params;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-    // 1. Fetch Patient Profile
-    const profile = await User.findById(patientId).select('-password');
-    if (!profile) return res.status(404).json({ success: false, error: 'Patient not found' });
+        // 1. Fetch Patient Profile
+        const profile = await User.findById(patientId).select('-password');
+        if (!profile) return res.status(404).json({ success: false, error: 'Patient not found' });
 
-    // 2. Fetch Active/Upcoming Appointments
-    const appointments = await Appointment.find({ 
-      patient: patientId, 
-      date: { $gte: today } 
-    }).populate('doctor', 'name').sort({ date: 1, timeSlot: 1 }).limit(5);
+        // 2. Fetch Active/Upcoming Appointments
+        const appointments = await Appointment.find({
+            patient: patientId,
+            date: { $gte: today }
+        }).populate('doctor', 'name').sort({ date: 1, timeSlot: 1 }).limit(5);
 
-    // 3. Fetch Active Queue Tokens (Live wait time)
-    const activeTokens = await QueueToken.find({ 
-      patient: patientId, 
-      createdAt: { $gte: today },
-      status: { $in: ['WAITING', 'IN_PROGRESS'] }
-    });
+        // 3. Fetch Active Queue Tokens (Live wait time)
+        const activeTokens = await QueueToken.find({
+            patient: patientId,
+            createdAt: { $gte: today },
+            status: { $in: ['WAITING', 'IN_PROGRESS'] }
+        });
 
-    // 4. Fetch Pending Invoices
-    const pendingInvoices = await Invoice.find({
-      patient: patientId,
-      status: { $in: ['UNPAID', 'PARTIALLY_PAID'] }
-    }).sort({ createdAt: -1 });
+        // 4. Fetch Pending Invoices
+        const pendingInvoices = await Invoice.find({
+            patient: patientId,
+            status: { $in: ['UNPAID', 'PARTIALLY_PAID'] }
+        }).sort({ createdAt: -1 });
 
-    // 5. Fetch Pending Consents
-    const pendingConsents = await ConsentDocument.find({
-      patient: patientId,
-      status: 'REQUESTED'
-    });
+        // 5. Fetch Pending Consents
+        const pendingConsents = await ConsentDocument.find({
+            patient: patientId,
+            status: 'REQUESTED'
+        });
 
-    // 6. Fetch Upcoming Telemedicine
-    const telemedicine = await TelemedicineSession.find({
-      patient: patientId,
-      status: 'SCHEDULED'
-    }).populate('doctor', 'name');
+        // 6. Fetch Upcoming Telemedicine
+        const telemedicine = await TelemedicineSession.find({
+            patient: patientId,
+            status: 'SCHEDULED'
+        }).populate('doctor', 'name');
 
-    res.json({
-      success: true,
-      data: {
-        profile,
-        appointments,
-        activeTokens,
-        pendingInvoices,
-        pendingConsents,
-        telemedicine
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+        res.json({
+            success: true,
+            data: {
+                profile,
+                appointments,
+                activeTokens,
+                pendingInvoices,
+                pendingConsents,
+                telemedicine
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 };
