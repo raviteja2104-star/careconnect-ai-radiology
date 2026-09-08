@@ -1,258 +1,229 @@
 'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import {
-  Plus, Search, AlertTriangle, CheckCircle, Clock, RefreshCw,
+  FileText, CheckCircle2, AlertTriangle, Clock, Pill,
+  Calendar as CalendarIcon, WifiOff, Filter,
 } from 'lucide-react';
 import {
-  PageHeader,
-  StatCard,
-  StatGrid,
-  Badge,
-  type BadgeProps,
-  Button,
-  Input,
-  DataTable,
+  PageHeader, StatCard, StatGrid, Badge, Button, DataTable,
+  EmptyState, ErrorState, SkeletonCard, SkeletonTable, Tabs, TabsList, TabsTrigger,
   type Column,
 } from '@/components/ui';
+import { useSession } from '@/components/providers/SessionProvider';
+import {
+  fetchSummary, formatDate, RECORD_STATUS_TONE, RECORD_STATUS_LABELS,
+  type PrescriptionRecord, type RecordStatus,
+} from '@/app/health-records/_lib/api';
 
-type RxStatus = 'Active' | 'Completed' | 'Discontinued' | 'On Hold' | 'Pending';
-type RxRoute  = 'Oral' | 'IV' | 'IM' | 'Topical' | 'Inhaled' | 'Subcutaneous';
+type FilterTab = 'ALL' | 'VERIFIED' | 'REVIEW_REQUIRED' | 'DRAFT_EXTRACTED';
 
-interface Prescription {
-  id: string; mrn: string; patientName: string; patientAge: number; patientGender: string;
-  drugName: string; genericName: string; dose: string; frequency: string; route: RxRoute;
-  duration: string; startDate: string; endDate?: string;
-  status: RxStatus; prescribedBy: string; department: string;
-  isHighAlert: boolean; indication: string; dispensed: boolean;
-  refillsRemaining?: number;
-}
-
-const PRESCRIPTIONS: Prescription[] = [
-  { id: 'rx1', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M', drugName: 'Aspirin', genericName: 'Aspirin', dose: '75mg', frequency: 'Once daily', route: 'Oral', duration: '90 days', startDate: '24 Jul 2026', status: 'Active', prescribedBy: 'Dr. Priya Mehta', department: 'Cardiology', isHighAlert: false, indication: 'Secondary prevention — Antiplatelet', dispensed: true, refillsRemaining: 2 },
-  { id: 'rx2', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M', drugName: 'Clopidogrel', genericName: 'Clopidogrel', dose: '75mg', frequency: 'Once daily', route: 'Oral', duration: '12 months', startDate: '24 Jul 2026', status: 'Active', prescribedBy: 'Dr. Priya Mehta', department: 'Cardiology', isHighAlert: false, indication: 'DAPT — Post PCI', dispensed: true, refillsRemaining: 3 },
-  { id: 'rx3', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M', drugName: 'Heparin', genericName: 'Heparin Sodium', dose: '5000 IU', frequency: '8 hourly', route: 'Subcutaneous', duration: '5 days', startDate: '24 Jul 2026', status: 'Active', prescribedBy: 'Dr. Priya Mehta', department: 'Cardiology', isHighAlert: true, indication: 'Anticoagulation — DVT prophylaxis', dispensed: false },
-  { id: 'rx4', mrn: 'MRN-2024-06133', patientName: 'Anil Kumar', patientAge: 58, patientGender: 'M', drugName: 'Metformin', genericName: 'Metformin HCl', dose: '1000mg', frequency: 'Twice daily with meals', route: 'Oral', duration: 'Ongoing', startDate: '01 Jan 2026', status: 'Active', prescribedBy: 'Dr. Suresh Gupta', department: 'Endocrinology', isHighAlert: false, indication: 'Type 2 Diabetes Mellitus', dispensed: true, refillsRemaining: 1 },
-  { id: 'rx5', mrn: 'MRN-2024-06133', patientName: 'Anil Kumar', patientAge: 58, patientGender: 'M', drugName: 'Glipizide', genericName: 'Glipizide', dose: '5mg', frequency: 'Before breakfast', route: 'Oral', duration: 'Ongoing', startDate: '15 Mar 2026', status: 'On Hold', prescribedBy: 'Dr. Suresh Gupta', department: 'Endocrinology', isHighAlert: false, indication: 'HbA1c uncontrolled — Add-on', dispensed: false },
-  { id: 'rx6', mrn: 'MRN-2024-09133', patientName: 'Ananya Krishnamurthy', patientAge: 67, patientGender: 'F', drugName: 'Noradrenaline', genericName: 'Norepinephrine', dose: '0.1 mcg/kg/min', frequency: 'Continuous infusion', route: 'IV', duration: 'Until haemodynamically stable', startDate: '23 Jul 2026', status: 'Active', prescribedBy: 'Dr. Rajesh Iyer', department: 'ICU', isHighAlert: true, indication: 'Septic Shock — Vasopressor support', dispensed: true },
-  { id: 'rx7', mrn: 'MRN-2024-05188', patientName: 'Suresh Venkataraman', patientAge: 71, patientGender: 'M', drugName: 'Tiotropium', genericName: 'Tiotropium Bromide', dose: '18mcg', frequency: 'Once daily via inhaler', route: 'Inhaled', duration: 'Ongoing', startDate: '10 Jun 2026', status: 'Completed', prescribedBy: 'Dr. K. Venkatesh', department: 'Pulmonology', isHighAlert: false, indication: 'COPD Maintenance', dispensed: true, endDate: '10 Jul 2026' },
-  { id: 'rx8', mrn: 'MRN-2024-03612', patientName: 'Kavitha Rajan', patientAge: 45, patientGender: 'F', drugName: 'Amlodipine', genericName: 'Amlodipine Besylate', dose: '5mg', frequency: 'Once daily', route: 'Oral', duration: 'Ongoing', startDate: '01 Feb 2026', status: 'Active', prescribedBy: 'Dr. Priya Mehta', department: 'Cardiology', isHighAlert: false, indication: 'Hypertension Grade II', dispensed: true, refillsRemaining: 0 },
+const columns: Column<PrescriptionRecord>[] = [
+  {
+    key: '_id',
+    header: 'Prescription',
+    sortable: true,
+    accessor: (rx) => rx.doctorName ?? rx._id,
+    cell: (rx) => (
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <FileText className="h-5 w-5" aria-hidden />
+        </span>
+        <div>
+          <p className="font-semibold text-foreground">{rx.doctorName ?? 'Unknown doctor'}</p>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <CalendarIcon className="h-3 w-3" aria-hidden /> {formatDate(rx.prescriptionDate)}
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: 'diagnosis',
+    header: 'Diagnosis',
+    accessor: (rx) => rx.diagnosis.join(', ') || '—',
+    cell: (rx) => (
+      <div className="flex flex-wrap gap-1">
+        {rx.diagnosis.length === 0 ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          rx.diagnosis.slice(0, 3).map((d, i) => (
+            <Badge key={i} tone="outline" className="text-xs">{d}</Badge>
+          ))
+        )}
+        {rx.diagnosis.length > 3 && (
+          <Badge tone="neutral" className="text-xs">+{rx.diagnosis.length - 3}</Badge>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: 'medications',
+    header: 'Medications',
+    accessor: (rx) => rx.medications.length,
+    cell: (rx) => (
+      <div>
+        {rx.medications.length === 0 ? (
+          <span className="text-xs text-muted-foreground">None extracted</span>
+        ) : (
+          <>
+            {rx.medications.slice(0, 3).map((med, i) => (
+              <p key={i} className="flex items-center gap-1 text-xs text-foreground">
+                <Pill className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+                {med.name}
+              </p>
+            ))}
+            {rx.medications.length > 3 && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                +{rx.medications.length - 3} more
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    accessor: (rx) => rx.status,
+    cell: (rx) => {
+      const tone = RECORD_STATUS_TONE[rx.status];
+      const label = RECORD_STATUS_LABELS[rx.status] ?? rx.status;
+      const Icon =
+        rx.status === 'VERIFIED'
+          ? CheckCircle2
+          : rx.status === 'REVIEW_REQUIRED' || rx.status === 'CLINICIAN_REVIEW_REQUIRED'
+            ? AlertTriangle
+            : Clock;
+      return (
+        <Badge tone={tone}>
+          <Icon className="h-3.5 w-3.5" aria-hidden />
+          {label}
+        </Badge>
+      );
+    },
+  },
 ];
 
-const STATUS_TONE: Record<RxStatus, BadgeProps['tone']> = {
-  Active: 'success',
-  Completed: 'neutral',
-  Discontinued: 'danger',
-  'On Hold': 'warning',
-  Pending: 'info',
-};
-
-/** Soft accent tints — allowed for badges only. */
-const ROUTE_CFG: Record<RxRoute, string> = {
-  Oral:          'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400',
-  IV:            'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400',
-  IM:            'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400',
-  Topical:       'bg-teal-50 text-teal-700 dark:bg-teal-500/15 dark:text-teal-400',
-  Inhaled:       'bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400',
-  Subcutaneous:  'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400',
-};
-
-const FILTERS = ['All', 'Active', 'On Hold', 'Completed', 'Discontinued'] as const;
+const FILTER_TABS: { value: FilterTab; label: string }[] = [
+  { value: 'ALL', label: 'All' },
+  { value: 'VERIFIED', label: 'Verified' },
+  { value: 'REVIEW_REQUIRED', label: 'Needs Review' },
+  { value: 'DRAFT_EXTRACTED', label: 'Draft' },
+];
 
 export default function PrescriptionsPage() {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | RxStatus>('All');
+  const { session } = useSession();
+  const patientId = session.userId;
+  const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
 
-  const filtered = PRESCRIPTIONS.filter(rx => {
-    const matchSearch = [rx.patientName, rx.drugName, rx.genericName, rx.mrn, rx.indication].some(f =>
-      f.toLowerCase().includes(search.toLowerCase())
-    );
-    const matchStatus = statusFilter === 'All' || rx.status === statusFilter;
-    return matchSearch && matchStatus;
+  const { data: result, isLoading, isError, refetch } = useQuery({
+    queryKey: ['health-summary', patientId],
+    queryFn: () => fetchSummary(patientId),
+    staleTime: 60_000,
   });
 
-  const columns: Column<Prescription>[] = [
-    {
-      key: 'drugName',
-      header: 'Drug',
-      sortable: true,
-      accessor: (rx) => rx.drugName,
-      cell: (rx) => (
-        <div className="flex items-center gap-2">
-          {rx.isHighAlert && (
-            <Badge tone="danger" className="shrink-0 text-[10px] uppercase tracking-wider">
-              <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> High Alert
-            </Badge>
-          )}
-          <div>
-            <p className="font-bold text-foreground">{rx.drugName}</p>
-            <p className="text-xs italic text-muted-foreground">{rx.genericName}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'patientName',
-      header: 'Patient',
-      sortable: true,
-      accessor: (rx) => rx.patientName,
-      cell: (rx) => (
-        <div>
-          <p className="font-semibold text-foreground">{rx.patientName}</p>
-          <p className="font-mono text-xs text-muted-foreground">{rx.mrn}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'dose',
-      header: 'Dose / Frequency',
-      accessor: (rx) => `${rx.dose} ${rx.frequency}`,
-      cell: (rx) => (
-        <div>
-          <p className="font-semibold text-foreground">{rx.dose}</p>
-          <p className="text-xs text-muted-foreground">{rx.frequency}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'route',
-      header: 'Route',
-      sortable: true,
-      accessor: (rx) => rx.route,
-      cell: (rx) => (
-        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROUTE_CFG[rx.route]}`}>
-          {rx.route}
-        </span>
-      ),
-    },
-    {
-      key: 'duration',
-      header: 'Duration',
-      accessor: (rx) => rx.duration,
-      cell: (rx) => <span className="text-xs text-muted-foreground">{rx.duration}</span>,
-    },
-    {
-      key: 'prescribedBy',
-      header: 'Prescribed By',
-      sortable: true,
-      accessor: (rx) => rx.prescribedBy,
-      cell: (rx) => (
-        <div>
-          <p className="text-sm text-foreground">{rx.prescribedBy}</p>
-          <p className="text-xs text-subtle-foreground">{rx.department}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      sortable: true,
-      accessor: (rx) => rx.status,
-      cell: (rx) => <Badge tone={STATUS_TONE[rx.status]} dot>{rx.status}</Badge>,
-    },
-    {
-      key: 'dispensed',
-      header: 'Dispensed',
-      accessor: (rx) => (rx.dispensed ? 'Yes' : 'Pending'),
-      cell: (rx) =>
-        rx.dispensed ? (
-          <CheckCircle className="h-5 w-5 text-success" aria-label="Dispensed" />
-        ) : (
-          <Badge tone="warning">Pending</Badge>
-        ),
-    },
-  ];
+  const isOffline = result?.demo === true && !result?.data;
+  const prescriptions = result?.data?.prescriptions ?? [];
+
+  const filtered = useMemo<PrescriptionRecord[]>(() => {
+    if (activeTab === 'ALL') return prescriptions;
+    if (activeTab === 'REVIEW_REQUIRED') {
+      return prescriptions.filter(
+        (rx) => rx.status === 'REVIEW_REQUIRED' || rx.status === 'CLINICIAN_REVIEW_REQUIRED',
+      );
+    }
+    return prescriptions.filter((rx) => rx.status === (activeTab as RecordStatus));
+  }, [prescriptions, activeTab]);
+
+  const verified = prescriptions.filter((rx) => rx.status === 'VERIFIED').length;
+  const needsReview = prescriptions.filter(
+    (rx) => rx.status === 'REVIEW_REQUIRED' || rx.status === 'CLINICIAN_REVIEW_REQUIRED',
+  ).length;
+  const draft = prescriptions.filter((rx) => rx.status === 'DRAFT_EXTRACTED').length;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Prescriptions"
-        description="Medication orders and dispensing status"
+        description="Your prescription records, extracted and indexed from captured documents."
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Prescriptions' }]}
         actions={
-          <Button variant="primary" disabled title="Coming soon">
-            <Plus className="h-4 w-4" aria-hidden /> New Prescription
-          </Button>
-        }
-      />
-
-      <StatGrid>
-        <StatCard
-          label="Active Orders"
-          value={PRESCRIPTIONS.filter(r => r.status === 'Active').length}
-          icon={CheckCircle}
-          tone="emerald"
-          delay={0}
-          sub="Currently running"
-        />
-        <StatCard
-          label="High-Alert Drugs"
-          value={PRESCRIPTIONS.filter(r => r.isHighAlert).length}
-          icon={AlertTriangle}
-          tone="rose"
-          delay={0.05}
-          sub="Require double-check"
-        />
-        <StatCard
-          label="Pending Dispense"
-          value={PRESCRIPTIONS.filter(r => !r.dispensed && r.status === 'Active').length}
-          icon={Clock}
-          tone="amber"
-          delay={0.1}
-          sub="Awaiting pharmacy"
-        />
-        <StatCard
-          label="Refill Needed"
-          value={PRESCRIPTIONS.filter(r => r.refillsRemaining === 0).length}
-          icon={RefreshCw}
-          tone="brand"
-          delay={0.15}
-          sub="Zero refills remaining"
-        />
-      </StatGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex-1">
-          <Input
-            icon={<Search />}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search drug, patient, or indication…"
-            aria-label="Search prescriptions"
-          />
-        </div>
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label="Filter prescriptions by status"
-        >
-          {FILTERS.map(f => (
-            <Button
-              key={f}
-              size="sm"
-              variant={statusFilter === f ? 'primary' : 'outline'}
-              onClick={() => setStatusFilter(f as typeof statusFilter)}
-              aria-pressed={statusFilter === f}
-            >
-              {f}
+          <Link href="/health-records/capture">
+            <Button size="sm" variant="outline">
+              <FileText className="h-4 w-4" aria-hidden /> Capture Prescription
             </Button>
-          ))}
-        </div>
-      </div>
-
-      <DataTable<Prescription>
-        columns={columns}
-        data={filtered}
-        rowKey={(rx) => rx.id}
-        searchable={false}
-        exportName="prescriptions"
-        emptyTitle="No prescriptions found"
-        emptyDescription={
-          search || statusFilter !== 'All'
-            ? 'Try adjusting your search or status filter.'
-            : 'New prescriptions will appear here once ordered.'
+          </Link>
         }
       />
+
+      {isError ? (
+        <ErrorState
+          description="Could not load prescriptions. Check your connection and try again."
+          onRetry={refetch}
+        />
+      ) : isLoading ? (
+        <div className="space-y-6">
+          <StatGrid>{Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={1} />)}</StatGrid>
+          <SkeletonTable rows={4} />
+        </div>
+      ) : isOffline ? (
+        <EmptyState
+          icon={WifiOff}
+          title="Requires a live backend connection"
+          description="Prescription data is read from your real health records — nothing here is simulated."
+          action={{ label: 'Retry', onClick: () => refetch() }}
+        />
+      ) : (
+        <>
+          <StatGrid>
+            <StatCard label="Total" value={prescriptions.length} icon={FileText} tone="brand" delay={0} sub="All prescriptions" />
+            <StatCard label="Verified" value={verified} icon={CheckCircle2} tone="emerald" delay={0.05} sub="Confirmed correct" />
+            <StatCard label="Needs Review" value={needsReview} icon={AlertTriangle} tone="amber" delay={0.1} sub="Awaiting check" />
+            <StatCard label="Draft" value={draft} icon={Clock} tone="neutral" delay={0.15} sub="Awaiting processing" />
+          </StatGrid>
+
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
+              <TabsList>
+                {FILTER_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {prescriptions.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="No prescriptions found"
+              description="Upload a prescription document to have it read and indexed here."
+              action={{
+                label: 'Capture a prescription',
+                onClick: () => { window.location.href = '/health-records/capture'; },
+              }}
+            />
+          ) : (
+            <DataTable<PrescriptionRecord>
+              columns={columns}
+              data={filtered}
+              rowKey={(rx) => rx._id}
+              searchPlaceholder="Search prescriptions…"
+              exportName="prescriptions"
+              emptyTitle="No prescriptions found"
+              emptyDescription={
+                activeTab !== 'ALL'
+                  ? `No prescriptions with status "${FILTER_TABS.find((t) => t.value === activeTab)?.label}".`
+                  : 'Prescriptions will appear here once documents are captured and processed.'
+              }
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
