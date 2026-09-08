@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
     Search, Bell, Sparkles, Plus, Moon, Sun, Contrast, Menu, CalendarPlus, UserPlus,
     FlaskConical, Video, Settings, LogOut, User, Building2, MessageSquare,
@@ -14,6 +15,8 @@ import { TourLauncherButton } from '@/components/tour/TourProvider';
 import { Avatar } from '@/components/ui/avatar';
 import { Dropdown, DropdownItem, DropdownLabel, DropdownSeparator } from '@/components/ui/dropdown';
 
+const NOTIF_API = `${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/notifications`;
+
 interface HeaderProps {
     onOpenPalette: () => void;
     onOpenMobileNav: () => void;
@@ -24,6 +27,21 @@ export function Header({ onOpenPalette, onOpenMobileNav }: HeaderProps) {
     const { resolvedTheme, toggleTheme, highContrast, setHighContrast } = useTheme();
     const { session, logout } = useSession();
     const [isMac, setIsMac] = React.useState(false);
+
+    // Poll unread notification count every 30 s
+    const { data: notifData } = useQuery({
+        queryKey: ['notifications-header'],
+        queryFn: async () => {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+            const res = await fetch(NOTIF_API, { headers });
+            if (!res.ok) return { unreadCount: 0 };
+            return res.json();
+        },
+        refetchInterval: 30_000,
+        staleTime: 25_000,
+    });
+    const unreadCount: number = notifData?.unreadCount ?? 0;
     React.useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsMac(/Mac|iPhone|iPad/.test(navigator.platform));
@@ -98,9 +116,13 @@ export function Header({ onOpenPalette, onOpenMobileNav }: HeaderProps) {
                     <Link href="/messages" className={cn(iconBtn, 'hidden sm:inline-flex')} aria-label="Messages">
                         <MessageSquare className="h-5 w-5" />
                     </Link>
-                    <Link href="/notifications" className={cn(iconBtn, 'relative')} aria-label="Notifications">
+                    <Link href="/notifications" className={cn(iconBtn, 'relative')} aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}>
                         <Bell className="h-5 w-5" />
-                        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-card" aria-hidden />
+                        {unreadCount > 0 && (
+                            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white ring-2 ring-card" aria-hidden>
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                        )}
                     </Link>
 
                     <div className="mx-1 hidden h-8 w-px bg-border sm:block" aria-hidden />

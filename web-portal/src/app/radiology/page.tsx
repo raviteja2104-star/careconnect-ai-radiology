@@ -1,13 +1,21 @@
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   Search, Filter, ChevronDown, Download, Eye,
   Image as ImageIcon, Clock, CheckCircle2, AlertCircle, Share2, ScanLine
 } from 'lucide-react';
 import {
-  PageHeader, StatCard, StatGrid, Badge, Button, Input, DataTable, type Column
+  PageHeader, StatCard, StatGrid, Badge, Button, Input, DataTable, EmptyState, Skeleton, type Column
 } from '@/components/ui';
+
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api`;
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 interface Scan {
   id: string;
@@ -20,56 +28,63 @@ interface Scan {
   images: number;
 }
 
+interface ApiScan {
+  _id: string;
+  scanId?: string;
+  scanType?: string;
+  bodyPart?: string;
+  status?: string;
+  finalReport?: { findings?: string; impression?: string };
+  aiReport?: { findings?: string; riskLevel?: string };
+  requestedBy?: { firstName?: string; lastName?: string; specialization?: string } | string;
+  createdAt?: string;
+}
+
+function toUiScan(s: ApiScan): Scan {
+  const doctor = typeof s.requestedBy === 'object' && s.requestedBy
+    ? `Dr. ${s.requestedBy.firstName ?? ''} ${s.requestedBy.lastName ?? ''}`.trim()
+    : '—';
+  const findings = s.finalReport?.findings
+    ?? (s.aiReport?.riskLevel === 'low' ? 'Normal' : s.aiReport?.riskLevel === 'critical' || s.aiReport?.riskLevel === 'high' ? 'Abnormal' : 'Pending');
+  const statusMap: Record<string, string> = {
+    approved: 'COMPLETED', ai_completed: 'COMPLETED', radiologist_review: 'PENDING',
+    pending: 'PENDING', rejected: 'COMPLETED',
+  };
+  return {
+    id: s.scanId ?? s._id,
+    type: [s.scanType, s.bodyPart].filter(Boolean).join(' ') || '—',
+    date: s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+    status: statusMap[s.status?.toLowerCase() ?? ''] ?? 'PENDING',
+    doctor,
+    facility: 'Imaging Center',
+    findings,
+    images: 0,
+  };
+}
+
 export default function RadiologyPage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
 
-  const scans: Scan[] = [
-    {
-      id: "RAD-2026-9921",
-      type: "MRI Brain W/O Contrast",
-      date: "28 Jul 2026",
-      status: "COMPLETED",
-      doctor: "Dr. Sarah Jenkins",
-      facility: "Main Imaging Center",
-      findings: "Normal",
-      images: 142
+  const { data: apiScans = [], isLoading } = useQuery<ApiScan[]>({
+    queryKey: ['patient-scans'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/radiology/patient-scans`, { headers: authHeaders() });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.success ? json.data : [];
     },
-    {
-      id: "RAD-2026-9810",
-      type: "CT Chest W/ Contrast",
-      date: "14 Jun 2026",
-      status: "COMPLETED",
-      doctor: "Dr. Michael Chen",
-      facility: "North Wing Radiology",
-      findings: "Abnormal",
-      images: 320
-    },
-    {
-      id: "RAD-2026-9705",
-      type: "X-Ray Right Knee",
-      date: "10 Apr 2026",
-      status: "COMPLETED",
-      doctor: "Dr. Priya Mehta",
-      facility: "Orthopedics Clinic",
-      findings: "Normal",
-      images: 4
-    },
-    {
-      id: "RAD-2026-9950",
-      type: "Ultrasound Abdomen",
-      date: "29 Jul 2026",
-      status: "PENDING",
-      doctor: "Dr. Emily Smith",
-      facility: "Main Imaging Center",
-      findings: "Pending",
-      images: 0
-    }
-  ];
+  });
 
+  const scans: Scan[] = apiScans.map(toUiScan);
   const filteredScans = scans.filter(
-    (s) => s.type.toLowerCase().includes(search.toLowerCase()) || s.id.toLowerCase().includes(search.toLowerCase())
+    s => s.type.toLowerCase().includes(search.toLowerCase()) || s.id.toLowerCase().includes(search.toLowerCase())
   );
+
+  const completedCount = scans.filter(s => s.status === 'COMPLETED').length;
+  const pendingCount = scans.filter(s => s.status === 'PENDING').length;
+  const abnormalCount = scans.filter(s => s.findings === 'Abnormal').length;
+  const normalCount = scans.filter(s => s.findings === 'Normal').length;
 
   const columns: Column<Scan>[] = [
     {
@@ -112,13 +127,9 @@ export default function RadiologyPage() {
       accessor: (row) => row.status,
       cell: (row) =>
         row.status === 'COMPLETED' ? (
-          <Badge tone="success">
-            <CheckCircle2 className="h-3 w-3" aria-hidden /> Ready
-          </Badge>
+          <Badge tone="success"><CheckCircle2 className="h-3 w-3" aria-hidden /> Ready</Badge>
         ) : (
-          <Badge tone="warning">
-            <Clock className="h-3 w-3" aria-hidden /> Pending
-          </Badge>
+          <Badge tone="warning"><Clock className="h-3 w-3" aria-hidden /> Pending</Badge>
         ),
     },
     {
@@ -172,53 +183,51 @@ export default function RadiologyPage() {
       />
 
       <StatGrid>
-        <StatCard label="Total Scans" value="14" icon={ScanLine} tone="brand" delay={0} sub="Across all facilities" />
-        <StatCard label="Pending Results" value="1" icon={Clock} tone="amber" delay={0.05} sub="Awaiting radiologist report" />
-        <StatCard label="Normal Findings" value="11" icon={CheckCircle2} tone="emerald" delay={0.1} sub="No follow-up needed" />
-        <StatCard label="Action Required" value="2" icon={AlertCircle} tone="rose" delay={0.15} sub="Review with your doctor" />
+        <StatCard label="Total Scans" value={isLoading ? '—' : scans.length} icon={ScanLine} tone="brand" delay={0} sub="Across all facilities" />
+        <StatCard label="Pending Results" value={isLoading ? '—' : pendingCount} icon={Clock} tone="amber" delay={0.05} sub="Awaiting radiologist report" />
+        <StatCard label="Normal Findings" value={isLoading ? '—' : normalCount} icon={CheckCircle2} tone="emerald" delay={0.1} sub="No follow-up needed" />
+        <StatCard label="Action Required" value={isLoading ? '—' : abnormalCount} icon={AlertCircle} tone="rose" delay={0.15} sub="Review with your doctor" />
       </StatGrid>
 
-      <DataTable<Scan>
-        columns={columns}
-        data={filteredScans}
-        rowKey={(row) => row.id}
-        searchable={false}
-        pageSize={10}
-        emptyTitle="No scans found"
-        emptyDescription={search ? `No results for “${search}”.` : 'Imaging studies will appear here once available.'}
-        rowActions={(scan) => (
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled={scan.status !== 'COMPLETED'}
-              title="View DICOM Images"
-              aria-label="View DICOM Images"
-              onClick={() => router.push('/teleradiology/worklist')}
-            >
-              <Eye className="h-4 w-4" aria-hidden />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled
-              title="Coming soon"
-              aria-label="Share Report"
-            >
-              <Share2 className="h-4 w-4" aria-hidden />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled
-              title="Coming soon"
-              aria-label="Download PDF"
-            >
-              <Download className="h-4 w-4" aria-hidden />
-            </Button>
-          </div>
-        )}
-      />
+      {isLoading ? (
+        <Skeleton className="h-64 rounded-2xl" />
+      ) : scans.length === 0 && !search ? (
+        <EmptyState
+          icon={ScanLine}
+          title="No radiology reports yet"
+          description="Imaging studies will appear here once available."
+        />
+      ) : (
+        <DataTable<Scan>
+          columns={columns}
+          data={filteredScans}
+          rowKey={(row) => row.id}
+          searchable={false}
+          pageSize={10}
+          emptyTitle="No scans found"
+          emptyDescription={search ? `No results for "${search}".` : 'Imaging studies will appear here once available.'}
+          rowActions={(scan) => (
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={scan.status !== 'COMPLETED'}
+                title="View DICOM Images"
+                aria-label="View DICOM Images"
+                onClick={() => router.push('/teleradiology/worklist')}
+              >
+                <Eye className="h-4 w-4" aria-hidden />
+              </Button>
+              <Button variant="ghost" size="icon-sm" disabled title="Coming soon" aria-label="Share Report">
+                <Share2 className="h-4 w-4" aria-hidden />
+              </Button>
+              <Button variant="ghost" size="icon-sm" disabled title="Coming soon" aria-label="Download PDF">
+                <Download className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+          )}
+        />
+      )}
     </div>
   );
 }

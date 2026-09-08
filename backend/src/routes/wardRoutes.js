@@ -11,5 +11,6 @@ router.get('/nursing',   c.getNursing);
 router.get('/icu',       c.getICU);
 router.get('/ot',        c.getOT);
 router.get('/ems',       c.getEMS);
+router.patch('/discharge/:patientId', c.dischargePatient);
 
 module.exports = router;

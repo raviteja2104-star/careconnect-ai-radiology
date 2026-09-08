@@ -131,3 +131,20 @@ exports.getEMS = async (req, res) => {
         res.json({ success: true, data: DEMO_EMS });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 };
+
+exports.dischargePatient = async (req, res) => {
+    try {
+        const { patientId } = req.params;
+        const { reason, followUpDate } = req.body;
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(patientId)) {
+            return res.json({ success: true, data: { patientId, status: 'Discharged', dischargedAt: new Date() } });
+        }
+        const Appointment = require('../models/Appointment');
+        await Appointment.updateMany(
+            { patient: patientId, status: { $in: ['Booked', 'Confirmed', 'Checked_In', 'Waiting', 'In_Consultation'] } },
+            { $set: { status: 'Completed' } }
+        );
+        res.json({ success: true, data: { patientId, status: 'Discharged', dischargedAt: new Date(), reason, followUpDate } });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};

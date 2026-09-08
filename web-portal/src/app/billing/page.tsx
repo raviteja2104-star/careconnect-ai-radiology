@@ -124,7 +124,7 @@ function PaymentModal({ invoice, onClose, onSuccess }: PaymentModalProps) {
       const orderJson = await orderRes.json();
       if (!orderRes.ok || !orderJson.success) throw new Error(orderJson.message ?? 'Could not create payment order.');
 
-      const { orderId, amount, currency, key, user, demo } = orderJson.data;
+      const { orderId, amount, currency, key, user } = orderJson.data;
 
       const verifyAndMark = async (paymentId: string, signature?: string) => {
         const verifyRes = await fetch(`${API_BASE}/billing/invoices/${invoice._id}/pay`, {
@@ -140,14 +140,8 @@ function PaymentModal({ invoice, onClose, onSuccess }: PaymentModalProps) {
         const verifyJson = await verifyRes.json();
         if (!verifyRes.ok || !verifyJson.success) throw new Error(verifyJson.message ?? 'Payment verification failed.');
         setStep('success');
-        setTimeout(() => { onSuccess(); onClose(); }, 1800);
+        onSuccess(); // Refresh invoice list immediately; modal stays open until user dismisses
       };
-
-      if (demo) {
-        // Demo mode: auto-complete without opening Razorpay UI
-        await verifyAndMark(`pay_demo_${Date.now()}`);
-        return;
-      }
 
       // Step 2: open Razorpay checkout
       const loaded = await loadRazorpayScript();
@@ -251,6 +245,7 @@ function PaymentModal({ invoice, onClose, onSuccess }: PaymentModalProps) {
               <p className="text-sm text-muted-foreground">
                 {formatCurrency(invoice.amountDue)} paid for {invoice.invoiceNumber}. Your invoice has been updated.
               </p>
+              <Button variant="outline" onClick={onClose}>Done</Button>
             </div>
           )}
 

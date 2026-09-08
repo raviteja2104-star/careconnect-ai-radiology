@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback, useTransition } from 'react';
 import {
     PageHeader, Button, Badge, Card, CardHeader, CardTitle, CardDescription, CardContent,
     Tabs, TabsList, TabsTrigger, TabsContent, Input, Textarea, Select, Label, FieldHint,
@@ -47,6 +47,19 @@ interface RxStore {
 }
 
 const STORAGE_KEY = 'cc-rx-templates';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function getRxToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    try { return window.localStorage.getItem('token'); } catch { return null; }
+}
+
+function rxAuthHeaders(): Record<string, string> {
+    const token = getRxToken();
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+}
 const DEFAULT_FOOTER_TEXT = 'Generated through CareConnect | AI-Powered Healthcare Operating System';
 const AI_DISCLAIMER = 'AI-generated suggestions are clinical decision support. Final prescribing decisions remain with the treating clinician.';
 
@@ -380,6 +393,7 @@ const PAPER_PX: Record<RxPaperSize, [number, number]> = { A4: [794, 1123], A5: [
 
 export default function PrescriptionSettingsPage() {
     const { toast } = useToast();
+    const [, startTransition] = useTransition();
 
     const [store, setStore] = useState<RxStore>(seedStore);
     const [settings, setSettings] = useState<RxSettingsModel>(DEFAULT_SETTINGS);
@@ -400,17 +414,47 @@ export default function PrescriptionSettingsPage() {
     const previewBoxRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(0.5);
 
-    /* Load persisted templates on mount (client only — avoids hydration mismatch). */
+    /* Load persisted templates on mount (client only — avoids hydration mismatch).
+     * Priority: API → localStorage fallback. */
     useEffect(() => {
-        const loaded = loadStore();
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setStore(loaded);
-        const active = loaded.templates.find((t) => t.id === loaded.activeId) || loaded.templates[0];
-        if (active) {
-            setSettings(active.settings);
-            setMedCols(deriveMedCols(active.settings.medicineColumns));
-        }
-        setHydrated(true);
+        const init = async () => {
+            let loaded: RxStore | null = null;
+
+            // Try loading from the backend API first
+            try {
+                const res = await fetch(`${API_BASE}/api/settings/prescription`, {
+                    headers: rxAuthHeaders(),
+                });
+                const json = await res.json();
+                if (json.success && json.data && Array.isArray(json.data.templates) && json.data.templates.length > 0) {
+                    loaded = {
+                        version: 1,
+                        activeId: typeof json.data.activeId === 'string' ? json.data.activeId : json.data.templates[0].id,
+                        templates: (json.data.templates as RxTemplate[]).map((t) => ({
+                            ...t,
+                            settings: { ...DEFAULT_SETTINGS, ...t.settings },
+                        })),
+                    };
+                    // Keep localStorage in sync as a cache
+                    persistStore(loaded);
+                }
+            } catch { /* API unreachable — fall through to localStorage */ }
+
+            // Fall back to localStorage
+            if (!loaded) loaded = loadStore();
+
+            startTransition(() => {
+                setStore(loaded!);
+                const active = loaded!.templates.find((t) => t.id === loaded!.activeId) || loaded!.templates[0];
+                if (active) {
+                    setSettings(active.settings);
+                    setMedCols(deriveMedCols(active.settings.medicineColumns));
+                }
+                setHydrated(true);
+            });
+        };
+        init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const activeTemplate = store.templates.find((t) => t.id === store.activeId) || store.templates[0];
@@ -456,14 +500,24 @@ export default function PrescriptionSettingsPage() {
         setMedCols(deriveMedCols(tpl.settings.medicineColumns));
     };
 
-    const saveChanges = () => {
+    const saveChanges = async () => {
         if (!activeTemplate) return;
         const next: RxStore = {
             ...store,
             templates: store.templates.map((t) => (t.id === activeTemplate.id ? { ...t, settings } : t)),
         };
+        // Update localStorage immediately as a cache
         commit(next);
+
+        // Persist to API (non-blocking for UX — show toast right away)
         toast('success', 'Prescription settings saved successfully.');
+        try {
+            await fetch(`${API_BASE}/api/settings/prescription`, {
+                method: 'POST',
+                headers: rxAuthHeaders(),
+                body: JSON.stringify({ template: next }),
+            });
+        } catch { /* API unavailable — localStorage cache serves as fallback */ }
     };
 
     const createTemplate = () => {
@@ -651,7 +705,7 @@ export default function PrescriptionSettingsPage() {
                         {dirty && <Badge tone="warning" dot>Unsaved changes</Badge>}
                     </div>
                     <p className="mt-2 text-[11px] text-subtle-foreground">
-                        Templates are stored locally in this browser (localStorage). Server-side template storage is pending.
+                        Templates are synced to the server and cached locally for offline resilience.
                     </p>
                 </CardContent>
             </Card>

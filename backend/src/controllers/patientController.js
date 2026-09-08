@@ -138,6 +138,110 @@ exports.updatePatient = async (req, res) => {
     }
 };
 
+// ─── Family Members ──────────────────────────────────────────────────────────
+
+exports.getFamilyMembers = async (req, res) => {
+    try {
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+            return res.json({ success: true, data: [] });
+        }
+        const user = await User.findById(req.user._id).select('familyMembers').lean();
+        res.json({ success: true, data: user?.familyMembers || [] });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
+
+exports.addFamilyMember = async (req, res) => {
+    try {
+        const { name, relationship, dateOfBirth, bloodGroup, phone } = req.body;
+        if (!name || !relationship) return res.status(400).json({ success: false, message: 'name and relationship are required.' });
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+            return res.json({ success: true, data: { _id: 'demo-' + Date.now(), name, relationship, dateOfBirth, bloodGroup, phone } });
+        }
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $push: { familyMembers: { name, relationship, dateOfBirth, bloodGroup, phone } } },
+            { new: true, select: 'familyMembers' }
+        );
+        res.json({ success: true, data: user?.familyMembers?.slice(-1)[0] });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
+
+// ─── Insurance Summary ────────────────────────────────────────────────────────
+
+exports.getInsuranceSummary = async (req, res) => {
+    try {
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+            return res.json({ success: true, data: { coverage: null, claims: [] } });
+        }
+        const user = await User.findById(req.user._id).select('insurance').lean();
+        res.json({ success: true, data: { coverage: user?.insurance || null, claims: [] } });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
+
+// ─── Vaccine Records ──────────────────────────────────────────────────────────
+
+exports.getVaccineRecords = async (req, res) => {
+    try {
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+            return res.json({ success: true, data: [] });
+        }
+        const VaccineRecord = require('../models/VaccineRecord');
+        const records = await VaccineRecord.find({ patient: req.user._id }).sort({ administeredDate: -1 }).lean();
+        res.json({ success: true, data: records });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
+
+// ─── Patient Lookup (QR / MRN / name search for reception) ───────────────────
+
+// @desc  Look up patients by MRN suffix, name, phone, or email — staff only.
+// @route GET /api/patient/lookup?q=... (or ?mrn=... or ?qr=...)
+exports.lookupPatient = async (req, res) => {
+    try {
+        const { mrn, qr, q } = req.query;
+        const searchTerm = (mrn || qr || q || '').trim();
+        if (!searchTerm) return res.status(400).json({ success: false, message: 'Search term required.' });
+
+        if (!isDBConnected()) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const Appointment = require('../models/Appointment');
+
+        const byName = await User.find({
+            role: 'patient',
+            $or: [
+                { firstName: { $regex: searchTerm, $options: 'i' } },
+                { lastName: { $regex: searchTerm, $options: 'i' } },
+                { email: { $regex: searchTerm, $options: 'i' } },
+                { phone: { $regex: searchTerm, $options: 'i' } },
+            ],
+        }).select('firstName lastName email phone').limit(5).lean();
+
+        // Attach today's pending appointment for each matched patient
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const results = await Promise.all(byName.map(async (u) => {
+            const appt = await Appointment.findOne({
+                patient: u._id,
+                date: { $gte: today, $lt: tomorrow },
+                status: { $in: ['Booked', 'Confirmed'] },
+            }).populate('doctor', 'firstName lastName').lean();
+            return { ...u, mrn: makeMrn(u._id), todayAppointment: appt || null };
+        }));
+
+        res.json({ success: true, data: results });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+};
+
 // ─── Patient Wallet ───────────────────────────────────────────────────────────
 
 // @desc    Get complete patient digital health wallet overview

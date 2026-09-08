@@ -1,89 +1,57 @@
-﻿'use client';
+'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, ChevronDown, LifeBuoy, MessageCircle, Phone, Mail,
-  CalendarClock, CreditCard, FileText, Video, SearchX,
+  CalendarClock, CreditCard, FileText, Video, SearchX, type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, Badge, Button, Card, CardContent, EmptyState, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-interface Faq {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+interface FaqData {
   id: string;
   category: string;
   question: string;
   answer: string;
-  icon: React.ElementType;
 }
 
-// Mock help-center content — replace with CMS/API data when the support service ships.
-const FAQS: Faq[] = [
-  {
-    id: 'faq-1',
-    category: 'Appointments',
-    icon: CalendarClock,
-    question: 'How do I reschedule or cancel an appointment?',
-    answer:
-      'Open Appointments from the sidebar, select the visit you want to change, and choose Reschedule or Cancel. Changes made at least 4 hours before the slot are free; later changes may incur a fee depending on the department.',
-  },
-  {
-    id: 'faq-2',
-    category: 'Telemedicine',
-    icon: Video,
-    question: 'What do I need for a video consultation?',
-    answer:
-      'A device with a camera and microphone, a stable internet connection, and an up-to-date browser. Join from the link in your appointment reminder 5 minutes early — the virtual waiting room runs an automatic device check before you connect.',
-  },
-  {
-    id: 'faq-3',
-    category: 'Records',
-    icon: FileText,
-    question: 'How can I download my medical records and reports?',
-    answer:
-      'Go to Health Records, open the document you need, and use the Download button. Lab results and radiology reports are available as PDFs; DICOM images can be viewed in the browser or shared securely with another provider.',
-  },
-  {
-    id: 'faq-4',
-    category: 'Billing',
-    icon: CreditCard,
-    question: 'Where can I find my invoices and payment history?',
-    answer:
-      'Billing lives under your profile menu. Every consultation, lab test, and pharmacy order generates an itemized invoice in INR (₹). You can pay outstanding balances online and download GST-compliant receipts for insurance claims.',
-  },
-  {
-    id: 'faq-5',
-    category: 'Telemedicine',
-    icon: Video,
-    question: 'Is my video consultation private and secure?',
-    answer:
-      'Yes. All consultations are end-to-end encrypted and are never recorded without your explicit consent. If AI scribe features are enabled, you will be asked to consent before any transcription begins.',
-  },
-  {
-    id: 'faq-6',
-    category: 'Account',
-    icon: LifeBuoy,
-    question: 'How do I update my contact details or emergency contact?',
-    answer:
-      'Open Settings from your profile menu and edit the Personal Information section. Changes to your phone number require OTP verification to keep your account secure.',
-  },
-];
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  Appointments: CalendarClock,
+  Telemedicine: Video,
+  Records: FileText,
+  'Medical Records': FileText,
+  Billing: CreditCard,
+  Account: LifeBuoy,
+};
 
-export default function supportPage() {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+function getCategoryIcon(category: string): LucideIcon {
+  return CATEGORY_ICONS[category] ?? LifeBuoy;
+}
+
+export default function SupportPage() {
   const router = useRouter();
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [search, setSearch] = useState('');
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [openId, setOpenId] = useState<string | null>(null);
 
+  const { data: faqRes, isLoading, isError } = useQuery<{ success: boolean; data: FaqData[] }>({
+    queryKey: ['support-faqs'],
+    queryFn: () => fetch(`${API_BASE}/api/support/faqs`).then((r) => r.json()),
+    staleTime: 5 * 60_000,
+  });
+
+  const allFaqs: FaqData[] = faqRes?.data ?? [];
+
   const query = search.trim().toLowerCase();
-  const filteredFaqs = FAQS.filter(
+  const filteredFaqs = allFaqs.filter(
     (f) =>
       !query ||
       f.question.toLowerCase().includes(query) ||
       f.answer.toLowerCase().includes(query) ||
-      f.category.toLowerCase().includes(query)
+      f.category.toLowerCase().includes(query),
   );
 
   return (
@@ -115,7 +83,7 @@ export default function supportPage() {
               icon={<Search />}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search help articles, e.g. “reschedule appointment”…"
+              placeholder={'Search help articles, e.g. "reschedule appointment"…'}
               aria-label="Search help articles"
               className="h-12 rounded-2xl bg-card text-foreground shadow-pop"
             />
@@ -130,22 +98,41 @@ export default function supportPage() {
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Frequently asked questions
             </h3>
-            <span className="text-xs tabular-nums text-subtle-foreground">
-              {filteredFaqs.length} of {FAQS.length} articles
-            </span>
+            {!isLoading && (
+              <span className="text-xs tabular-nums text-subtle-foreground">
+                {filteredFaqs.length} of {allFaqs.length} articles
+              </span>
+            )}
           </div>
 
-          {filteredFaqs.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
+          ) : isError ? (
+            <EmptyState
+              icon={LifeBuoy}
+              title="Could not load help articles"
+              description="Check your connection and try again."
+              action={{ label: 'Retry', onClick: () => window.location.reload() }}
+            />
+          ) : filteredFaqs.length === 0 ? (
             <EmptyState
               icon={SearchX}
               title="No matching articles"
-              description={`We couldn't find anything for “${search}”. Try a different keyword or contact our team below.`}
-              action={{ label: 'Clear search', onClick: () => setSearch('') }}
+              description={
+                query
+                  ? `We couldn't find anything for "${search}". Try a different keyword or contact our team below.`
+                  : 'No help articles available at the moment.'
+              }
+              action={query ? { label: 'Clear search', onClick: () => setSearch('') } : undefined}
             />
           ) : (
             filteredFaqs.map((faq, i) => {
               const isOpen = openId === faq.id;
-              const Icon = faq.icon;
+              const Icon = getCategoryIcon(faq.category);
               return (
                 <motion.div
                   key={faq.id}
@@ -156,7 +143,7 @@ export default function supportPage() {
                   <Card
                     className={cn(
                       'overflow-hidden transition-shadow',
-                      isOpen ? 'shadow-float' : 'hover:shadow-float'
+                      isOpen ? 'shadow-float' : 'hover:shadow-float',
                     )}
                   >
                     <button
@@ -179,7 +166,7 @@ export default function supportPage() {
                       <ChevronDown
                         className={cn(
                           'h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200',
-                          isOpen && 'rotate-180'
+                          isOpen && 'rotate-180',
                         )}
                         aria-hidden
                       />

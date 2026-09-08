@@ -8,6 +8,7 @@
  */
 const express = require('express');
 const router  = express.Router();
+const { protect } = require('../middleware/auth');
 
 const isDB = () => {
     const m = require('mongoose');
@@ -212,6 +213,50 @@ router.get('/suggestions', async (req, res) => {
         return res.json({ success: true, data: suggestions.slice(0, lim) });
     } catch (err) {
         return res.status(500).json({ success: false, message: 'Suggestions unavailable.' });
+    }
+});
+
+// ── GET /api/search/clinical — internal staff search (auth required) ──────────
+// Searches doctors, patients (admin only), and appointments.
+router.get('/clinical', protect, async (req, res) => {
+    const { q = '' } = req.query;
+    const qTrim = q.trim();
+    if (!qTrim || qTrim.length < 2) {
+        return res.json({ success: true, data: { doctors: [], patients: [], appointments: [] } });
+    }
+    if (!isDB()) {
+        return res.json({ success: true, data: { doctors: [], patients: [], appointments: [] } });
+    }
+    try {
+        const User = require('../models/User');
+        const Appointment = require('../models/Appointment');
+        const regex = { $regex: escapeRegex(qTrim), $options: 'i' };
+        const isAdmin = req.user?.role === 'admin';
+
+        const [doctors, patients, appointments] = await Promise.all([
+            User.find({
+                role: 'doctor',
+                isActive: true,
+                $or: [{ firstName: regex }, { lastName: regex }, { specialization: regex }],
+            }).select('firstName lastName specialization').limit(5).lean(),
+            isAdmin
+                ? User.find({
+                    role: 'patient',
+                    $or: [{ firstName: regex }, { lastName: regex }, { email: regex }, { phone: regex }],
+                }).select('firstName lastName email phone').limit(5).lean()
+                : Promise.resolve([]),
+            Appointment.find({
+                $or: [{ reason: regex }, { specialty: regex }],
+            })
+                .populate('patient', 'firstName lastName')
+                .populate('doctor', 'firstName lastName')
+                .limit(5)
+                .lean(),
+        ]);
+
+        res.json({ success: true, data: { doctors, patients, appointments } });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

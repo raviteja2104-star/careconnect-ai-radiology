@@ -231,4 +231,16 @@ const getScanStats = async (req, res, next) => {
     }
 };
 
-module.exports = { uploadScan, listScans, getScan, submitReport, assignRadiologist, getScanStats };
+const getPatientScans = async (req, res) => {
+    try {
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+            return res.json({ success: true, data: [] });
+        }
+        const scans = await RadiologyScan.find({ $or: [{ patient: req.user._id }, { patientId: req.user._id }] })
+            .sort({ createdAt: -1 }).limit(50).lean();
+        res.json({ success: true, data: scans });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+};
+
+module.exports = { uploadScan, listScans, getScan, submitReport, assignRadiologist, getScanStats, getPatientScans };

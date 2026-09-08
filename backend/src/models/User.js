@@ -120,6 +120,15 @@ const userSchema = new mongoose.Schema(
         marketplaceRating: { type: Number, default: 0 },
         marketplaceReviews: { type: Number, default: 0 },
 
+        // Family Members
+        familyMembers: [{
+            name: String,
+            relationship: String,
+            dateOfBirth: Date,
+            bloodGroup: String,
+            phone: String,
+        }],
+
         // Wallet
         credits: { type: Number, default: 0 },
         abhaId: { type: String, default: '' },

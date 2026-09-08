@@ -4,11 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   UserPlus, ArrowRightLeft, UserMinus, Activity,
-  FileCheck, FileText, AlertTriangle, Stethoscope, Pill,
+  FileCheck, FileText, AlertTriangle, Stethoscope, Pill, Loader2,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Button, Badge, Card, CardHeader, CardTitle,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, EmptyState, Progress,
+  useToast,
 } from '@/components/ui';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -51,6 +52,9 @@ export default function ADTDashboard() {
   const [discharges, setDischarges] = useState<DischargeRow[]>([]);
   const [transfers, setTransfers] = useState<TransferRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dischargingId, setDischargingId] = useState<string | null>(null);
+  const [dischargedIds, setDischargedIds] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   useEffect(() => {
     (async () => {
@@ -67,6 +71,32 @@ export default function ADTDashboard() {
       setLoading(false);
     })();
   }, []);
+
+  async function handleDischarge(patientId: string) {
+    setDischargingId(patientId);
+    try {
+      const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+      const res = await fetch(`${API}/api/ward/discharge/${patientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDischargedIds(prev => new Set([...prev, patientId]));
+        toast('success', 'Patient discharged', 'Discharge recorded successfully.');
+      } else {
+        toast('error', 'Discharge failed', data.message || 'Please try again.');
+      }
+    } catch {
+      toast('error', 'Discharge failed', 'Network error. Please try again.');
+    } finally {
+      setDischargingId(null);
+    }
+  }
 
   const statCards = [
     { label: 'Admissions (Today)', value: String(stats.admissionsToday), icon: UserPlus, tone: 'emerald' as const, sub: 'Checked in since midnight' },
@@ -172,8 +202,17 @@ export default function ADTDashboard() {
                               <p className="font-bold text-foreground">{dis.patient}</p>
                               <p className="text-xs text-muted-foreground">{dis.specialty}</p>
                             </div>
-                            {isFullyCleared ? (
-                              <Button size="sm" className="bg-success hover:bg-success/90" disabled title="Coming soon">Final Discharge</Button>
+                            {dischargedIds.has(dis.id) ? (
+                              <Badge tone="success">Discharged</Badge>
+                            ) : isFullyCleared ? (
+                              <Button
+                                size="sm"
+                                className="bg-success hover:bg-success/90"
+                                disabled={dischargingId === dis.id}
+                                onClick={() => handleDischarge(dis.id)}
+                              >
+                                {dischargingId === dis.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…</> : 'Final Discharge'}
+                              </Button>
                             ) : (
                               <Badge tone="warning" dot>Pending Clearances</Badge>
                             )}

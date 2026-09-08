@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { getPatientWallet } = require('../controllers/patientController');
+const {
+    getPatientWallet,
+    getFamilyMembers,
+    addFamilyMember,
+    getInsuranceSummary,
+    getVaccineRecords,
+    lookupPatient,
+} = require('../controllers/patientController');
 const { protect } = require('../middleware/auth');
 const { permitAny } = require('../middleware/permit');
 const { userHasPermissions } = require('../services/PermissionService');
@@ -33,5 +40,13 @@ router.route('/:patientId/wallet').get(
     walletAuthz,
     getPatientWallet
 );
+
+// Lookup by MRN / QR / name — reception staff use this for the QR check-in flow
+router.get('/lookup', permitAny('STAFF.MANAGE_RECORDS', 'DOCTOR.VIEW_PATIENTS', 'RECEPTIONIST.CHECK_IN'), lookupPatient);
+
+router.get('/family', getFamilyMembers);
+router.post('/family', addFamilyMember);
+router.get('/insurance', getInsuranceSummary);
+router.get('/vaccines', getVaccineRecords);
 
 module.exports = router;

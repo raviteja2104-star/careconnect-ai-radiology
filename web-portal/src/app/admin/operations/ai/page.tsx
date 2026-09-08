@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -18,16 +18,15 @@ const severityTone = (severity: string) =>
     : 'success';
 
 export default function SmartQueueAIOptimiser() {
-  const [mockRecDismissed, setMockRecDismissed] = React.useState(false);
   const { data: predictionsRes } = useQuery({
     queryKey: ['ai_queue_predictions'],
     queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/predictions`).then(res => res.json()),
-    refetchInterval: 15000 // Refetch every 15s to simulate live AI recalculations
+    refetchInterval: 15000,
   });
 
   const { data: recommendationsRes } = useQuery({
     queryKey: ['ai_recommendations'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/recommendations`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/recommendations`).then(res => res.json()),
   });
 
   const predictions = predictionsRes?.data || [];
@@ -141,60 +140,39 @@ export default function SmartQueueAIOptimiser() {
           <h2 className="text-lg font-semibold text-foreground">Action Center</h2>
 
           <div className="space-y-4">
-            {/* Mock Recommendation if empty */}
-            {recommendations.length === 0 && !mockRecDismissed && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card className="border-primary/30">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
-                        <BrainCircuit className="h-5 w-5" aria-hidden />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold text-foreground">Re-route to Telemedicine</h3>
-                        <p className="mb-4 mt-1 text-xs text-muted-foreground">
-                          OPD wait time is predicted to exceed 60 mins. Offer active queue patients to consult via Telemedicine instead.
-                        </p>
-                        <div className="flex gap-2">
-                          <Button size="sm" className="flex-1" disabled title="Coming soon">Execute Workflow</Button>
-                          <Button size="sm" variant="ghost" onClick={() => setMockRecDismissed(true)}>Dismiss</Button>
-                        </div>
+            {recommendations.length === 0 ? (
+              <EmptyState
+                icon={BrainCircuit}
+                title="No active recommendations"
+                description="The AI optimiser will surface recommendations as patterns emerge."
+              />
+            ) : (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              recommendations.map((rec: any, i: number) => (
+                <motion.div
+                  key={rec._id || i}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <Badge tone={rec.severity === 'HIGH' || rec.severity === 'CRITICAL' ? 'danger' : 'warning'} dot>
+                          {rec.severity} priority
+                        </Badge>
+                        <span className="text-xs text-subtle-foreground">{rec.department}</span>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                      <h3 className="text-sm font-semibold text-foreground">{rec.recommendationTitle}</h3>
+                      <p className="mb-4 mt-1 text-xs text-muted-foreground">{rec.recommendationDetails}</p>
+                      <Button size="sm" className="w-full" disabled title="Select a workflow first">
+                        Approve Action <ArrowRight className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
             )}
-
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {recommendations.map((rec: any, i: number) => (
-              <motion.div
-                key={rec._id || i}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="mb-3 flex items-start justify-between gap-2">
-                      <Badge tone={rec.severity === 'HIGH' || rec.severity === 'CRITICAL' ? 'danger' : 'warning'} dot>
-                        {rec.severity} priority
-                      </Badge>
-                      <span className="text-xs text-subtle-foreground">{rec.department}</span>
-                    </div>
-                    <h3 className="text-sm font-semibold text-foreground">{rec.recommendationTitle}</h3>
-                    <p className="mb-4 mt-1 text-xs text-muted-foreground">{rec.recommendationDetails}</p>
-                    <Button size="sm" className="w-full" disabled title="Coming soon">
-                      Approve Action <ArrowRight className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
           </div>
         </div>
       </div>

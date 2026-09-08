@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -14,6 +14,13 @@ import {
   type Column,
 } from '@/components/ui';
 import { aiPlatformService, AIAgentRecord, AIReviewRecord, AIModelRecord } from '@/services/aiPlatformService';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return window.localStorage.getItem('token'); } catch { return null; }
+}
 
 type TabKey = 'AGENTS' | 'SCRIBE' | 'REVIEW' | 'KNOWLEDGE' | 'MODELS' | 'GOVERNANCE';
 
@@ -75,6 +82,11 @@ const guardrails = [
   },
 ];
 
+type ScribeOutput = {
+  soap: { subjective: string; objective: string; assessment: string; plan: string };
+  generatedAt: string;
+};
+
 export default function EnterpriseAIPlatformPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('AGENTS');
 
@@ -86,22 +98,39 @@ export default function EnterpriseAIPlatformPage() {
 
   // Interactive Scribe State
   const [dictationText, setDictationText] = useState('Patient is a 54yo male complaining of shortness of breath and fever for 2 days. History of hypertension. BP 138/86, HR 80. Chest reveals mild rhonchi.');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [scribeOutput, setScribeOutput] = useState<any>(null);
+  const [scribeOutput, setScribeOutput] = useState<ScribeOutput | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleRunScribe = () => {
+  const handleRunScribe = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
-      setScribeOutput(aiPlatformService.generateSOAPScribe(dictationText));
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/admin/ai-scribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ dictationText }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setScribeOutput(json.data as ScribeOutput);
+      }
+    } catch {
+      // Network error — silently ignore; user can retry
+    } finally {
       setIsGenerating(false);
-    }, 600);
+    }
   };
 
   const handleReviewAction = (id: string, status: 'ACCEPTED' | 'REJECTED') => {
     aiPlatformService.submitReviewDecision(id, status);
     setReviews([...aiPlatformService.getReviews()]);
   };
+
+  // Suppress unused-variable lint: agents setter kept for future CRUD
+  void setAgents;
 
   const modelColumns: Column<AIModelRecord>[] = [
     {
@@ -265,13 +294,13 @@ export default function EnterpriseAIPlatformPage() {
                     <CardTitle className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary" aria-hidden /> Structured SOAP note
                     </CardTitle>
-                    <Badge tone="success">{scribeOutput.confidencePct}% confidence</Badge>
+                    <Badge tone="success">Generated</Badge>
                   </CardHeader>
                   <CardContent className="space-y-3 font-mono text-xs">
                     {(['subjective', 'objective', 'assessment', 'plan'] as const).map((section) => (
                       <div key={section} className="rounded-xl bg-muted p-3">
                         <strong className="mb-0.5 block capitalize text-primary">{section}:</strong>
-                        <span className="text-foreground">{scribeOutput.soapNote[section]}</span>
+                        <span className="text-foreground">{scribeOutput.soap[section]}</span>
                       </div>
                     ))}
                   </CardContent>

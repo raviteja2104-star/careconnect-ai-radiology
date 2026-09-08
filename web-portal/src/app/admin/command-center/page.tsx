@@ -1,28 +1,73 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Activity, ShieldAlert, HeartPulse, Bed, Clock,
   DollarSign, Sparkles, AlertCircle,
   Server, Zap, RefreshCcw, ArrowRight,
 } from 'lucide-react';
-import { integrationHubService, CommandCenterData } from '@/services/integrationHubService';
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription, CardContent,
   Badge, Button, Progress,
 } from '@/components/ui';
 
-export default function HospitalCommandCenterPage() {
-  const [data, setData] = useState<CommandCenterData>(integrationHubService.getCommandCenterData());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setData(integrationHubService.getCommandCenterData());
-      setIsRefreshing(false);
-    }, 600);
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return window.localStorage.getItem('token'); } catch { return null; }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export default function HospitalCommandCenterPage() {
+  const { data: res, isFetching, refetch } = useQuery({
+    queryKey: ['command-center'],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/admin/command-center`, { headers: authHeaders() }).then((r) => r.json()),
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+
+  const apiData = res?.data ?? {};
+
+  // Clinical / operational data not yet returned by the basic telemetry endpoint —
+  // default to zero so the page renders correctly even before a richer endpoint exists.
+  const clinicalAlerts = {
+    codeBlueCount: apiData.codeBlueCount ?? 0,
+    sepsisRiskAlerts: apiData.sepsisRiskAlerts ?? 0,
+    strokeAlerts: apiData.strokeAlerts ?? 0,
+    highNews2Count: apiData.highNews2Count ?? 0,
+    criticalLabValues: apiData.criticalLabValues ?? 0,
+  };
+  const hospital = {
+    icuOccupancyPct: apiData.icuOccupancyPct ?? 0,
+    ipdOccupiedBeds: apiData.ipdOccupiedBeds ?? 0,
+    otUtilisationPct: apiData.otUtilisationPct ?? 0,
+    waitingPatientsAvgMins: apiData.waitingPatientsAvgMins ?? 0,
+  };
+  const operations = {
+    availableBeds: apiData.availableBeds ?? 0,
+    labTurnaroundAvgMins: apiData.labTurnaroundAvgMins ?? 0,
+    radiologyTurnaroundAvgMins: apiData.radiologyTurnaroundAvgMins ?? 0,
+    pharmacyStockHealthPct: apiData.pharmacyStockHealthPct ?? 0,
+  };
+  const financial = {
+    revenueTodayINR: apiData.revenueTodayINR ?? 0,
+    pendingInsuranceClaimsINR: apiData.pendingInsuranceClaimsINR ?? 0,
+    outstandingInvoicesCount: apiData.outstandingInvoicesCount ?? 0,
+  };
+  const aiGateway = {
+    avgLatencyMs: apiData.apiLatencyMs ?? 0,
+    aiConsultationsCount: apiData.aiConsultationsCount ?? 0,
+    acceptedRecommendationsPct: apiData.acceptedRecommendationsPct ?? 0,
+    overrideCount: apiData.overrideCount ?? 0,
+    translationDispatches: apiData.translationDispatches ?? 0,
   };
 
   return (
@@ -38,7 +83,7 @@ export default function HospitalCommandCenterPage() {
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Command Center' }]}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={handleRefresh} loading={isRefreshing}>
+            <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
               <RefreshCcw className="h-4 w-4" aria-hidden /> Refresh Telemetry
             </Button>
             <Button size="sm" onClick={() => { window.location.href = '/admin/enterprise'; }}>
@@ -54,7 +99,7 @@ export default function HospitalCommandCenterPage() {
         <StatGrid className="xl:grid-cols-5">
           <StatCard
             label="Code Blue"
-            value={data.clinicalAlerts.codeBlueCount}
+            value={clinicalAlerts.codeBlueCount}
             sub="Active Cardiac Arrests"
             icon={HeartPulse}
             tone="emerald"
@@ -62,7 +107,7 @@ export default function HospitalCommandCenterPage() {
           />
           <StatCard
             label="Sepsis Bundle"
-            value={data.clinicalAlerts.sepsisRiskAlerts}
+            value={clinicalAlerts.sepsisRiskAlerts}
             sub="1-Hour Protocol Timers"
             icon={AlertCircle}
             tone="amber"
@@ -70,7 +115,7 @@ export default function HospitalCommandCenterPage() {
           />
           <StatCard
             label="Stroke Alerts"
-            value={data.clinicalAlerts.strokeAlerts}
+            value={clinicalAlerts.strokeAlerts}
             sub="STAT CT Imaging Gate"
             icon={Zap}
             tone="violet"
@@ -78,7 +123,7 @@ export default function HospitalCommandCenterPage() {
           />
           <StatCard
             label="High NEWS2"
-            value={data.clinicalAlerts.highNews2Count}
+            value={clinicalAlerts.highNews2Count}
             sub="Score ≥ 7 Deterioration"
             icon={ShieldAlert}
             tone="rose"
@@ -86,7 +131,7 @@ export default function HospitalCommandCenterPage() {
           />
           <StatCard
             label="Critical Labs"
-            value={data.clinicalAlerts.criticalLabValues}
+            value={clinicalAlerts.criticalLabValues}
             sub="STAT Panic Value Alerts"
             icon={Activity}
             tone="teal"
@@ -107,13 +152,13 @@ export default function HospitalCommandCenterPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               <Progress
-                value={data.hospital.icuOccupancyPct}
+                value={hospital.icuOccupancyPct}
                 tone="warning"
-                label={`ICU Occupancy (${data.hospital.ipdOccupiedBeds} Beds)`}
+                label={`ICU Occupancy (${hospital.ipdOccupiedBeds} Beds)`}
                 showValue
               />
               <Progress
-                value={data.hospital.otUtilisationPct}
+                value={hospital.otUtilisationPct}
                 tone="brand"
                 label="Operation Theatre (OT) Utilisation"
                 showValue
@@ -121,11 +166,11 @@ export default function HospitalCommandCenterPage() {
               <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-center">
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Available Ward Beds</span>
-                  <span className="text-xl font-bold tabular-nums text-success">{data.operations.availableBeds}</span>
+                  <span className="text-xl font-bold tabular-nums text-success">{operations.availableBeds}</span>
                 </div>
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg OPD Wait Time</span>
-                  <span className="text-xl font-bold tabular-nums text-info">{data.hospital.waitingPatientsAvgMins}m</span>
+                  <span className="text-xl font-bold tabular-nums text-info">{hospital.waitingPatientsAvgMins}m</span>
                 </div>
               </div>
             </CardContent>
@@ -144,19 +189,19 @@ export default function HospitalCommandCenterPage() {
               <TatRow
                 title="Laboratory Stat TAT"
                 sub="Specimen to Result Delivery"
-                value={`${data.operations.labTurnaroundAvgMins} mins`}
+                value={`${operations.labTurnaroundAvgMins} mins`}
                 valueClass="text-success"
               />
               <TatRow
                 title="Radiology PACS TAT"
                 sub="DICOM Scan to Report Signoff"
-                value={`${data.operations.radiologyTurnaroundAvgMins} mins`}
+                value={`${operations.radiologyTurnaroundAvgMins} mins`}
                 valueClass="text-primary"
               />
               <TatRow
                 title="Pharmacy Stock Health"
                 sub="Critical Medication Availability"
-                value={`${data.operations.pharmacyStockHealthPct}%`}
+                value={`${operations.pharmacyStockHealthPct}%`}
                 valueClass="text-info"
               />
             </CardContent>
@@ -175,20 +220,20 @@ export default function HospitalCommandCenterPage() {
               <div className="rounded-2xl border border-success/30 bg-success-soft p-4">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-success">Revenue Today</span>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  ₹{(data.financial.revenueTodayINR / 100000).toFixed(2)} Lakhs
+                  ₹{(financial.revenueTodayINR / 100000).toFixed(2)} Lakhs
                 </h2>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending Insurance</span>
                   <span className="text-sm font-bold tabular-nums text-warning">
-                    ₹{(data.financial.pendingInsuranceClaimsINR / 100000).toFixed(2)}L
+                    ₹{(financial.pendingInsuranceClaimsINR / 100000).toFixed(2)}L
                   </span>
                 </div>
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Open Invoices</span>
                   <span className="text-sm font-bold tabular-nums text-info">
-                    {data.financial.outstandingInvoicesCount} Active
+                    {financial.outstandingInvoicesCount} Active
                   </span>
                 </div>
               </div>
@@ -207,14 +252,14 @@ export default function HospitalCommandCenterPage() {
               </CardTitle>
               <CardDescription className="mt-1">Copilot inference activity across the clinical estate.</CardDescription>
             </div>
-            <Badge tone="brand" className="font-mono">Avg Latency: {data.aiGateway.avgLatencyMs}ms</Badge>
+            <Badge tone="brand" className="font-mono">Avg Latency: {aiGateway.avgLatencyMs}ms</Badge>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <GatewayTile label="AI Consultations Today" value={data.aiGateway.aiConsultationsCount} valueClass="text-violet-600 dark:text-violet-400" />
-              <GatewayTile label="Clinician Acceptance Rate" value={`${data.aiGateway.acceptedRecommendationsPct}%`} valueClass="text-success" />
-              <GatewayTile label="Clinician Overrides" value={data.aiGateway.overrideCount} valueClass="text-warning" />
-              <GatewayTile label="Rx Translation Dispatches" value={data.aiGateway.translationDispatches} valueClass="text-info" />
+              <GatewayTile label="AI Consultations Today" value={aiGateway.aiConsultationsCount} valueClass="text-violet-600 dark:text-violet-400" />
+              <GatewayTile label="Clinician Acceptance Rate" value={`${aiGateway.acceptedRecommendationsPct}%`} valueClass="text-success" />
+              <GatewayTile label="Clinician Overrides" value={aiGateway.overrideCount} valueClass="text-warning" />
+              <GatewayTile label="Rx Translation Dispatches" value={aiGateway.translationDispatches} valueClass="text-info" />
             </div>
           </CardContent>
         </Card>

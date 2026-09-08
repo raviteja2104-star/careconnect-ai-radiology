@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
@@ -10,11 +10,27 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
   CardContent, Button, Badge, DataTable, type Column, EmptyState, Skeleton,
+  Dialog, Input, Label,
 } from '@/components/ui';
+import { useToast } from '@/components/ui/toast';
 import {
   ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
 } from 'recharts';
 import { CHART_COLORS, chartGrid, chartAxis, chartTooltip } from '@/lib/chart-theme';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return window.localStorage.getItem('token'); } catch { return null; }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
 
 const STATUS_TONE: Record<string, 'success' | 'info' | 'warning'> = {
   PAID: 'success',
@@ -26,57 +42,70 @@ type Invoice = {
   invoiceNumber: string;
   totalAmount: number;
   amountDue: number;
-  patient?: { name?: string };
+  patient?: { name?: string; _id?: string };
   issuedAt: string;
   type: string;
   status: string;
 };
 
+type InvoiceModalState = {
+  open: boolean;
+  prefillPatientId: string;
+  prefillPatientName: string;
+  prefillAmount: string;
+};
+
+const MODAL_CLOSED: InvoiceModalState = {
+  open: false,
+  prefillPatientId: '',
+  prefillPatientName: '',
+  prefillAmount: '',
+};
+
 export default function RevenueDashboard() {
+  const { toast } = useToast();
   const [liveInvoices, setLiveInvoices] = useState<Invoice[]>([]);
+  const [modal, setModal] = useState<InvoiceModalState>(MODAL_CLOSED);
+  const [formPatientId, setFormPatientId] = useState('');
+  const [formAmount, setFormAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: dashboardRes, refetch: refetchDash, isLoading: dashLoading } = useQuery({
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     queryKey: ['billing_dashboard'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/billing/dashboard`).then(res => res.json())
+    queryFn: () =>
+      fetch(`${API_BASE}/api/billing/dashboard`, { headers: authHeaders() }).then((res) => res.json()),
   });
 
   const { data: invoicesRes, refetch: refetchInvoices, isLoading: invoicesLoading } = useQuery({
     queryKey: ['billing_invoices'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/billing/invoices`).then(res => res.json())
+    queryFn: () =>
+      fetch(`${API_BASE}/api/billing/invoices`, { headers: authHeaders() }).then((res) => res.json()),
   });
 
   useEffect(() => {
     if (invoicesRes?.data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLiveInvoices(invoicesRes.data.slice(0, 10)); // Just show recent 10 on dash
+      setLiveInvoices(invoicesRes.data.slice(0, 10));
     }
   }, [invoicesRes]);
 
-  // Hook into Event Bus for live financial events
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care');
-
+    const socket = io(API_BASE);
     socket.on('INVOICE_CREATED', (data) => {
       refetchDash();
-      setLiveInvoices(prev => [data.invoice, ...prev].slice(0, 10));
+      setLiveInvoices((prev) => [data.invoice, ...prev].slice(0, 10));
     });
-
-    socket.on('PAYMENT_COMPLETED', (data) => {
+    socket.on('PAYMENT_COMPLETED', () => {
       refetchDash();
       refetchInvoices();
     });
-
     return () => { socket.disconnect(); };
-  }, []);
+  }, [refetchDash, refetchInvoices]);
 
   const stats = dashboardRes?.data || { totalRevenue: 0, pendingDues: 0, collections: 0, totalInvoices: 0 };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
-  // Presentational only � chart series derived from the invoices already fetched.
   const chartData = useMemo(
     () =>
       [...liveInvoices]
@@ -92,6 +121,60 @@ export default function RevenueDashboard() {
   const collectionRate = stats.totalRevenue > 0
     ? Math.round((stats.collections / stats.totalRevenue) * 100)
     : 0;
+
+  /* ---- Invoice modal handlers ---- */
+
+  const openCollectModal = (inv: Invoice) => {
+    setFormPatientId(inv.patient?._id ?? '');
+    setFormAmount(String(inv.amountDue ?? inv.totalAmount ?? ''));
+    setModal({
+      open: true,
+      prefillPatientId: inv.patient?._id ?? '',
+      prefillPatientName: inv.patient?.name ?? '',
+      prefillAmount: String(inv.amountDue ?? inv.totalAmount ?? ''),
+    });
+  };
+
+  const openCreateModal = () => {
+    setFormPatientId('');
+    setFormAmount('');
+    setModal({ open: true, prefillPatientId: '', prefillPatientName: '', prefillAmount: '' });
+  };
+
+  const closeModal = () => setModal(MODAL_CLOSED);
+
+  const handleSubmitInvoice = async () => {
+    if (!formPatientId.trim() || !formAmount.trim()) {
+      toast('warning', 'Patient ID and amount are required.');
+      return;
+    }
+    const totalAmount = parseFloat(formAmount);
+    if (isNaN(totalAmount) || totalAmount <= 0) {
+      toast('warning', 'Enter a valid amount.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/invoices`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ patientId: formPatientId.trim(), totalAmount }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast('success', 'Invoice created.', `Invoice ${json.data?.invoiceNumber ?? ''} has been raised.`);
+        refetchDash();
+        refetchInvoices();
+        closeModal();
+      } else {
+        toast('error', 'Failed to create invoice.', json.message ?? json.error ?? 'Unknown error.');
+      }
+    } catch {
+      toast('error', 'Network error', 'Could not reach the billing service.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const columns: Column<Invoice>[] = [
     {
@@ -150,9 +233,9 @@ export default function RevenueDashboard() {
       align: 'right',
       cell: (inv) =>
         inv.status !== 'PAID' ? (
-          <Button size="sm" disabled title="Coming soon">Collect Payment</Button>
+          <Button size="sm" onClick={() => openCollectModal(inv)}>Collect Payment</Button>
         ) : (
-          <Button size="sm" variant="ghost" disabled title="Coming soon">
+          <Button size="sm" variant="ghost" disabled>
             View Receipt <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
         ),
@@ -170,7 +253,7 @@ export default function RevenueDashboard() {
           { label: 'Revenue Console' },
         ]}
         actions={
-          <Button disabled title="Coming soon">
+          <Button onClick={openCreateModal}>
             <Plus className="h-4 w-4" aria-hidden /> Create Manual Invoice
           </Button>
         }
@@ -251,7 +334,7 @@ export default function RevenueDashboard() {
                   columns={columns}
                   data={liveInvoices}
                   rowKey={(inv) => inv._id}
-                  searchPlaceholder="Filter invoices�"
+                  searchPlaceholder="Filter invoices…"
                   exportName="recent-invoices"
                   emptyTitle="No invoices generated today"
                   emptyDescription="Invoices raised from OPD, IPD and telemedicine encounters will appear here in real time."
@@ -308,7 +391,7 @@ export default function RevenueDashboard() {
                       <YAxis
                         {...chartAxis}
                         width={52}
-                        tickFormatter={(v: number) => `?${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
+                        tickFormatter={(v: number) => `₹${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
                       />
                       <Tooltip
                         {...chartTooltip}
@@ -349,6 +432,52 @@ export default function RevenueDashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* ---- Collect Payment / Create Invoice modal ---- */}
+      <Dialog
+        open={modal.open}
+        onClose={closeModal}
+        title={modal.prefillPatientId ? 'Collect Payment' : 'Create Manual Invoice'}
+        description="Enter the patient ID and amount to raise an invoice."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={closeModal}>Cancel</Button>
+            <Button onClick={handleSubmitInvoice} loading={isSubmitting}>
+              {modal.prefillPatientId ? 'Collect Payment' : 'Create Invoice'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="inv-patient-id">Patient ID</Label>
+            <Input
+              id="inv-patient-id"
+              value={formPatientId}
+              onChange={(e) => setFormPatientId(e.target.value)}
+              placeholder="MongoDB ObjectId or demo-patient-1"
+              autoFocus={!modal.prefillPatientId}
+            />
+            {modal.prefillPatientName && (
+              <p className="mt-1 text-xs text-muted-foreground">Patient: {modal.prefillPatientName}</p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="inv-amount">Amount (INR)</Label>
+            <Input
+              id="inv-amount"
+              type="number"
+              min={1}
+              step={0.01}
+              value={formAmount}
+              onChange={(e) => setFormAmount(e.target.value)}
+              placeholder="e.g. 2500"
+              autoFocus={!!modal.prefillPatientId}
+            />
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

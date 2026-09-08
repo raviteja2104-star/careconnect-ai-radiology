@@ -59,6 +59,7 @@ const providerRegistrationRoutes = require('./routes/providerRegistrationRoutes'
 const adtRoutes = require('./routes/adtRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const wardRoutes = require('./routes/wardRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
@@ -295,6 +296,7 @@ app.use('/api/provider', providerRegistrationRoutes);
 app.use('/api/adt', adtRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/ward', wardRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api/settings', require('./routes/settingsRoutes'));
 
 const userSearchRoutes = require('./routes/userSearchRoutes');
@@ -353,6 +355,8 @@ aiClinicalProxy.get('/health', forwardToAiService('get'));
 ['soap-draft', 'discharge-summary', 'radiology-draft', 'explain', 'differentials', 'medication-suggestions']
     .forEach((route) => aiClinicalProxy.post(`/${route}`, forwardToAiService('post')));
 app.use('/api/ai', aiClinicalProxy);
+
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // 404 handler
 app.use('*', (req, res) => {

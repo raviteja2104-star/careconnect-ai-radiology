@@ -6,6 +6,7 @@ const {
     submitReport,
     assignRadiologist,
     getScanStats,
+    getPatientScans,
 } = require('../controllers/radiologyController');
 const { protect, authorize } = require('../middleware/auth');
 const { permit } = require('../middleware/permit');
@@ -15,6 +16,9 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(protect);
+
+// Patient-facing: fetch own scans
+router.get('/patient-scans', getPatientScans);
 
 // Upload scan — ordering roles only (permission + legacy role guard)
 router.post(
