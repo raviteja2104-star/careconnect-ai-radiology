@@ -1,4 +1,4 @@
-ï»¿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,7 +24,7 @@ import {
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api`;
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, unknown> = {
   Heart, Brain, Activity, Baby, Eye, Stethoscope
 };
 
@@ -67,7 +67,7 @@ export default function BookAppointmentPage() {
 
   // Mutation
   const bookMutation = useMutation({
-    mutationFn: (bookingData: any) => {
+    mutationFn: (bookingData: unknown) => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       return fetch(`${API_BASE}/appointments`, {
         method: 'POST',
@@ -108,8 +108,8 @@ export default function BookAppointmentPage() {
     exit: (dir: number) => ({ opacity: 0, x: dir > 0 ? -20 : 20 }),
   };
 
-  const selectedDoctor = doctors.find((d: any) => d._id === doctor);
-  const selectedSpecialty = specialties.find((s: any) => s.id === specialty);
+  const selectedDoctor = doctors.find((d) => d._id === doctor);
+  const selectedSpecialty = specialties.find((s) => s.id === specialty);
 
   return (
     <div className="space-y-6">
@@ -204,7 +204,7 @@ export default function BookAppointmentPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {specialties.map((spec: any, i: number) => {
+                      {specialties.map((spec, i: number) => {
                         const IconComponent = ICON_MAP[spec.icon] || Activity;
                         const selected = specialty === spec.id;
                         return (
@@ -257,7 +257,7 @@ export default function BookAppointmentPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {doctors.map((doc: any, i: number) => (
+                      {doctors.map((doc, i: number) => (
                         <motion.div
                           key={doc._id}
                           initial={{ opacity: 0, y: 10 }}
@@ -313,9 +313,9 @@ export default function BookAppointmentPage() {
                       {(() => {
                         const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
                         const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-                        // 0=Sun â€¦ 6=Sat â†’ convert to Mon-first offset
+                        // 0=Sun … 6=Sat ? convert to Mon-first offset
                         const rawFirst = new Date(calYear, calMonth, 1).getDay();
-                        const offset = (rawFirst + 6) % 7; // Mon=0 â€¦ Sun=6
+                        const offset = (rawFirst + 6) % 7; // Mon=0 … Sun=6
                         const todayStr = new Date().toISOString().split('T')[0];
                         const canGoPrev = calYear > today.getFullYear() || calMonth > today.getMonth();
                         const prevMonth = () => {
@@ -336,11 +336,11 @@ export default function BookAppointmentPage() {
                               <div className="flex gap-1">
                                 <button onClick={prevMonth} disabled={!canGoPrev} aria-label="Previous month"
                                   className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30">
-                                  â€¹
+                                  ‹
                                 </button>
                                 <button onClick={nextMonth} aria-label="Next month"
                                   className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted">
-                                  â€º
+                                  ›
                                 </button>
                               </div>
                             </div>
@@ -464,7 +464,7 @@ export default function BookAppointmentPage() {
                         id="visit-reason"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        placeholder="Briefly describe your symptoms or reason for visitâ€¦"
+                        placeholder="Briefly describe your symptoms or reason for visit…"
                         className="min-h-[120px] resize-none"
                       />
                     </div>
