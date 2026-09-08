@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Building, Layers, Globe, Palette,
@@ -16,6 +17,14 @@ import {
   masterDataService, MasterDataItem, HospitalHierarchyNode,
   FeatureFlagConfig, LanguageResourceConfig,
 } from '@/services/masterDataService';
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+interface ApiMasterItem { key: string; value: string; category: string; description?: string }
 
 const MASTER_CATEGORIES = ['PATIENT', 'CLINICAL', 'PHARMACY', 'LABORATORY', 'RADIOLOGY', 'BILLING'] as const;
 
@@ -41,6 +50,8 @@ const FLAG_CATEGORY_TONE: Record<FeatureFlagConfig['category'], 'brand' | 'info'
 export default function MasterDataManagementPage() {
   const [activeTab, setActiveTab] = useState<'HIERARCHY' | 'MASTERS' | 'LANGUAGES' | 'BRANDING' | 'FEATURE_FLAGS' | 'VERSIONS'>('HIERARCHY');
 
+  const queryClient = useQueryClient();
+
   // Service States
   const [hierarchy] = useState<HospitalHierarchyNode[]>(masterDataService.getHierarchy());
   const [masterItems, setMasterItems] = useState<MasterDataItem[]>(masterDataService.getMasterItems());
@@ -50,13 +61,42 @@ export default function MasterDataManagementPage() {
   const [branding, setBranding] = useState(masterDataService.getBranding());
   const [versions] = useState(masterDataService.getVersions());
 
+  // API queries
+  const { data: flagsRes } = useQuery({
+    queryKey: ['master_feature_flags'],
+    queryFn: () => fetch(`${API}/api/master-data/feature-flags`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const { data: itemsRes } = useQuery({
+    queryKey: ['master_data_items'],
+    queryFn: () => fetch(`${API}/api/master-data/items`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const toggleFlagMutation = useMutation({
+    mutationFn: ({ key, isEnabled }: { key: string; isEnabled: boolean }) =>
+      fetch(`${API}/api/master-data/feature-flags/${key}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ isEnabled }),
+      }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['master_feature_flags'] }),
+  });
+
   // Modal / Form state
   const [newItemName, setNewItemName] = useState('');
   const [newItemCode, setNewItemCode] = useState('');
   const [newItemSubCategory, setNewItemSubCategory] = useState('Diagnosis');
   const [saveToast, setSaveToast] = useState(false);
 
+  const liveFlags: Array<{ key: string; label?: string; name?: string; description?: string; isEnabled: boolean; category: FeatureFlagConfig['category'] }> = flagsRes?.data ?? featureFlags;
+
   const handleToggleFlag = (key: string) => {
+    const flag = liveFlags.find((f) => f.key === key);
+    if (!flag) return;
+    toggleFlagMutation.mutate({ key, isEnabled: !flag.isEnabled });
+    // Keep local state in sync as optimistic fallback
     masterDataService.toggleFeatureFlag(key);
     setFeatureFlags([...masterDataService.getFeatureFlags()]);
   };
@@ -91,9 +131,22 @@ export default function MasterDataManagementPage() {
     setTimeout(() => setSaveToast(false), 3000);
   };
 
-  const enabledFlags = featureFlags.filter((f) => f.isEnabled).length;
+  const enabledFlags = liveFlags.filter((f) => f.isEnabled).length;
   const maxKeys = Math.max(...languages.map((l) => l.translatedCount), 1);
-  const filteredMasters = masterItems.filter((m) => m.category === selectedCategory);
+
+  // Master items: prefer API data when available, mapped to display shape
+  const apiItems: ApiMasterItem[] = itemsRes?.data ?? [];
+  const apiMappedItems: MasterDataItem[] = apiItems.map((item) => ({
+    id: item.key,
+    category: item.category as MasterDataItem['category'],
+    subCategory: '',
+    code: item.key,
+    name: item.value,
+    description: item.description,
+    status: 'ACTIVE' as const,
+  }));
+  const liveMasterItems = apiMappedItems.length > 0 ? apiMappedItems : masterItems;
+  const filteredMasters = liveMasterItems.filter((m) => m.category === selectedCategory);
 
   const hierarchyColumns: Column<HospitalHierarchyNode>[] = [
     {
@@ -196,7 +249,7 @@ export default function MasterDataManagementPage() {
         <StatCard label="Hierarchy units" value={hierarchy.length} sub="Org → Campus → Ward → Bed" icon={Network} tone="brand" delay={0} />
         <StatCard label="Master records" value={masterItems.length} sub={`${MASTER_CATEGORIES.length} catalogue domains`} icon={Layers} tone="violet" delay={0.05} />
         <StatCard label="Languages" value={languages.length} sub="Prescription & portal locales" icon={Languages} tone="teal" delay={0.1} />
-        <StatCard label="Feature flags" value={`${enabledFlags}/${featureFlags.length}`} sub="Modules currently enabled" icon={ToggleRight} tone="emerald" delay={0.15} />
+        <StatCard label="Feature flags" value={`${enabledFlags}/${liveFlags.length}`} sub="Modules currently enabled" icon={ToggleRight} tone="emerald" delay={0.15} />
       </StatGrid>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
@@ -408,32 +461,36 @@ export default function MasterDataManagementPage() {
             <p className="text-sm text-muted-foreground">Toggle live platform capabilities across Telemedicine, AI Scribe, Multilingual Rx & ABDM Sync.</p>
           </div>
           <div className="space-y-3">
-            {featureFlags.map((flag, i) => (
-              <motion.div
-                key={flag.key}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card>
-                  <CardContent className="flex items-center justify-between gap-4 py-4">
-                    <div className="min-w-0">
-                      <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-foreground">{flag.name}</h3>
-                        <Badge tone={FLAG_CATEGORY_TONE[flag.category]}>{flag.category}</Badge>
+            {liveFlags.map((flag, i) => {
+              const displayName = flag.label ?? flag.name ?? flag.key;
+              const tone = FLAG_CATEGORY_TONE[flag.category as FeatureFlagConfig['category']] ?? 'neutral';
+              return (
+                <motion.div
+                  key={flag.key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Card>
+                    <CardContent className="flex items-center justify-between gap-4 py-4">
+                      <div className="min-w-0">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-foreground">{displayName}</h3>
+                          <Badge tone={tone}>{flag.category}</Badge>
+                        </div>
+                        {flag.description && <p className="text-sm text-muted-foreground">{flag.description}</p>}
+                        <p className="mt-1 font-mono text-xs text-subtle-foreground">{flag.key}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{flag.description}</p>
-                      <p className="mt-1 font-mono text-xs text-subtle-foreground">{flag.key}</p>
-                    </div>
-                    <Switch
-                      checked={flag.isEnabled}
-                      onCheckedChange={() => handleToggleFlag(flag.key)}
-                      label={`Toggle ${flag.name}`}
-                    />
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                      <Switch
+                        checked={flag.isEnabled}
+                        onCheckedChange={() => handleToggleFlag(flag.key)}
+                        label={`Toggle ${displayName}`}
+                      />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
           </div>
         </TabsContent>
 

@@ -357,6 +357,9 @@ aiClinicalProxy.get('/health', forwardToAiService('get'));
 app.use('/api/ai', aiClinicalProxy);
 
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/integrations', require('./routes/integrationRoutes'));
+app.use('/api/master-data', require('./routes/masterDataRoutes'));
+app.use('/api/commercial', require('./routes/commercialRoutes'));
 
 // 404 handler
 app.use('*', (req, res) => {

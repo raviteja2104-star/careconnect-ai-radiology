@@ -126,3 +126,102 @@ exports.createInvoice = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+exports.getSystemHealth = async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const readyState = mongoose.connection.readyState;
+    const dbConnected = readyState === 1;
+    const dbStatus = readyState === 1 ? 'Operational' : readyState === 2 ? 'Connecting' : 'Degraded';
+
+    let queueStatus = 'Operational';
+    let queueDetail = 'Queue is idle';
+    if (dbConnected) {
+      try {
+        const QueueToken = require('../models/QueueToken');
+        const queueDepth = await QueueToken.countDocuments({ status: 'WAITING' });
+        if (queueDepth > 50) {
+          queueStatus = 'Degraded';
+          queueDetail = `Queue depth: ${queueDepth} (high load)`;
+        } else {
+          queueDetail = `Queue depth: ${queueDepth}`;
+        }
+      } catch (e) {
+        queueStatus = 'Degraded';
+        queueDetail = 'Queue engine error';
+      }
+    }
+
+    const services = [
+      { service: 'Primary Database', status: dbStatus, detail: `readyState: ${readyState}` },
+      { service: 'Queue Engine', status: dbConnected ? queueStatus : 'Degraded', detail: dbConnected ? queueDetail : 'DB offline' },
+      { service: 'API Server', status: 'Operational', detail: `Uptime: ${Math.round(process.uptime())}s` },
+      { service: 'Authentication', status: dbConnected ? 'Operational' : 'Degraded', detail: dbConnected ? 'JWT auth active' : 'DB required for token validation' },
+    ];
+
+    res.json({ success: true, data: services });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.getOrganizations = async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const dbConnected = mongoose.connection.readyState === 1;
+    if (!dbConnected) {
+      return res.json({ success: true, data: [] });
+    }
+    const User = require('../models/User');
+    const roles = ['patient', 'doctor', 'admin', 'nurse', 'pharmacist', 'radiologist', 'reception'];
+    const counts = await Promise.all(roles.map((role) => User.countDocuments({ role })));
+    const roleBreakdown = {};
+    roles.forEach((role, i) => { roleBreakdown[role] = counts[i]; });
+    const total = counts.reduce((sum, c) => sum + c, 0);
+
+    const data = [
+      {
+        name: 'CareConnect Platform',
+        region: 'APAC',
+        plan: 'Enterprise',
+        users: total,
+        status: 'Active',
+        roleBreakdown,
+      },
+    ];
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.getAdminAuditLogs = async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const dbConnected = mongoose.connection.readyState === 1;
+    if (!dbConnected) {
+      return res.json({ success: true, data: [], total: 0 });
+    }
+    const AuditLog = require('../models/AuditLog');
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      AuditLog.find().sort({ at: -1 }).skip(skip).limit(limit).lean(),
+      AuditLog.countDocuments(),
+    ]);
+
+    const data = logs.map((log) => ({
+      time: log.at ? new Date(log.at).toISOString() : null,
+      user: log.actorId ? String(log.actorId) : null,
+      action: log.action,
+      resource: log.resource,
+      ip: log.ip || null,
+    }));
+
+    res.json({ success: true, data, total, page, limit });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

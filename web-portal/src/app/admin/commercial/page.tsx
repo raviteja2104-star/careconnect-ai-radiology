@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   DollarSign, Building2, CreditCard, Award, TrendingUp, Check, Plus,
@@ -12,6 +13,15 @@ import {
   Input, Select, Label, DataTable, type Column,
 } from '@/components/ui';
 import { commercialSaaSPlatformService, TenantAccountRecord, FinancialMetricRecord, PartnerEcosystemRecord } from '@/services/commercialSaaSPlatformService';
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+interface ApiTenant { _id: string; name: string; region: string; plan: string; currentUsers: number; status: string }
+interface ApiFinancials { totalRevenue: number; monthRevenue: number; pendingRevenue: number; invoiceCount: number }
 
 const TENANT_STATUS_TONE: Record<TenantAccountRecord['status'], 'success' | 'warning' | 'danger'> = {
   ACTIVE_PRODUCTION: 'success',
@@ -62,10 +72,38 @@ const PRICING_PLANS = [
 export default function EnterpriseCommercialPage() {
   const [activeTab, setActiveTab] = useState<'TENANTS' | 'SUBSCRIPTIONS' | 'REVENUE' | 'PARTNERS' | 'EXECUTIVE'>('TENANTS');
 
-  // States
-  const [tenants, setTenants] = useState<TenantAccountRecord[]>(commercialSaaSPlatformService.getTenants());
+  const queryClient = useQueryClient();
+
+  // Local service fallback states
+  const [tenants] = useState<TenantAccountRecord[]>(commercialSaaSPlatformService.getTenants());
   const [financials] = useState<FinancialMetricRecord>(commercialSaaSPlatformService.getFinancials());
   const [partners] = useState<PartnerEcosystemRecord[]>(commercialSaaSPlatformService.getPartners());
+
+  // API queries
+  const { data: tenantsRes } = useQuery({
+    queryKey: ['commercial_tenants'],
+    queryFn: () => fetch(`${API}/api/commercial/tenants`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const { data: financialsRes } = useQuery({
+    queryKey: ['commercial_financials'],
+    queryFn: () => fetch(`${API}/api/commercial/financials`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const createTenantMutation = useMutation({
+    mutationFn: (body: { name: string; region: string; plan: string; maxUsers: number; contactEmail: string }) =>
+      fetch(`${API}/api/commercial/tenants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(body),
+      }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['commercial_tenants'] }),
+  });
+
+  const apiTenants: ApiTenant[] | null = tenantsRes?.data ?? null;
+  const apiFinancials: ApiFinancials | null = financialsRes?.data ?? null;
 
   // Form State
   const [newHosp, setNewHosp] = useState('Fortis Memorial Research Institute');
@@ -73,9 +111,52 @@ export default function EnterpriseCommercialPage() {
 
   const handleCreateTenant = (e: React.FormEvent) => {
     e.preventDefault();
-    commercialSaaSPlatformService.createTenant(newHosp, newTier);
-    setTenants([...commercialSaaSPlatformService.getTenants()]);
+    createTenantMutation.mutate({
+      name: newHosp,
+      region: 'Global',
+      plan: newTier,
+      maxUsers: 100,
+      contactEmail: `admin@${newHosp.toLowerCase().replace(/\s+/g, '-')}.com`,
+    });
   };
+
+  const apiTenantColumns: Column<ApiTenant>[] = [
+    {
+      key: 'name',
+      header: 'Hospital tenant',
+      sortable: true,
+      cell: (t) => (
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+            <Building2 className="h-4 w-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold text-foreground truncate">{t.name}</p>
+            <p className="font-mono text-xs text-subtle-foreground">{t._id}</p>
+          </div>
+        </div>
+      ),
+    },
+    { key: 'region', header: 'Region', sortable: true, cell: (t) => <span className="text-muted-foreground">{t.region}</span> },
+    { key: 'plan', header: 'Plan', sortable: true, cell: (t) => <Badge tone="brand">{t.plan}</Badge> },
+    {
+      key: 'currentUsers',
+      header: 'Users',
+      align: 'right',
+      sortable: true,
+      accessor: (t) => t.currentUsers,
+      cell: (t) => <span className="tabular-nums text-muted-foreground">{t.currentUsers}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (t) => (
+        <Badge tone={t.status === 'Active' || t.status === 'ACTIVE_PRODUCTION' ? 'success' : t.status === 'Suspended' ? 'danger' : 'warning'} dot>
+          {t.status}
+        </Badge>
+      ),
+    },
+  ];
 
   const tenantColumns: Column<TenantAccountRecord>[] = [
     {
@@ -194,8 +275,8 @@ export default function EnterpriseCommercialPage() {
       <StatGrid>
         <StatCard
           label="Monthly Recurring Revenue"
-          value={`$${financials.mrrUsd.toLocaleString()}`}
-          sub={`+$${(financials.expansionMrrUsd / 1000).toFixed(1)}k expansion MRR`}
+          value={apiFinancials ? `$${apiFinancials.monthRevenue.toLocaleString()}` : `$${financials.mrrUsd.toLocaleString()}`}
+          sub={apiFinancials ? `Pending: $${apiFinancials.pendingRevenue.toLocaleString()}` : `+$${(financials.expansionMrrUsd / 1000).toFixed(1)}k expansion MRR`}
           icon={DollarSign}
           tone="emerald"
           trend="up"
@@ -203,8 +284,8 @@ export default function EnterpriseCommercialPage() {
         />
         <StatCard
           label="Annual Recurring Revenue"
-          value={`$${(financials.arrUsd / 1000000).toFixed(2)}M`}
-          sub="Annual run-rate"
+          value={apiFinancials ? `$${apiFinancials.totalRevenue.toLocaleString()}` : `$${(financials.arrUsd / 1000000).toFixed(2)}M`}
+          sub={apiFinancials ? `${apiFinancials.invoiceCount} invoices` : 'Annual run-rate'}
           icon={Landmark}
           tone="brand"
           trend="up"
@@ -272,15 +353,27 @@ export default function EnterpriseCommercialPage() {
             </CardContent>
           </Card>
 
-          <DataTable<TenantAccountRecord>
-            columns={tenantColumns}
-            data={tenants}
-            rowKey={(t) => t.tenantId}
-            searchPlaceholder="Search tenants…"
-            exportName="saas-tenants"
-            emptyTitle="No hospital tenants"
-            emptyDescription="Provision your first hospital tenant using the form above."
-          />
+          {apiTenants ? (
+            <DataTable<ApiTenant>
+              columns={apiTenantColumns}
+              data={apiTenants}
+              rowKey={(t) => t._id}
+              searchPlaceholder="Search tenants…"
+              exportName="saas-tenants"
+              emptyTitle="No hospital tenants"
+              emptyDescription="Provision your first hospital tenant using the form above."
+            />
+          ) : (
+            <DataTable<TenantAccountRecord>
+              columns={tenantColumns}
+              data={tenants}
+              rowKey={(t) => t.tenantId}
+              searchPlaceholder="Search tenants…"
+              exportName="saas-tenants"
+              emptyTitle="No hospital tenants"
+              emptyDescription="Provision your first hospital tenant using the form above."
+            />
+          )}
         </TabsContent>
 
         {/* TAB 2: SUBSCRIPTIONS & LICENSING */}
@@ -341,17 +434,17 @@ export default function EnterpriseCommercialPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="MRR"
-              value={`$${financials.mrrUsd.toLocaleString()}`}
-              sub={`+$${(financials.expansionMrrUsd / 1000).toFixed(1)}k expansion MRR`}
+              value={apiFinancials ? `$${apiFinancials.monthRevenue.toLocaleString()}` : `$${financials.mrrUsd.toLocaleString()}`}
+              sub={apiFinancials ? `Pending: $${apiFinancials.pendingRevenue.toLocaleString()}` : `+$${(financials.expansionMrrUsd / 1000).toFixed(1)}k expansion MRR`}
               icon={DollarSign}
               tone="emerald"
               trend="up"
               delay={0}
             />
             <StatCard
-              label="ARR"
-              value={`$${(financials.arrUsd / 1000000).toFixed(2)}M`}
-              sub="Annual run-rate"
+              label="Total Revenue"
+              value={apiFinancials ? `$${apiFinancials.totalRevenue.toLocaleString()}` : `$${(financials.arrUsd / 1000000).toFixed(2)}M`}
+              sub={apiFinancials ? `${apiFinancials.invoiceCount} invoices` : 'Annual run-rate'}
               icon={Landmark}
               tone="brand"
               delay={0.05}
@@ -402,9 +495,9 @@ export default function EnterpriseCommercialPage() {
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {[
-                  { label: 'Active multi-hospital tenants', value: String(tenants.length), icon: Building2 },
+                  { label: 'Active multi-hospital tenants', value: String(apiTenants ? apiTenants.length : tenants.length), icon: Building2 },
                   { label: 'Active certified partners', value: String(partners.length), icon: Award },
-                  { label: 'Annualized SaaS run rate', value: `$${(financials.arrUsd / 1000000).toFixed(2)}M ARR`, icon: Globe2 },
+                  { label: 'Annualized SaaS run rate', value: apiFinancials ? `$${apiFinancials.totalRevenue.toLocaleString()}` : `$${(financials.arrUsd / 1000000).toFixed(2)}M ARR`, icon: Globe2 },
                   { label: 'Gross churn rate', value: `${financials.churnRatePct}%`, icon: Bot },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl border border-border bg-muted/40 p-4">

@@ -99,6 +99,28 @@ export default function AdminDashboard() {
   });
   const stats = statsRes?.data;
 
+  const { data: healthRes } = useQuery({
+    queryKey: ['admin_system_health'],
+    queryFn: () => fetch(`${API}/api/admin/system-health`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const { data: orgsRes } = useQuery({
+    queryKey: ['admin_organizations'],
+    queryFn: () => fetch(`${API}/api/admin/organizations`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const { data: auditRes } = useQuery({
+    queryKey: ['admin_audit_logs'],
+    queryFn: () => fetch(`${API}/api/admin/audit-logs?limit=20`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const healthItems: { service: string; status: string; message?: string; detail?: string }[] = healthRes?.data ?? HEALTH;
+  const orgItems: Org[] = orgsRes?.data ?? ORGS;
+  const auditItems: { time: string; user: string; action: string; resource: string; ip: string }[] = auditRes?.data ?? AUDIT;
+
   const orgColumns: Column<Org>[] = [
     {
       key: 'name', header: 'Organization Name', sortable: true,
@@ -196,8 +218,9 @@ export default function AdminDashboard() {
                 <Button variant="link" size="sm" onClick={() => router.push('/admin/system/dashboard')}>View All</Button>
               </CardHeader>
               <CardContent className="space-y-3">
-                {HEALTH.map((h) => {
+                {healthItems.map((h) => {
                   const isOp = h.status === 'Operational';
+                  const detail = h.detail ?? h.message;
                   return (
                     <div key={h.service} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-3">
                       <div className="flex min-w-0 items-center gap-3">
@@ -206,10 +229,10 @@ export default function AdminDashboard() {
                           : <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden />}
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground">{h.service}</p>
-                          {h.message && <p className="truncate text-xs text-muted-foreground">{h.message}</p>}
+                          {detail && <p className="truncate text-xs text-muted-foreground">{detail}</p>}
                         </div>
                       </div>
-                      <Badge tone={isOp ? 'success' : 'warning'} dot pulse={!isOp}>
+                      <Badge tone={isOp ? 'success' : h.status === 'Down' ? 'danger' : 'warning'} dot pulse={!isOp}>
                         {h.status}
                       </Badge>
                     </div>
@@ -238,7 +261,7 @@ export default function AdminDashboard() {
         <TabsContent value="Organizations">
           <DataTable<Org>
             columns={orgColumns}
-            data={ORGS}
+            data={orgItems}
             rowKey={(row) => row.name}
             searchPlaceholder="Search organizations…"
             exportName="organizations"
@@ -317,7 +340,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <Timeline>
-                {AUDIT.map((a) => (
+                {auditItems.map((a) => (
                   <TimelineItem
                     key={`${a.time}-${a.user}`}
                     icon={FileText}
@@ -334,8 +357,40 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
+        {/* ---------------- Health & Metrics ---------------- */}
+        <TabsContent value="Health">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">System Health &amp; Metrics</CardTitle>
+              <CardDescription>Real-time status for all platform services and infrastructure.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {healthItems.map((h) => {
+                const isOp = h.status === 'Operational';
+                const detail = h.detail ?? h.message;
+                return (
+                  <div key={h.service} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {isOp
+                        ? <CheckCircle className="h-5 w-5 shrink-0 text-success" aria-hidden />
+                        : <AlertTriangle className="h-5 w-5 shrink-0 text-warning" aria-hidden />}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{h.service}</p>
+                        {detail && <p className="truncate text-xs text-muted-foreground">{detail}</p>}
+                      </div>
+                    </div>
+                    <Badge tone={isOp ? 'success' : h.status === 'Down' ? 'danger' : 'warning'} dot pulse={!isOp}>
+                      {h.status}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ---------------- Placeholder modules ---------------- */}
-        {['Users', 'Compliance', 'Health', 'Integrations', 'Settings'].map((tab) => (
+        {['Users', 'Compliance', 'Integrations', 'Settings'].map((tab) => (
           <TabsContent key={tab} value={tab}>
             <EmptyState
               icon={Settings}

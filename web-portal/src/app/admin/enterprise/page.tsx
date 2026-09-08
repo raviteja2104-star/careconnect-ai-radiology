@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Server, Code, Activity, Cpu, ShieldCheck, Wifi, Terminal, Key,
   Play, HardDrive, Check, MemoryStick, Database, BatteryMedium,
@@ -17,6 +18,12 @@ import {
   integrationHubService, FHIRResourceRecord, HL7MessageRecord,
   DeviceTelemetryRecord,
 } from '@/services/integrationHubService';
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 const HL7_STATUS_TONE: Record<HL7MessageRecord['status'], 'success' | 'info' | 'warning' | 'danger'> = {
   PROCESSED: 'success',
@@ -52,14 +59,23 @@ export default function EnterpriseIntegrationHubPage() {
   const [testResult, setTestResult] = useState<any>(null);
   const [backupToast, setBackupToast] = useState(false);
 
-  const handleTestIntegration = () => {
-    setTestResult({
-      status: 200,
-      responseTimeMs: 34,
-      protocol: 'FHIR R4 / JSON',
-      security: 'TLS 1.3 mTLS Authorized'
-    });
-  };
+  const { data: integrationHealthRes } = useQuery({
+    queryKey: ['integrations_health'],
+    queryFn: () => fetch(`${API}/api/integrations/health`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${API}/api/integrations/test-endpoint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ url: testEndpoint, method: 'GET' }),
+      }).then(r => r.json()),
+    onSuccess: (data) => setTestResult(data?.data ?? data),
+  });
+
+  const handleTestIntegration = () => testMutation.mutate();
 
   const handleTriggerBackup = () => {
     setBackupToast(true);
@@ -120,8 +136,8 @@ export default function EnterpriseIntegrationHubPage() {
                   className="font-mono"
                 />
               </div>
-              <Button onClick={handleTestIntegration} className="shrink-0">
-                <Play className="h-4 w-4" aria-hidden /> Test Endpoint
+              <Button onClick={handleTestIntegration} className="shrink-0" disabled={testMutation.isPending}>
+                <Play className="h-4 w-4" aria-hidden /> {testMutation.isPending ? 'Testing…' : 'Test Endpoint'}
               </Button>
             </div>
           </div>
@@ -135,9 +151,12 @@ export default function EnterpriseIntegrationHubPage() {
             >
               <span className="inline-flex items-center gap-2 font-semibold text-success">
                 <Check className="h-4 w-4" aria-hidden />
-                STATUS {testResult.status} OK — {testResult.responseTimeMs}ms response · {testResult.protocol}
+                STATUS {testResult.status ?? 200} {testResult.ok !== false ? 'OK' : 'FAILED'}
+                {testResult.responseTimeMs !== undefined ? ` — ${testResult.responseTimeMs}ms response` : ''}
+                {testResult.protocol ? ` · ${testResult.protocol}` : ''}
               </span>
-              <span className="text-success">{testResult.security}</span>
+              {testResult.security && <span className="text-success">{testResult.security}</span>}
+              {testResult.error && <span className="text-warning">{testResult.error}</span>}
             </motion.div>
           )}
 
@@ -307,12 +326,19 @@ export default function EnterpriseIntegrationHubPage() {
                 <CardDescription>Gateway-routed platform services.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {health.services.map((svc: { name: string; status: string; latencyMs: number }) => (
+                {(integrationHealthRes?.data ?? health.services).map((svc: { name: string; status: string; latencyMs?: number; description?: string }) => (
                   <div key={svc.name} className="flex items-center justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate text-muted-foreground">{svc.name}</span>
                     <span className="flex shrink-0 items-center gap-2">
-                      <span className="font-mono text-xs tabular-nums text-foreground">{svc.latencyMs}ms</span>
-                      <Badge tone={svc.status === 'OPERATIONAL' ? 'success' : 'warning'} dot>{svc.status}</Badge>
+                      {svc.latencyMs !== undefined && (
+                        <span className="font-mono text-xs tabular-nums text-foreground">{svc.latencyMs}ms</span>
+                      )}
+                      <Badge
+                        tone={svc.status === 'OPERATIONAL' || svc.status === 'Operational' ? 'success' : 'warning'}
+                        dot
+                      >
+                        {svc.status}
+                      </Badge>
                     </span>
                   </div>
                 ))}
