@@ -10,12 +10,6 @@ const isDBConnected = () => {
     return mongoose.connection.readyState === 1;
 };
 
-// ─── Shared mock scan store (in-memory for demo) ──────────────────────────────
-const DEMO_SCANS = [
-    { _id: 'demo-scan-1', scanId: 'SCAN-2024-A1B2C3', patientId: { _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', email: 'ravi@careconnect.com' }, scanType: 'XRAY', bodyPart: 'Chest', status: 'approved', priority: 'normal', fileUrl: '', aiReport: { findings: 'PA chest radiograph demonstrates clear lung fields bilaterally. No focal consolidation, pleural effusion, or pneumothorax identified. Cardiac silhouette within normal limits.', riskLevel: 'low', confidence: 0.92, detectedIssues: [], recommendations: ['No immediate action required', 'Routine follow-up in 12 months'] }, finalReport: { findings: 'Normal chest X-ray.', impression: 'Unremarkable chest radiograph.', riskLevel: 'low' }, requestedBy: { _id: 'demo-doctor-1', firstName: 'Raj', lastName: 'Sharma', specialization: 'General Physician' }, assignedRadiologist: { _id: 'demo-radiologist-1', firstName: 'Meera', lastName: 'Reddy' }, createdAt: new Date(Date.now() - 86400000 * 5).toISOString() },
-    { _id: 'demo-scan-2', scanId: 'SCAN-2024-D4E5F6', patientId: { _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', email: 'ravi@careconnect.com' }, scanType: 'MRI', bodyPart: 'Knee', status: 'ai_completed', priority: 'urgent', fileUrl: '', aiReport: { findings: 'MRI reveals a complex tear of the medial meniscus involving the posterior horn. Grade 2 signal change in the ACL suggesting partial tear. Moderate joint effusion present. Bone bruise in lateral tibial plateau.', riskLevel: 'medium', confidence: 0.88, detectedIssues: [{ name: 'Medial meniscus tear', probability: 0.92, description: 'Complex tear of posterior horn and body', location: 'Medial meniscus' }, { name: 'Partial ACL tear', probability: 0.68, description: 'Grade 2 signal abnormality', location: 'ACL' }], recommendations: ['Orthopedic consultation advised within 48 hours', 'Physiotherapy evaluation recommended'] }, requestedBy: { _id: 'demo-doctor-2', firstName: 'Anita', lastName: 'Desai', specialization: 'Orthopedic Surgeon' }, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { _id: 'demo-scan-3', scanId: 'SCAN-2024-G7H8I9', patientId: { _id: 'demo-patient-2', firstName: 'Priya', lastName: 'Sharma', email: 'priya@careconnect.com' }, scanType: 'CT', bodyPart: 'Head', status: 'radiologist_review', priority: 'emergency', fileUrl: '', aiReport: { findings: 'CT head without contrast reveals a 3cm acute subdural hematoma along the right cerebral convexity with associated 4mm leftward midline shift. Effacement of right lateral ventricle.', riskLevel: 'critical', confidence: 0.96, detectedIssues: [{ name: 'Acute subdural hematoma', probability: 0.96, description: '3cm right convexity subdural hematoma', location: 'Right cerebral hemisphere' }, { name: 'Midline shift', probability: 0.94, description: '4mm leftward midline shift', location: 'Midline' }], recommendations: ['URGENT: Immediate neurosurgical consultation', 'Emergency surgical evaluation required'] }, requestedBy: { _id: 'demo-doctor-3', firstName: 'Vikram', lastName: 'Patel', specialization: 'Cardiologist' }, createdAt: new Date(Date.now() - 86400000).toISOString() },
-];
 
 // ─── Upload scan ──────────────────────────────────────────────────────────────
 const uploadScan = async (req, res, next) => {
@@ -30,39 +24,7 @@ const uploadScan = async (req, res, next) => {
         const fileName = req.file ? req.file.originalname : 'demo-scan.dcm';
 
         if (!isDBConnected()) {
-            // Demo: create in-memory scan and run AI
-            const newScan = {
-                _id: `demo-scan-${Date.now()}`,
-                scanId, pacsId,
-                patientId: { _id: patientId || req.user._id, firstName: req.user.firstName, lastName: req.user.lastName },
-                requestedBy: { _id: req.user._id, firstName: req.user.firstName, lastName: req.user.lastName },
-                scanType: scanType || 'XRAY',
-                bodyPart: bodyPart || 'chest',
-                fileUrl, fileName,
-                priority: priority || 'normal',
-                clinicalNotes,
-                status: 'uploaded',
-                createdAt: new Date().toISOString(),
-            };
-            DEMO_SCANS.unshift(newScan);
-
-            // Trigger AI in background
-            setTimeout(async () => {
-                try {
-                    const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-                    const r = await axios.post(`${aiUrl}/api/ai/analyze-scan`, { scanId, scanType: scanType || 'XRAY', bodyPart: bodyPart || 'chest', fileUrl, patientId: (patientId || req.user._id).toString(), clinicalNotes }, { timeout: 30000 });
-                    if (r.data.success) {
-                        newScan.aiReport = r.data.data;
-                        newScan.status = 'ai_completed';
-                        console.log(`🤖 AI analysis complete for ${scanId}: Risk=${r.data.data.riskLevel}`);
-                    }
-                } catch (e) {
-                    newScan.aiReport = { findings: 'AI analysis complete (simulated).', riskLevel: 'low', confidence: 0.87, detectedIssues: [], recommendations: ['No immediate concerns'] };
-                    newScan.status = 'ai_completed';
-                }
-            }, 2000);
-
-            return res.status(201).json({ success: true, message: 'Scan uploaded. AI analysis in progress (demo mode).', data: newScan });
+            return res.status(503).json({ success: false, message: 'Database unavailable — scan cannot be uploaded.' });
         }
 
         // ── DB mode ───────────────────────────────────────────────────────────────
@@ -119,15 +81,7 @@ const triggerAIAnalysis = async (scan) => {
 const listScans = async (req, res, next) => {
     try {
         if (!isDBConnected()) {
-            let scans = [...DEMO_SCANS];
-            const { status, scanType, priority } = req.query;
-            if (req.user.role === 'patient') scans = scans.filter(s => s.patientId?._id === req.user._id || s.patientId === req.user._id);
-            if (status) scans = scans.filter(s => s.status === status);
-            if (scanType) scans = scans.filter(s => s.scanType === scanType);
-            if (priority) scans = scans.filter(s => s.priority === priority);
-            // Emergency first
-            scans.sort((a, b) => (b.priority === 'emergency' ? 1 : 0) - (a.priority === 'emergency' ? 1 : 0));
-            return res.json({ success: true, data: scans, pagination: { total: scans.length, page: 1, pages: 1 } });
+            return res.json({ success: true, data: [], pagination: { total: 0, page: 1, pages: 0 } });
         }
 
         const { status, scanType, priority, page = 1, limit = 20 } = req.query;
@@ -149,9 +103,7 @@ const listScans = async (req, res, next) => {
 const getScan = async (req, res, next) => {
     try {
         if (!isDBConnected()) {
-            const scan = DEMO_SCANS.find(s => s._id === req.params.id);
-            if (!scan) return res.status(404).json({ success: false, message: 'Scan not found.' });
-            return res.json({ success: true, data: scan });
+            return res.status(503).json({ success: false, message: 'Database unavailable.' });
         }
         const scan = await RadiologyScan.findById(req.params.id).populate('patientId', 'firstName lastName email dateOfBirth gender bloodGroup').populate('requestedBy', 'firstName lastName specialization hospital').populate('assignedRadiologist', 'firstName lastName certifications').populate('finalReport.reviewedBy', 'firstName lastName');
         if (!scan) return res.status(404).json({ success: false, message: 'Scan not found.' });
@@ -167,12 +119,7 @@ const submitReport = async (req, res, next) => {
         const { scanId, findings, impression, recommendations, riskLevel, notes, action } = req.body;
 
         if (!isDBConnected()) {
-            const scan = DEMO_SCANS.find(s => s._id === scanId || s.scanId === scanId);
-            if (!scan) return res.status(404).json({ success: false, message: 'Scan not found.' });
-            scan.finalReport = { findings, impression, recommendations: recommendations || [], riskLevel: riskLevel || scan.aiReport?.riskLevel || 'low', reviewedBy: req.user._id, reviewedAt: new Date().toISOString(), notes };
-            scan.status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'reviewed';
-            scan.assignedRadiologist = { _id: req.user._id, firstName: req.user.firstName, lastName: req.user.lastName };
-            return res.json({ success: true, message: `Report ${action || 'submitted'} successfully.`, data: scan });
+            return res.status(503).json({ success: false, message: 'Database unavailable — report cannot be submitted.' });
         }
 
         const scan = await RadiologyScan.findById(scanId);
@@ -193,11 +140,7 @@ const assignRadiologist = async (req, res, next) => {
     try {
         const { radiologistId } = req.body;
         if (!isDBConnected()) {
-            const scan = DEMO_SCANS.find(s => s._id === req.params.id);
-            if (!scan) return res.status(404).json({ success: false, message: 'Scan not found.' });
-            scan.assignedRadiologist = { _id: radiologistId, firstName: 'Meera', lastName: 'Reddy' };
-            scan.status = 'radiologist_review';
-            return res.json({ success: true, message: 'Radiologist assigned.', data: scan });
+            return res.status(503).json({ success: false, message: 'Database unavailable — assignment cannot be saved.' });
         }
         const scan = await RadiologyScan.findById(req.params.id);
         if (!scan) return res.status(404).json({ success: false, message: 'Scan not found.' });
@@ -215,9 +158,7 @@ const assignRadiologist = async (req, res, next) => {
 const getScanStats = async (req, res, next) => {
     try {
         if (!isDBConnected()) {
-            const statusCounts = {};
-            DEMO_SCANS.forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
-            return res.json({ success: true, data: { total: DEMO_SCANS.length, pending: DEMO_SCANS.filter(s => ['uploaded', 'ai_processing', 'ai_completed', 'radiologist_review'].includes(s.status)).length, emergency: DEMO_SCANS.filter(s => s.priority === 'emergency').length, byStatus: Object.entries(statusCounts).map(([_id, count]) => ({ _id, count })), byType: [{ _id: 'XRAY', count: 1 }, { _id: 'MRI', count: 1 }, { _id: 'CT', count: 1 }], riskDistribution: [{ _id: 'low', count: 1 }, { _id: 'medium', count: 1 }, { _id: 'critical', count: 1 }] } });
+            return res.json({ success: true, data: { total: 0, pending: 0, emergency: 0, byStatus: [], byType: [], riskDistribution: [] } });
         }
         const stats = await RadiologyScan.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
         const scansByType = await RadiologyScan.aggregate([{ $group: { _id: '$scanType', count: { $sum: 1 } } }]);
