@@ -2,14 +2,21 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FlaskConical, Plus, Search, AlertTriangle, CheckCircle, Clock,
   ChevronDown, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Button, Badge, Input, Select, Textarea,
-  Label, Dialog, EmptyState, Skeleton,
+  Label, Dialog, EmptyState, Skeleton, SkeletonCard,
 } from '@/components/ui';
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 type OrderStatus  = 'Pending' | 'Specimen Collected' | 'In Process' | 'Partial' | 'Final' | 'Verified';
 type Priority     = 'Routine' | 'Urgent' | 'STAT';
@@ -29,53 +36,6 @@ interface LabOrder {
   results: LabResult[];
   specimenType: string;
 }
-
-const INITIAL_LAB_ORDERS: LabOrder[] = [
-  {
-    id: 'lo1', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M',
-    panelName: 'Cardiac Markers (STAT)', orderedBy: 'Dr. Priya Mehta', department: 'Cardiology',
-    orderedAt: '09:18, 24 Jul', reportedAt: '09:52, 24 Jul', status: 'Final', priority: 'STAT',
-    specimenType: 'Serum',
-    results: [
-      { test: 'Troponin I',   value: 4.82, unit: 'ng/mL', referenceRange: '<0.04', status: 'critical-high', delta: 4.78, loincCode: '42757-5' },
-      { test: 'CK-MB',        value: 68,   unit: 'U/L',   referenceRange: '0–25',  status: 'critical-high', delta: 55 },
-      { test: 'BNP',          value: 890,  unit: 'pg/mL', referenceRange: '<100',  status: 'high',          delta: 210 },
-      { test: 'D-Dimer',      value: 1.2,  unit: 'mg/L',  referenceRange: '<0.5',  status: 'high' },
-    ]
-  },
-  {
-    id: 'lo2', mrn: 'MRN-2024-07241', patientName: 'Patient A', patientAge: 32, patientGender: 'M',
-    panelName: 'Complete Blood Count (CBC)', orderedBy: 'Dr. Priya Mehta', department: 'Cardiology',
-    orderedAt: '09:18, 24 Jul', reportedAt: '10:45, 24 Jul', status: 'Final', priority: 'Urgent',
-    specimenType: 'EDTA Blood',
-    results: [
-      { test: 'Haemoglobin', value: 8.2,   unit: 'g/dL',  referenceRange: '13.5–17.5', status: 'low',   delta: -1.3 },
-      { test: 'WBC',         value: 14800,  unit: '/µL',   referenceRange: '4000–11000', status: 'high',  delta: 2100 },
-      { test: 'Platelets',   value: 145000, unit: '/µL',   referenceRange: '150–400k',   status: 'low' },
-      { test: 'Haematocrit', value: 26.4,   unit: '%',     referenceRange: '41–53',      status: 'low' },
-    ]
-  },
-  {
-    id: 'lo3', mrn: 'MRN-2024-06133', patientName: 'Anil Kumar', patientAge: 58, patientGender: 'M',
-    panelName: 'HbA1c + Lipid Profile', orderedBy: 'Dr. Suresh Gupta', department: 'Endocrinology',
-    orderedAt: '10:00, 24 Jul', reportedAt: '11:30, 24 Jul', status: 'Verified', priority: 'Routine',
-    specimenType: 'Serum',
-    results: [
-      { test: 'HbA1c',         value: 9.8,   unit: '%',      referenceRange: '<7.0',   status: 'critical-high', delta: 0.6, loincCode: '4548-4' },
-      { test: 'Total Cholesterol', value: 218, unit: 'mg/dL', referenceRange: '<200',   status: 'high' },
-      { test: 'LDL',           value: 148,   unit: 'mg/dL',  referenceRange: '<100',   status: 'high' },
-      { test: 'HDL',           value: 38,    unit: 'mg/dL',  referenceRange: '>40',    status: 'low' },
-      { test: 'Triglycerides', value: 189,   unit: 'mg/dL',  referenceRange: '<150',   status: 'high' },
-    ]
-  },
-  {
-    id: 'lo4', mrn: 'MRN-2024-09133', patientName: 'Ananya Krishnamurthy', patientAge: 67, patientGender: 'F',
-    panelName: 'Sepsis Panel (Blood Culture + Procalcitonin)', orderedBy: 'Dr. Rajesh Iyer', department: 'ICU',
-    orderedAt: '14:00, 23 Jul', status: 'In Process', priority: 'STAT',
-    specimenType: 'Blood / Serum',
-    results: []
-  },
-];
 
 const AVAILABLE_PANELS = [
   'Cardiac Markers (STAT) [Troponin I, CK-MB, BNP]',
@@ -114,20 +74,75 @@ const PRIORITY_TONE: Record<Priority, 'danger' | 'warning' | 'neutral'> = {
   Routine: 'neutral',
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapOrder(raw: any): LabOrder {
+  return {
+    id: String(raw.id ?? raw._id),
+    mrn: raw.mrn ?? '',
+    patientName: raw.patientName ?? '',
+    patientAge: raw.patientAge ?? 0,
+    patientGender: raw.patientGender ?? '',
+    panelName: raw.panelName ?? '',
+    orderedBy: raw.orderedBy ?? '',
+    department: raw.department ?? '',
+    orderedAt: raw.orderedAt
+      ? new Date(raw.orderedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+      : '',
+    reportedAt: raw.reportedAt
+      ? new Date(raw.reportedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+      : undefined,
+    status: raw.status ?? 'Pending',
+    priority: raw.priority ?? 'Routine',
+    specimenType: raw.specimenType ?? 'Serum',
+    results: Array.isArray(raw.results) ? raw.results : [],
+  };
+}
+
 export default function LabOrdersPage() {
-  const [orders, setOrders] = useState<LabOrder[]>(INITIAL_LAB_ORDERS);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | OrderStatus>('All');
-  const [expandedId, setExpandedId] = useState<string | null>(INITIAL_LAB_ORDERS[0].id);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // New order form state
-  const [patientName, setPatientName] = useState('Patient A');
-  const [mrn, setMrn] = useState('MRN-2024-07241');
+  const [patientName, setPatientName] = useState('');
+  const [mrn, setMrn] = useState('');
   const [selectedPanel, setSelectedPanel] = useState(AVAILABLE_PANELS[0]);
   const [priority, setPriority] = useState<Priority>('Urgent');
   const [specimenType, setSpecimenType] = useState('Serum');
   const [clinicalNotes, setClinicalNotes] = useState('');
+
+  const { data: ordersRes, isLoading, isError } = useQuery({
+    queryKey: ['lab-orders'],
+    queryFn: () =>
+      fetch(`${API}/api/lab/orders`, { headers: authHeaders() }).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  const orders: LabOrder[] = (() => {
+    const list = ordersRes?.data;
+    return Array.isArray(list) ? list.map(mapOrder) : [];
+  })();
+
+  const createMutation = useMutation({
+    mutationFn: (payload: {
+      mrn: string; patientName: string; panelName: string;
+      priority: Priority; specimenType: string; clinicalNotes: string;
+    }) =>
+      fetch(`${API}/api/lab/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(payload),
+      }).then(r => r.json()),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['lab-orders'] });
+      if (res?.data?.id) setExpandedId(String(res.data.id));
+      setIsModalOpen(false);
+      setPatientName('');
+      setMrn('');
+      setClinicalNotes('');
+    },
+  });
 
   const filtered = orders.filter(o => {
     const matchSearch = [o.patientName, o.panelName, o.mrn, o.orderedBy].some(f =>
@@ -139,24 +154,15 @@ export default function LabOrdersPage() {
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    const newOrder: LabOrder = {
-      id: `lo${Date.now()}`,
-      mrn,
-      patientName,
-      patientAge: 42,
-      patientGender: 'M',
+    if (!mrn.trim() || !patientName.trim()) return;
+    createMutation.mutate({
+      mrn: mrn.trim(),
+      patientName: patientName.trim(),
       panelName: selectedPanel.split(' [')[0],
-      orderedBy: 'Dr. Raj Sharma',
-      department: 'Cardiology',
-      orderedAt: 'Just now',
-      status: 'Pending',
       priority,
       specimenType,
-      results: []
-    };
-    setOrders([newOrder, ...orders]);
-    setExpandedId(newOrder.id);
-    setIsModalOpen(false);
+      clinicalNotes,
+    });
   };
 
   const summaryStats = [
@@ -179,11 +185,23 @@ export default function LabOrdersPage() {
         }
       />
 
-      <StatGrid>
-        {summaryStats.map((s, i) => (
-          <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
-        ))}
-      </StatGrid>
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[0,1,2,3].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : (
+        <StatGrid>
+          {summaryStats.map((s, i) => (
+            <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} tone={s.tone} delay={i * 0.05} />
+          ))}
+        </StatGrid>
+      )}
+
+      {isError && (
+        <p className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+          Failed to load lab orders. Please refresh.
+        </p>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -219,11 +237,13 @@ export default function LabOrdersPage() {
       </motion.div>
 
       {/* Orders accordion list */}
-      {filtered.length === 0 ? (
+      {!isLoading && filtered.length === 0 ? (
         <EmptyState
           icon={FlaskConical}
-          title="No lab orders found"
-          description="Try adjusting your search or filters, or create a new lab order."
+          title={orders.length === 0 ? 'No lab orders yet' : 'No lab orders found'}
+          description={orders.length === 0
+            ? 'Lab orders placed by clinical staff will appear here once connected to the database.'
+            : 'Try adjusting your search or filters, or create a new lab order.'}
           action={{ label: 'Order Labs', onClick: () => setIsModalOpen(true) }}
         />
       ) : (
@@ -350,15 +370,29 @@ export default function LabOrdersPage() {
         size="lg"
       >
         <form onSubmit={handleCreateOrder} className="space-y-4">
-          <div>
-            <Label htmlFor="lab-patient">Patient</Label>
-            <Input
-              id="lab-patient"
-              type="text"
-              value={`${patientName} (${mrn})`}
-              onChange={e => setPatientName(e.target.value)}
-              className="bg-muted"
-            />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="lab-patient">Patient Name</Label>
+              <Input
+                id="lab-patient"
+                type="text"
+                required
+                placeholder="Full name"
+                value={patientName}
+                onChange={e => setPatientName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lab-mrn">MRN</Label>
+              <Input
+                id="lab-mrn"
+                type="text"
+                required
+                placeholder="MRN-YYYY-XXXXX"
+                value={mrn}
+                onChange={e => setMrn(e.target.value)}
+              />
+            </div>
           </div>
 
           <div>
@@ -414,12 +448,19 @@ export default function LabOrdersPage() {
             />
           </div>
 
+          {createMutation.isError && (
+            <p className="rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
+              Failed to create lab order. Please try again.
+            </p>
+          )}
+
           <div className="flex justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">
-              <CheckCircle className="h-4 w-4" aria-hidden /> Submit Lab Order
+            <Button type="submit" disabled={createMutation.isPending}>
+              <CheckCircle className="h-4 w-4" aria-hidden />
+              {createMutation.isPending ? 'Submitting…' : 'Submit Lab Order'}
             </Button>
           </div>
         </form>

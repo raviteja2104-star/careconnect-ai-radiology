@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const LabBooking = require('../models/LabBooking');
 const LabCatalogItem = require('../models/LabCatalogItem');
+const LabOrder = require('../models/LabOrder');
 const { emitEvent } = require('../services/EventBus');
 const EVENTS = require('../config/events');
 
@@ -115,4 +117,97 @@ const updateBooking = async (req, res, next) => {
     }
 };
 
-module.exports = { createBooking, getBookings, updateBooking, getCatalog };
+// @desc    Get lab orders (clinical LIS orders)
+// @route   GET /api/lab/orders
+// @access  Private (doctor, nurse, lab_tech, admin)
+const getLabOrders = async (req, res, next) => {
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+        const filter = {};
+        if (req.query.status) filter.status = req.query.status;
+        if (req.query.priority) filter.priority = req.query.priority;
+        if (req.query.department) filter.department = req.query.department;
+        if (req.query.mrn) filter.mrn = req.query.mrn;
+
+        const orders = await LabOrder.find(filter).sort({ createdAt: -1 }).limit(100).lean();
+        const mapped = orders.map(o => ({
+            id: o._id,
+            mrn: o.mrn,
+            patientName: o.patientName,
+            patientAge: o.patientAge,
+            patientGender: o.patientGender,
+            panelName: o.panelName,
+            orderedBy: o.orderedBy,
+            department: o.department,
+            orderedAt: o.createdAt,
+            reportedAt: o.reportedAt ?? null,
+            status: o.status,
+            priority: o.priority,
+            specimenType: o.specimenType,
+            clinicalNotes: o.clinicalNotes,
+            results: o.results ?? [],
+        }));
+        res.status(200).json({ success: true, data: mapped });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Create a clinical lab order
+// @route   POST /api/lab/orders
+// @access  Private (doctor, admin)
+const createLabOrder = async (req, res, next) => {
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ success: false, message: 'Database unavailable. Lab order not saved.' });
+        }
+        const { mrn, patientName, patientAge, patientGender, panelName, priority, specimenType, clinicalNotes, department } = req.body;
+        if (!mrn || !patientName || !panelName) {
+            return res.status(400).json({ success: false, message: 'mrn, patientName and panelName are required.' });
+        }
+        const orderedBy = req.user?.name || req.user?.firstName
+            ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim()
+            : 'Unknown';
+        const order = await LabOrder.create({
+            mrn,
+            patientName,
+            patientAge,
+            patientGender,
+            panelName,
+            orderedBy,
+            department: department || '',
+            priority: priority || 'Routine',
+            specimenType: specimenType || 'Serum',
+            clinicalNotes: clinicalNotes || '',
+            status: 'Pending',
+            results: [],
+            orderedByUser: req.user?._id,
+        });
+        res.status(201).json({
+            success: true,
+            data: {
+                id: order._id,
+                mrn: order.mrn,
+                patientName: order.patientName,
+                patientAge: order.patientAge,
+                patientGender: order.patientGender,
+                panelName: order.panelName,
+                orderedBy: order.orderedBy,
+                department: order.department,
+                orderedAt: order.createdAt,
+                reportedAt: null,
+                status: order.status,
+                priority: order.priority,
+                specimenType: order.specimenType,
+                clinicalNotes: order.clinicalNotes,
+                results: [],
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { createBooking, getBookings, updateBooking, getCatalog, getLabOrders, createLabOrder };

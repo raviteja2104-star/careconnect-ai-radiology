@@ -62,7 +62,7 @@ export default function OTDashboard() {
   ];
 
   const whoChecklist = [
-    { phase: 'Sign In (Before Induction)', icon: UserPlus, iconClass: 'text-primary', items: ['Patient Identity Confirmed', 'Consent Verified', 'Site Marked', 'Anesthesia Safety Check', 'Allergies Known'], completed: true },
+    { phase: 'Sign In (Before Induction)', icon: UserPlus, iconClass: 'text-primary', items: ['Patient Identity Confirmed', 'Consent Verified', 'Site Marked', 'Anesthesia Safety Check', 'Allergies Known'], completed: false },
     { phase: 'Time Out (Before Incision)', icon: Clock, iconClass: 'text-warning', items: ['Team Introductions', 'Procedure Confirmation', 'Prophylactic Antibiotics <60m', 'Essential Imaging Displayed', 'Blood Available'], completed: false },
     { phase: 'Sign Out (Before Patient Leaves)', icon: CheckCircle, iconClass: 'text-success', items: ['Instrument/Sponge Count Correct', 'Specimens Labelled', 'Equipment Issues Addressed', 'Post-Op Recovery Plan'], completed: false },
   ];

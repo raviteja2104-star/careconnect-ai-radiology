@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Building, Globe, Shield, FileText, Save, CheckCircle2, Cpu, Mail,
-  MessageSquare, Sun, Moon, Monitor, Contrast, Palette, Loader2,
+  MessageSquare, Sun, Moon, Monitor, Contrast, Palette, Loader2, Plug,
 } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/services/prescriptionTranslationService';
 import {
@@ -15,29 +16,11 @@ import {
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
 
-const INTEGRATIONS = [
-  {
-    icon: MessageSquare,
-    tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-    name: 'WhatsApp Business API',
-    detail: 'Connected to Meta Business Gateway (+91 98765 00000). Sends automated Rx PDFs.',
-    status: 'Active',
-  },
-  {
-    icon: Mail,
-    tile: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-    name: 'Email SendGrid Gateway',
-    detail: 'SMTP: smtp.sendgrid.net | Port: 587. Sends patient lab results and invoices.',
-    status: 'Active',
-  },
-  {
-    icon: Cpu,
-    tile: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
-    name: 'DICOM / PACS Radiology Server',
-    detail: 'Orthanc DICOM Server (192.168.1.100:4242). Live imaging integration.',
-    status: 'Connected',
-  },
-];
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 const THEME_MODES = [
   { id: 'light' as const, label: 'Light', icon: Sun, hint: 'Bright clinical surfaces' },
@@ -50,6 +33,13 @@ export default function SettingsPage() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { theme, setTheme, highContrast, setHighContrast } = useTheme();
+
+  const { data: integrationsRes } = useQuery({
+    queryKey: ['integration-health'],
+    queryFn: () => fetch(`${API}/api/integrations/health`, { headers: authHeaders() }).then((r) => r.json()),
+    enabled: activeTab === 'integrations',
+  });
+  const liveIntegrations: { name: string; status: string; description: string }[] = integrationsRes?.data ?? [];
 
   // Form states
   const [hospitalInfo, setHospitalInfo] = useState({
@@ -360,28 +350,35 @@ export default function SettingsPage() {
               <CardDescription>Live gateways powering messaging, results delivery, and imaging.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {INTEGRATIONS.map((integration, i) => (
-                  <motion.div
-                    key={integration.name}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/30 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl', integration.tile)}>
-                        <integration.icon className="h-5 w-5" aria-hidden />
-                      </span>
-                      <Badge tone="success" dot>{integration.status}</Badge>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{integration.name}</p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{integration.detail}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+              {liveIntegrations.length === 0 ? (
+                <EmptyState icon={Plug} title="Loading integrations…" description="Checking live integration status from the server." />
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {liveIntegrations.map((integration, i) => {
+                    const isConfigured = integration.status === 'Configured' || integration.status === 'Available';
+                    return (
+                      <motion.div
+                        key={integration.name}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                        className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/30 p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Plug className="h-5 w-5" aria-hidden />
+                          </span>
+                          <Badge tone={isConfigured ? 'success' : 'neutral'} dot>{integration.status}</Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{integration.name}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{integration.description}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

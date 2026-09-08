@@ -74,7 +74,7 @@ function mapChannel(raw: any): Channel {
 function mapMessage(raw: any, currentUserId: string): Message {
   const senderId = raw.sender?._id || raw.sender?.id || raw.senderId || '';
   return {
-    id: raw._id || raw.id || `msg-${Math.random()}`,
+    id: raw._id || raw.id || `msg-${senderId}-${raw.createdAt || raw.timestamp || ''}`,
     sender: raw.sender?.name || raw.senderName || raw.from || 'Unknown',
     role: raw.sender?.role || raw.senderRole || '',
     text: raw.text || raw.content || raw.body || '',
