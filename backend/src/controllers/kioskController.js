@@ -55,7 +55,24 @@ exports.kioskCheckIn = async (req, res) => {
       req.app.get('io').emit('SELF_CHECKIN_COMPLETED', { tokenNumber });
     }
 
-    res.status(200).json({ success: true, data: { appointment, token } });
+    // Return only what the kiosk screen needs — no PHI (reason, medical notes)
+    res.status(200).json({
+      success: true,
+      data: {
+        token: {
+          tokenNumber: token.tokenNumber,
+          department: token.department,
+          status: token.status,
+        },
+        appointment: {
+          date: appointment.date,
+          timeSlot: appointment.timeSlot,
+          specialty: appointment.specialty,
+          visitType: appointment.visitType,
+          status: appointment.status,
+        },
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
