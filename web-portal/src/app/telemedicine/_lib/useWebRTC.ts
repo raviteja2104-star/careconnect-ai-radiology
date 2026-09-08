@@ -1,8 +1,10 @@
-﻿'use client';
+'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { io, type Socket } from 'socket.io-client';
+import Pusher, { type PresenceChannel } from 'pusher-js';
 
 const SIGNALING_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY ?? '';
+const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1';
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 
 export type WebRTCConnectionState =
@@ -14,7 +16,7 @@ export type WebRTCConnectionState =
   | 'media-denied';
 
 export interface UseWebRTCOptions {
-  /** Session id used as the signaling room key. Pass null/undefined to delay signaling (media preview still starts). */
+  /** Session id used as the Pusher presence channel key. Pass null/undefined to delay signaling (media preview still starts). */
   sessionId: string | null | undefined;
   /** The doctor is the offering side once a peer joins; the patient answers. */
   role: 'doctor' | 'patient';
@@ -22,20 +24,24 @@ export interface UseWebRTCOptions {
 
 export interface UseWebRTCResult {
   state: WebRTCConnectionState;
-  /** Human-readable detail for 'failed' / 'media-denied'. */
   error: string | null;
-  /** Attach to the local (self view) <video> element: <video ref={localVideoRef} muted autoPlay playsInline />. */
   localVideoRef: (el: HTMLVideoElement | null) => void;
-  /** Attach to the remote (main stage) <video> element. */
   remoteVideoRef: (el: HTMLVideoElement | null) => void;
   isMuted: boolean;
   isCameraOff: boolean;
   toggleMute: () => void;
   toggleCamera: () => void;
-  /** Leave the call: notifies peers, stops media, disconnects signaling. */
   hangup: () => void;
-  /** Re-request camera/mic after 'media-denied' (also restarts signaling). */
   retry: () => void;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  try {
+    const token = window.localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
 }
 
 export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResult {
@@ -50,12 +56,12 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const localElRef = useRef<HTMLVideoElement | null>(null);
   const remoteElRef = useRef<HTMLVideoElement | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const pusherRef = useRef<Pusher | null>(null);
+  const channelRef = useRef<PresenceChannel | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const endedRef = useRef(false);
 
-  // Callback refs so streams attach no matter which mounts first (element or stream).
   const localVideoRef = useCallback((el: HTMLVideoElement | null) => {
     localElRef.current = el;
     if (el && localStreamRef.current) el.srcObject = localStreamRef.current;
@@ -78,12 +84,11 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     if (remoteElRef.current) remoteElRef.current.srcObject = null;
   }, []);
 
-  // Effect A: acquire camera + mic (runs even before the session id is known, for previews).
+  // Effect A: acquire camera + mic (runs even before sessionId is known, for pre-join previews)
   useEffect(() => {
     endedRef.current = false;
     let cancelled = false;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState('media-denied');
       setError('This browser does not support camera/microphone capture.');
       return;
@@ -91,10 +96,7 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         localStreamRef.current = stream;
         if (localElRef.current) localElRef.current.srcObject = stream;
         setMediaReady(true);
@@ -114,34 +116,48 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     return () => {
       cancelled = true;
       setMediaReady(false);
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
       if (localElRef.current) localElRef.current.srcObject = null;
     };
   }, [attempt]);
 
-  // Effect B: signaling + peer connection, once media and session id are available.
+  // Effect B: Pusher presence channel + WebRTC peer connection
   useEffect(() => {
     if (!sessionId || !mediaReady || endedRef.current) return;
+
+    if (!PUSHER_KEY) {
+      setState('failed');
+      setError('Real-time service is not configured. Set NEXT_PUBLIC_PUSHER_KEY.');
+      return;
+    }
+
     setState('connecting');
     setError(null);
 
-    let token: string | null = null;
-    try {
-      token = window.localStorage.getItem('token');
-    } catch {
-      /* storage unavailable — connect without auth and surface the server's rejection */
-    }
-    const socket = io(SIGNALING_URL, token ? { auth: { token } } : undefined);
-    socketRef.current = socket;
+    const pusherClient = new Pusher(PUSHER_KEY, {
+      cluster: PUSHER_CLUSTER,
+      channelAuthorization: {
+        endpoint: `${SIGNALING_URL}/api/pusher/auth`,
+        transport: 'ajax',
+        headers: getAuthHeaders(),
+      },
+    });
+    pusherRef.current = pusherClient;
 
+    const channel = pusherClient.subscribe(`presence-webrtc-${sessionId}`) as PresenceChannel;
+    channelRef.current = channel;
+
+    // ── Peer connection factory ─────────────────────────────────────────────
     const createPeer = () => {
       closePeer();
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       pcRef.current = pc;
-      localStreamRef.current?.getTracks().forEach((t) => pc.addTrack(t, localStreamRef.current as MediaStream));
+      localStreamRef.current?.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current as MediaStream));
       pc.onicecandidate = (e) => {
-        if (e.candidate) socket.emit('webrtc:ice', { sessionId, candidate: e.candidate.toJSON() });
+        if (e.candidate) {
+          channel.trigger('client-webrtc:ice', { candidate: e.candidate.toJSON() });
+        }
       };
       pc.ontrack = (e) => {
         const stream = e.streams[0] ?? new MediaStream([e.track]);
@@ -159,55 +175,66 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     };
 
     const flushPendingIce = (pc: RTCPeerConnection) => {
-      pendingIceRef.current.forEach((c) => {
-        pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-      });
+      pendingIceRef.current.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}));
       pendingIceRef.current = [];
     };
 
-    socket.on('connect', () => {
-      socket.emit('webrtc:join', { sessionId });
-      setState((s) => (s === 'connected' ? s : 'waiting-peer'));
-    });
-    socket.on('connect_error', (err: Error) => {
-      setState('failed');
-      setError(
-        token
-          ? `Could not reach the signaling server: ${err.message}`
-          : 'Not signed in — no auth token found, and the signaling server requires one.'
-      );
-    });
-
-    socket.on('webrtc:peer-joined', async () => {
-      if (role !== 'doctor') return; // patient waits for the offer
-      const pc = pcRef.current?.connectionState === 'connected' ? null : createPeer();
-      if (!pc) return;
+    const sendOffer = async () => {
+      const pc = createPeer();
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        socket.emit('webrtc:offer', { sessionId, sdp: offer });
+        channel.trigger('client-webrtc:offer', { sdp: offer });
       } catch {
         setState('failed');
         setError('Failed to start the call negotiation.');
       }
+    };
+
+    // ── Presence channel events ─────────────────────────────────────────────
+    channel.bind('pusher:subscription_succeeded', () => {
+      setState('waiting-peer');
+      // If a peer is already in the room, doctor creates the offer immediately
+      if (role === 'doctor' && channel.members.count > 1) {
+        sendOffer();
+      }
     });
 
-    socket.on('webrtc:offer', async ({ sdp }: { sdp: RTCSessionDescriptionInit }) => {
-      if (role === 'doctor') return;
+    channel.bind('pusher:subscription_error', (err: unknown) => {
+      setState('failed');
+      setError(`Could not join the signaling room: ${String(err)}`);
+    });
+
+    // New peer joined after us — doctor sends the offer
+    channel.bind('pusher:member_added', () => {
+      if (role !== 'doctor') return;
+      if (pcRef.current?.connectionState === 'connected') return;
+      sendOffer();
+    });
+
+    // Peer left — reset for re-join
+    channel.bind('pusher:member_removed', () => {
+      closePeer();
+      setState('waiting-peer');
+    });
+
+    // ── WebRTC signaling via Pusher client events ──────────────────────────
+    channel.bind('client-webrtc:offer', async ({ sdp }: { sdp: RTCSessionDescriptionInit }) => {
+      if (role === 'doctor') return; // only patient answers
       const pc = createPeer();
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
         flushPendingIce(pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        socket.emit('webrtc:answer', { sessionId, sdp: answer });
+        channel.trigger('client-webrtc:answer', { sdp: answer });
       } catch {
         setState('failed');
         setError('Failed to answer the incoming call.');
       }
     });
 
-    socket.on('webrtc:answer', async ({ sdp }: { sdp: RTCSessionDescriptionInit }) => {
+    channel.bind('client-webrtc:answer', async ({ sdp }: { sdp: RTCSessionDescriptionInit }) => {
       const pc = pcRef.current;
       if (!pc) return;
       try {
@@ -219,72 +246,62 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
       }
     });
 
-    socket.on('webrtc:ice', ({ candidate }: { candidate: RTCIceCandidateInit }) => {
+    channel.bind('client-webrtc:ice', ({ candidate }: { candidate: RTCIceCandidateInit }) => {
       const pc = pcRef.current;
-      if (pc && pc.remoteDescription) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-      else pendingIceRef.current.push(candidate);
-    });
-
-    socket.on('webrtc:peer-left', () => {
-      closePeer();
-      setState('waiting-peer');
+      if (pc && pc.remoteDescription) {
+        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+      } else {
+        pendingIceRef.current.push(candidate);
+      }
     });
 
     return () => {
-      socket.emit('webrtc:leave', { sessionId });
-      socket.removeAllListeners();
-      socket.disconnect();
-      socketRef.current = null;
+      channel.unbind_all();
+      pusherClient.unsubscribe(`presence-webrtc-${sessionId}`);
+      pusherClient.disconnect();
+      pusherRef.current = null;
+      channelRef.current = null;
       closePeer();
     };
   }, [sessionId, role, mediaReady, attempt, closePeer]);
 
   const toggleMute = useCallback(() => {
-    setIsMuted((muted) => {
-      localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = muted));
+    setIsMuted(muted => {
+      localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = muted));
       return !muted;
     });
   }, []);
 
   const toggleCamera = useCallback(() => {
-    setIsCameraOff((off) => {
-      localStreamRef.current?.getVideoTracks().forEach((t) => (t.enabled = off));
+    setIsCameraOff(off => {
+      localStreamRef.current?.getVideoTracks().forEach(t => (t.enabled = off));
       return !off;
     });
   }, []);
 
   const hangup = useCallback(() => {
     endedRef.current = true;
-    if (socketRef.current) {
-      socketRef.current.emit('webrtc:leave', { sessionId });
-      socketRef.current.removeAllListeners();
-      socketRef.current.disconnect();
-      socketRef.current = null;
+    if (channelRef.current) {
+      channelRef.current.unbind_all();
     }
+    if (pusherRef.current) {
+      pusherRef.current.disconnect();
+      pusherRef.current = null;
+    }
+    channelRef.current = null;
     closePeer();
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
     localStreamRef.current = null;
     if (localElRef.current) localElRef.current.srcObject = null;
     setState('idle');
-  }, [sessionId, closePeer]);
+  }, [closePeer]);
 
   const retry = useCallback(() => {
     endedRef.current = false;
     setState('idle');
     setError(null);
-    setAttempt((a) => a + 1);
+    setAttempt(a => a + 1);
   }, []);
 
-  return {
-    state,
-    error,
-    localVideoRef,
-    remoteVideoRef,
-    isMuted,
-    isCameraOff,
-    toggleMute,
-    toggleCamera,
-    hangup,
-    retry,
-  };
+  return { state, error, localVideoRef, remoteVideoRef, isMuted, isCameraOff, toggleMute, toggleCamera, hangup, retry };
 }

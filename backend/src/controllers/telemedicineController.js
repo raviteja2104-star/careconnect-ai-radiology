@@ -2,6 +2,7 @@ const Appointment = require('../models/Appointment');
 const TelemedicineSession = require('../models/TelemedicineSession');
 const EventPublisher = require('../services/EventPublisher');
 const { v4: uuidv4 } = require('uuid');
+const pusher = require('../lib/pusher');
 
 // How many minutes before/after the scheduled time the patient may join
 const JOIN_WINDOW_BEFORE_MS = 15 * 60 * 1000;  // 15 min early
@@ -178,12 +179,16 @@ exports.joinWaitingRoom = async (req, res) => {
             await session.save();
         }
 
+        const patientJoinedPayload = {
+            sessionId: session._id,
+            appointmentId,
+            patientName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
+        };
+        if (pusher) {
+            pusher.trigger(`private-doctor-${session.doctor}`, 'PATIENT_JOINED_WAITING_ROOM', patientJoinedPayload).catch(console.error);
+        }
         if (req.app.get('io')) {
-            req.app.get('io').to(`doctor-${session.doctor}`).emit('PATIENT_JOINED_WAITING_ROOM', {
-                sessionId: session._id,
-                appointmentId,
-                patientName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
-            });
+            req.app.get('io').to(`doctor-${session.doctor}`).emit('PATIENT_JOINED_WAITING_ROOM', patientJoinedPayload);
         }
 
         return res.json({
@@ -249,11 +254,12 @@ exports.startConsultation = async (req, res) => {
         // Update appointment status
         await Appointment.findByIdAndUpdate(session.appointment, { status: 'In_Consultation' });
 
+        const startedPayload = { sessionId: session._id, roomUrl: session.roomUrl };
+        if (pusher) {
+            pusher.trigger(`private-patient-${session.patient}`, 'CONSULTATION_STARTED', startedPayload).catch(console.error);
+        }
         if (req.app.get('io')) {
-            req.app.get('io').to(`patient-${session.patient}`).emit('CONSULTATION_STARTED', {
-                sessionId: session._id,
-                roomUrl: session.roomUrl,
-            });
+            req.app.get('io').to(`patient-${session.patient}`).emit('CONSULTATION_STARTED', startedPayload);
         }
 
         await EventPublisher.publish({
@@ -293,10 +299,12 @@ exports.endConsultation = async (req, res) => {
 
         await Appointment.findByIdAndUpdate(session.appointment, { status: 'Completed' });
 
+        const completedPayload = { sessionId: session._id };
+        if (pusher) {
+            pusher.trigger(`private-patient-${session.patient}`, 'CONSULTATION_COMPLETED', completedPayload).catch(console.error);
+        }
         if (req.app.get('io')) {
-            req.app.get('io').to(`patient-${session.patient}`).emit('CONSULTATION_COMPLETED', {
-                sessionId: session._id,
-            });
+            req.app.get('io').to(`patient-${session.patient}`).emit('CONSULTATION_COMPLETED', completedPayload);
         }
 
         await EventPublisher.publish({

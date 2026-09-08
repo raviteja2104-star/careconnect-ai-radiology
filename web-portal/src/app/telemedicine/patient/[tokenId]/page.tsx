@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, use } from 'react';
+import Pusher from 'pusher-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, MicOff, Camera, CameraOff, PhoneOff,
@@ -8,6 +9,20 @@ import {
 import { Button, Badge } from '@/components/ui';
 import { useWebRTC } from '@/app/telemedicine/_lib/useWebRTC';
 import { cn } from '@/lib/utils';
+
+const PUSHER_KEY = process.env.NEXT_PUBLIC_PUSHER_KEY ?? '';
+const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1';
+
+function getUserIdFromToken(): string | null {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.id ?? payload._id ?? null) as string | null;
+  } catch {
+    return null;
+  }
+}
 
 type PageState = 'pre-join' | 'joining' | 'waiting' | 'in-call' | 'external' | 'ended' | 'error';
 
@@ -45,7 +60,7 @@ export default function TelemedicinePatientPage({ params }: { params: Promise<{ 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hasConsented, setHasConsented] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pusherWaitRef = useRef<Pusher | null>(null);
 
   // Hook always runs — passes null sessionId during pre-join so camera preview
   // starts immediately; signaling activates once sessionId is set.
@@ -62,35 +77,41 @@ export default function TelemedicinePatientPage({ params }: { params: Promise<{ 
     retry,
   } = useWebRTC({ sessionId, role: 'patient' });
 
-  // Poll session status when waiting for the doctor (Socket.io disabled on Vercel)
+  // While waiting for the doctor, subscribe to a private Pusher channel so
+  // CONSULTATION_STARTED arrives in real time instead of via polling.
   useEffect(() => {
-    if (pageState !== 'waiting' || !session) return;
+    if (pageState !== 'waiting' || !session || !PUSHER_KEY) return;
 
-    const check = async () => {
-      try {
-        const res = await fetch(`${API}/api/telemedicine/session/${session.appointment._id}`, {
-          headers: authHeaders(),
-        });
-        const data = await res.json();
-        const status: string = data?.data?.status ?? data?.status ?? '';
-        if (status === 'IN_PROGRESS') {
-          clearInterval(pollRef.current!);
-          if (session.videoProvider !== 'WebRTC') {
-            setPageState('external');
-          } else {
-            setPageState('in-call');
-          }
-        } else if (status === 'COMPLETED' || status === 'CANCELLED') {
-          clearInterval(pollRef.current!);
-          setPageState('ended');
-        }
-      } catch {
-        // network blip — keep polling
-      }
+    const userId = getUserIdFromToken();
+    if (!userId) return;
+
+    const pusherClient = new Pusher(PUSHER_KEY, {
+      cluster: PUSHER_CLUSTER,
+      channelAuthorization: {
+        endpoint: `${API}/api/pusher/auth`,
+        transport: 'ajax',
+        headers: authHeaders(),
+      },
+    });
+    pusherWaitRef.current = pusherClient;
+
+    const channel = pusherClient.subscribe(`private-patient-${userId}`);
+
+    channel.bind('CONSULTATION_STARTED', ({ roomUrl }: { sessionId: string; roomUrl: string }) => {
+      setSession(prev => prev ? { ...prev, roomUrl: roomUrl ?? prev.roomUrl, status: 'IN_PROGRESS' } : prev);
+      setPageState(session.videoProvider !== 'WebRTC' ? 'external' : 'in-call');
+    });
+
+    channel.bind('CONSULTATION_COMPLETED', () => {
+      setPageState('ended');
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusherClient.unsubscribe(`private-patient-${userId}`);
+      pusherClient.disconnect();
+      pusherWaitRef.current = null;
     };
-
-    pollRef.current = setInterval(check, 5000);
-    return () => clearInterval(pollRef.current!);
   }, [pageState, session]);
 
   const handleJoin = async () => {

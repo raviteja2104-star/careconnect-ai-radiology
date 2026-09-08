@@ -234,6 +234,7 @@ app.use('/api/reception', receptionRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/kiosk', kioskRoutes);
 app.use('/api/telemedicine', telemedicineRoutes);
+app.use('/api/pusher', require('./routes/pusherRoutes'));
 app.use('/api/communication', communicationRoutes);
 app.use('/api/consents', consentRoutes);
 app.use('/api/command', commandRoutes);
