@@ -453,6 +453,20 @@ const ORDER_EVENTS = {
 // POST /api/emr/encounters/:id/orders
 exports.createOrder = async (req, res) => {
     try {
+        if (!isDBConnected()) {
+            return res.status(201).json({
+                _id: `mock-order-${Date.now()}`,
+                encounterId: req.params.id,
+                patientId: 'demo-patient-1',
+                orderingDoctorId: req.user._id,
+                category: req.body.category,
+                priority: req.body.priority || 'routine',
+                department: req.body.department,
+                details: req.body.details || {},
+                status: 'acknowledged',
+                orderCode: `ORD-${Date.now().toString().slice(-4)}`
+            });
+        }
         const traceId = traceOf(req);
         const encounter = await Encounter.findById(req.params.id);
         if (!encounter) return res.status(404).json({ message: 'Encounter not found' });
@@ -522,6 +536,12 @@ exports.createOrder = async (req, res) => {
 // GET /api/emr/orders?patientId=…&category=…&status=…
 exports.listOrders = async (req, res) => {
     try {
+        if (!isDBConnected()) {
+            return res.json([
+                { _id: 'mock-order-1', patientId: 'demo-patient-1', orderingDoctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, category: req.query.category || 'lab', priority: 'Routine', department: 'Pathology', status: 'acknowledged', details: { testName: 'Complete Blood Count' }, createdAt: new Date() },
+                { _id: 'mock-order-2', patientId: 'demo-patient-1', orderingDoctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, category: req.query.category || 'radiology', priority: 'Stat', department: 'Imaging', status: 'completed', details: { scanCode: 'MRI-BRAIN' }, createdAt: new Date() }
+            ]);
+        }
         const filter = {};
         if (req.query.patientId) filter.patientId = req.query.patientId;
         if (req.user.role === 'patient') filter.patientId = req.user._id;
@@ -541,6 +561,9 @@ exports.listOrders = async (req, res) => {
 // PATCH /api/emr/orders/:orderId/status
 exports.updateOrderStatus = async (req, res) => {
     try {
+        if (!isDBConnected()) {
+            return res.json({ _id: req.params.orderId, status: req.body.status, orderCode: 'ORD-DEMO', category: 'mock' });
+        }
         const { status, note } = req.body;
         const allowed = ['acknowledged', 'in_progress', 'completed', 'cancelled'];
         if (!allowed.includes(status)) {
