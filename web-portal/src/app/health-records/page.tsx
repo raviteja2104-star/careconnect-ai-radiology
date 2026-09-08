@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     FileText, Pill, FlaskConical, ScanLine, Stethoscope, Calendar, User as UserIcon,
     AlertTriangle, HeartPulse, Scissors, Users2, ChevronDown, ChevronRight, ExternalLink, WifiOff,
@@ -130,6 +131,7 @@ function StructuredRecordDetail({ record, recordType }: { record: StructuredReco
 }
 
 export default function HealthRecordsPage() {
+    const router = useRouter();
     const { session } = useSession();
     const patientId = session.userId;
     const isDoctor = actorIsDoctor(session);
@@ -180,7 +182,17 @@ export default function HealthRecordsPage() {
                 title="My Health Records"
                 description="Every document a doctor, nurse or receptionist has captured for you, plus AI-extracted prescriptions, lab reports and diagnostics — each shown with its human review status."
                 crumbs={[{ label: 'Home', href: '/' }, { label: 'Health Records' }]}
-                actions={demo ? <Badge tone="warning" dot pulse><WifiOff className="h-3.5 w-3.5" aria-hidden /> Backend offline</Badge> : undefined}
+                actions={
+                    <div className="flex items-center gap-2">
+                        <Link href="/health-records/capture">
+                            <Button size="sm">
+                                <ScanLine className="h-4 w-4" aria-hidden />
+                                Capture Document
+                            </Button>
+                        </Link>
+                        {demo && <Badge tone="warning" dot pulse><WifiOff className="h-3.5 w-3.5" aria-hidden /> Backend offline</Badge>}
+                    </div>
+                }
             />
 
             {error ? (
@@ -264,7 +276,12 @@ export default function HealthRecordsPage() {
                                 </CardHeader>
                                 <CardContent>
                                     {timeline.length === 0 ? (
-                                        <EmptyState icon={FileText} title="No health records yet" description="Once a document is captured (by you, a caregiver, or clinical staff), it will show up here." />
+                                        <EmptyState
+                                            icon={FileText}
+                                            title="No health records yet"
+                                            description="Capture a prescription, lab report, or any medical document to get started."
+                                            action={{ label: 'Capture your first document', onClick: () => router.push('/health-records/capture') }}
+                                        />
                                     ) : (
                                         <Timeline>
                                             {timeline.map((entry, i) => {
