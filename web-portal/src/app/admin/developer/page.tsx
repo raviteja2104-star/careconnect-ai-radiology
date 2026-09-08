@@ -68,11 +68,6 @@ export default function DeveloperPlatformPage() {
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
   const [newWebhookEvent, setNewWebhookEvent] = useState('lab.result.ready');
 
-  // Certification Scanner State
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [certReport, setCertReport] = useState<any>(null);
-  const [isScanning, setIsScanning] = useState(false);
-
   const handleInstallApp = (id: string) => {
     developerPlatformService.installApp(id);
     setApps([...developerPlatformService.getMarketplaceApps()]);
@@ -84,25 +79,6 @@ export default function DeveloperPlatformPage() {
     developerPlatformService.registerWebhook(newWebhookUrl, [newWebhookEvent]);
     setWebhooks([...developerPlatformService.getWebhooks()]);
     setNewWebhookUrl('');
-  };
-
-  const handleRunCertification = () => {
-    setIsScanning(true);
-    setTimeout(() => {
-      setCertReport({
-        pluginName: 'Apollo Cardiology Pack',
-        version: 'v3.2.0',
-        certificationStatus: 'PASSED_CERTIFIED',
-        scans: {
-          securityVulnerabilities: '0 Critical, 0 High',
-          fhirCompliance: '100% FHIR R4 Compliant',
-          performanceBenchmarkMs: 18,
-          hipaaPrivacyCheck: 'PASSED'
-        },
-        certifiedAt: new Date().toISOString()
-      });
-      setIsScanning(false);
-    }, 600);
   };
 
   const handleCopy = (value: string, what: string) => {
@@ -482,53 +458,14 @@ export default function DeveloperPlatformPage() {
               <h2 className="text-lg font-semibold text-foreground">Plugin Security & Compliance Certification</h2>
               <p className="text-sm text-muted-foreground">Automated vulnerability analysis, FHIR R4 compliance checks & HIPAA privacy audit.</p>
             </div>
-            <Button onClick={handleRunCertification} disabled={isScanning} loading={isScanning}>
-              <ShieldCheck className="h-4 w-4" aria-hidden />
-              {isScanning ? 'Running Security Audit…' : 'Run Security & FHIR Scanner'}
-            </Button>
+            <Badge tone="info" dot>Scans run via CI/CD pipeline</Badge>
           </div>
 
-          {certReport ? (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border">
-                  <div>
-                    <CardTitle>{certReport.pluginName}</CardTitle>
-                    <CardDescription>{certReport.version} · certified {new Date(certReport.certifiedAt).toLocaleString()}</CardDescription>
-                  </div>
-                  <Badge tone="success" dot>{certReport.certificationStatus}</Badge>
-                </CardHeader>
-                <CardContent className="pt-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {[
-                      { label: 'Security vulnerabilities', value: certReport.scans.securityVulnerabilities },
-                      { label: 'FHIR compliance', value: certReport.scans.fhirCompliance },
-                      { label: 'Latency benchmark', value: `${certReport.scans.performanceBenchmarkMs}ms` },
-                      { label: 'HIPAA privacy audit', value: certReport.scans.hipaaPrivacyCheck },
-                    ].map((scan) => (
-                      <div key={scan.label} className="rounded-xl border border-border bg-muted/40 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{scan.label}</p>
-                        <p className="mt-1 font-mono text-sm font-semibold text-success">{scan.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ) : (
-            !isScanning && (
-              <EmptyState
-                icon={ShieldCheck}
-                title="No certification report yet"
-                description="Run the security & FHIR scanner to generate a compliance certification report."
-                action={{ label: 'Run Scanner', onClick: handleRunCertification }}
-              />
-            )
-          )}
+          <EmptyState
+            icon={ShieldCheck}
+            title="Certification reports generated via CI/CD"
+            description="Plugin security audits, FHIR R4 compliance checks and HIPAA privacy scans run automatically in the CI/CD pipeline when a new plugin version is submitted. Reports are linked from the marketplace listing once certification completes."
+          />
         </TabsContent>
       </Tabs>
     </div>

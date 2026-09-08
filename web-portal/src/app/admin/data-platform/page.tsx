@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Database, Activity, Layers, Heart, Play, RefreshCw, Users, FileText,
+  Database, Activity, Layers, Heart, RefreshCw, Users, FileText,
   Sparkles, AlertTriangle, ArrowRight, Stethoscope, FlaskConical, Pill,
   BedDouble, ClipboardList, Lightbulb, HardDrive,
 } from 'lucide-react';
@@ -39,21 +39,9 @@ export default function EnterpriseDataPlatformPage() {
 
   // Research Query Form
   const [cohortName, setCohortName] = useState('Cardiovascular & Type 2 Diabetes High-Risk Cohort');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [researchReport, setResearchReport] = useState<any>(null);
-  const [isQuerying, setIsQuerying] = useState(false);
 
   const handleRefreshTwin = () => {
     setTwin(enterpriseDataPlatformService.getDigitalTwinState());
-  };
-
-  const handleRunResearchQuery = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsQuerying(true);
-    setTimeout(() => {
-      setResearchReport(enterpriseDataPlatformService.runResearchQuery(cohortName, true));
-      setIsQuerying(false);
-    }, 600);
   };
 
   const totalRecords = assets.reduce((sum, a) => sum + a.recordCount, 0);
@@ -394,7 +382,7 @@ export default function EnterpriseDataPlatformPage() {
 
           <Card>
             <CardContent className="p-6">
-              <form onSubmit={handleRunResearchQuery} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="flex-1">
                   <Label htmlFor="cohort-definition">Cohort definition</Label>
                   <Input
@@ -406,35 +394,16 @@ export default function EnterpriseDataPlatformPage() {
                     className="mt-1.5"
                   />
                 </div>
-                <Button type="submit" loading={isQuerying} className="shrink-0">
-                  <Play className="h-4 w-4" aria-hidden />
-                  {isQuerying ? 'Querying cohort…' : 'Extract research cohort'}
-                </Button>
-              </form>
+                <Badge tone="info" dot>Data Lakehouse backend required</Badge>
+              </div>
             </CardContent>
           </Card>
 
-          {researchReport ? (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
-              <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0">
-                  <CardTitle>{researchReport.cohortName}</CardTitle>
-                  <Badge tone="success" dot>{researchReport.status}</Badge>
-                </CardHeader>
-                <CardContent className="space-y-2 font-mono text-xs text-foreground">
-                  <p><span className="text-muted-foreground">Query ID:</span> {researchReport.queryId}</p>
-                  <p><span className="text-muted-foreground">Matched de-identified patients:</span> {researchReport.patientCount}</p>
-                  <p><span className="text-muted-foreground">Export format:</span> {researchReport.exportFormat}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ) : (
-            <EmptyState
-              icon={FileText}
-              title="No cohort extracted yet"
-              description="Define a cohort above and run the extraction to see the de-identified research report."
-            />
-          )}
+          <EmptyState
+            icon={FileText}
+            title="Research cohort extraction requires Data Lakehouse"
+            description="Cohort queries run against the de-identified Data Lakehouse. Configure the lakehouse backend to enable research exports."
+          />
         </TabsContent>
       </Tabs>
     </div>
