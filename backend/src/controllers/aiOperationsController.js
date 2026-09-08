@@ -8,7 +8,6 @@ exports.getPredictions = async (req, res) => {
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    // Mock real-time aggregation across the hospital queues
     const queueGroups = await QueueToken.aggregate([
       { $match: { createdAt: { $gte: today }, status: 'WAITING' } },
       { $group: { _id: '$department', count: { $sum: 1 } } }
@@ -54,22 +53,51 @@ exports.getRecommendations = async (req, res) => {
 // @route   POST /api/operations/simulate
 exports.runSimulation = async (req, res) => {
   try {
+    const mongoose = require('mongoose');
     const { department, action, parameter } = req.body;
-    
-    // Simulate AI model response
-    let waitTimeReduction = 0;
-    if (action === 'ADD_DOCTOR') waitTimeReduction = 35;
-    if (action === 'EXTEND_HOURS') waitTimeReduction = 20;
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ success: false, message: 'Database unavailable — simulation requires live queue data.' });
+    }
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const [queueData] = await QueueToken.aggregate([
+      { $match: { createdAt: { $gte: today }, status: 'WAITING', department } },
+      { $group: { _id: '$department', count: { $sum: 1 } } },
+    ]);
+
+    const currentQueue = queueData?.count ?? 0;
+    // Heuristic baseline: 15 min average service time per patient per doctor
+    const currentWaitMins = currentQueue * 15;
+
+    let projectedWaitMins = currentWaitMins;
+    if (action === 'ADD_DOCTOR') {
+      const doctorsAdded = Math.max(1, parseInt(parameter) || 1);
+      // Extra capacity: each doctor handles ~4 patients/hour
+      const projectedCapacityPph = (1 + doctorsAdded) * 4;
+      projectedWaitMins = projectedCapacityPph > 0
+        ? Math.round((currentQueue / projectedCapacityPph) * 60) : currentWaitMins;
+    } else if (action === 'EXTEND_HOURS') {
+      const extraHours = Math.max(0.5, parseFloat(parameter) || 2);
+      // Spread queue across a longer window; diminishing returns modelled as sqrt
+      projectedWaitMins = Math.round(currentWaitMins / (1 + Math.sqrt(extraHours / 8)));
+    }
+
+    const reductionPct = currentWaitMins > 0
+      ? Math.min(80, Math.round(((currentWaitMins - projectedWaitMins) / currentWaitMins) * 100))
+      : 0;
 
     res.json({
       success: true,
       data: {
         department,
         action,
-        predictedWaitTimeReductionPercent: waitTimeReduction,
-        confidence: 92,
-        notes: `Simulated adding ${parameter}. Wait times will stabilize in approx 45 minutes.`
-      }
+        currentQueueDepth: currentQueue,
+        currentEstimatedWaitMins: currentWaitMins,
+        projectedWaitMins,
+        projectedWaitReductionPercent: reductionPct,
+        note: 'Projection uses a heuristic model (15 min/patient baseline) — not a trained ML output.',
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
