@@ -2,6 +2,7 @@ const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const EventPublisher = require('../services/EventPublisher');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 // @desc    Get Revenue Dashboard Metrics
 // @route   GET /api/billing/dashboard
@@ -176,5 +177,61 @@ exports.processPayment = async (req, res) => {
     res.json({ success: true, data: invoice });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Patient pays an invoice via Razorpay
+// @route   POST /api/billing/invoices/:id/pay
+// The frontend creates a Razorpay order via POST /api/payments/create-order,
+// opens the Razorpay checkout, then sends the payment IDs here for verification
+// and invoice reconciliation in one atomic step.
+exports.payInvoice = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
+
+    // Patients may only pay their own invoices
+    if (invoice.patient && invoice.patient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorised to pay this invoice' });
+    }
+
+    if (['PAID', 'CANCELLED', 'REFUNDED'].includes(invoice.status)) {
+      return res.status(409).json({ success: false, message: `Invoice is already ${invoice.status.toLowerCase()}` });
+    }
+
+    const isLive = !!(process.env.RAZORPAY_KEY_SECRET);
+    const isDemoOrder = !razorpay_order_id || String(razorpay_order_id).startsWith('order_demo_');
+
+    if (isLive && !isDemoOrder) {
+      // Verify Razorpay signature
+      const body = razorpay_order_id + '|' + razorpay_payment_id;
+      const expected = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(body)
+        .digest('hex');
+      if (expected !== razorpay_signature) {
+        return res.status(400).json({ success: false, message: 'Payment verification failed — invalid signature' });
+      }
+    }
+
+    const paid = amount ? amount / 100 : invoice.amountDue;
+    invoice.amountPaid = Math.min(invoice.amountPaid + paid, invoice.totalAmount);
+    invoice.amountDue = Math.max(invoice.totalAmount - invoice.amountPaid, 0);
+    invoice.status = invoice.amountDue <= 0 ? 'PAID' : 'PARTIALLY_PAID';
+    await invoice.save();
+
+    await EventPublisher.publish({
+      eventType: 'InvoicePaidByPatient',
+      version: '1.0',
+      aggregateId: invoice._id.toString(),
+      tenantId: req.headers['x-tenant-id'] || 't-default',
+      traceId: req.headers['x-trace-id'] || uuidv4(),
+      payload: { invoiceId: invoice._id, patientId: req.user._id, amount: paid, paymentId: razorpay_payment_id || 'demo', demo: isDemoOrder },
+    }).catch(() => {});
+
+    res.json({ success: true, data: { invoice, amountPaid: paid, demo: isDemoOrder } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };

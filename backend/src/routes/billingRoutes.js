@@ -5,7 +5,8 @@ const {
   createInvoice,
   getInvoice,
   getInvoices,
-  processPayment
+  processPayment,
+  payInvoice,
 } = require('../controllers/billingController');
 const { protect } = require('../middleware/auth');
 const { permit, permitAny } = require('../middleware/permit');
@@ -22,6 +23,9 @@ router.get('/dashboard', permit('STAFF.VIEW_REVENUE'), getRevenueDashboard);
 router.get('/invoices',     permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), getInvoices);
 router.post('/invoices',    permit('STAFF.CREATE_INVOICE'), createInvoice);
 router.get('/invoices/:id', permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), getInvoice);
+
+// Patient self-service payment — verifies Razorpay signature and marks invoice paid
+router.post('/invoices/:id/pay', permitAny('PATIENT.VIEW_BILLING', 'STAFF.BILLING'), payInvoice);
 
 // Payments — billing staff only
 router.post('/payments', permit('STAFF.PROCESS_PAYMENT'), processPayment);
