@@ -183,7 +183,7 @@ export default function PrescriptionsPage() {
             <StatCard label="Total" value={prescriptions.length} icon={FileText} tone="brand" delay={0} sub="All prescriptions" />
             <StatCard label="Verified" value={verified} icon={CheckCircle2} tone="emerald" delay={0.05} sub="Confirmed correct" />
             <StatCard label="Needs Review" value={needsReview} icon={AlertTriangle} tone="amber" delay={0.1} sub="Awaiting check" />
-            <StatCard label="Draft" value={draft} icon={Clock} tone="neutral" delay={0.15} sub="Awaiting processing" />
+            <StatCard label="Draft" value={draft} icon={Clock} tone="teal" delay={0.15} sub="Awaiting processing" />
           </StatGrid>
 
           <div className="flex items-center gap-2">
