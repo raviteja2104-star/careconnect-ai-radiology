@@ -35,35 +35,14 @@ const MODULES: { href: string; label: string; tag: string; icon: LucideIcon; til
   { href: '/admin/master-data', label: 'Master Data & Config Hub', tag: 'Manage', icon: Database, tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
 ];
 
-const HEALTH: { service: string; status: 'Operational' | 'Degraded' | 'Down'; message?: string }[] = [
-  { service: 'Primary Database Cluster (AWS RDS)', status: 'Operational' },
-  { service: 'Event Broker (Kafka)', status: 'Operational' },
-  { service: 'AI Copilot Inference API', status: 'Degraded', message: 'High latency detected in US-East-1' },
-  { service: 'Payment Gateway (Stripe)', status: 'Operational' },
-  { service: 'FHIR Interoperability Layer', status: 'Operational' },
-];
-
 interface Org { name: string; region: string; plan: string; users: string; status: string }
-const ORGS: Org[] = [
-  { name: 'Apollo Hospitals Enterprise', region: 'APAC (India)', plan: 'Enterprise', users: '5,240', status: 'Active' },
-  { name: 'Mayo Clinic Network', region: 'US-East', plan: 'Enterprise+', users: '12,050', status: 'Active' },
-  { name: 'CityCare Clinics', region: 'EMEA (UK)', plan: 'Professional', users: '120', status: 'Active' },
-  { name: 'TeleMed Global', region: 'Global', plan: 'Enterprise', users: '850', status: 'Suspended' },
-];
 
 const ROLES: { title: string; type: string; users: string | number; desc: string }[] = [
-  { title: 'System Administrator', type: 'Global', users: 12, desc: 'Full access to all platform settings, infrastructure, and all tenant organizations.' },
-  { title: 'Organization Admin', type: 'Tenant', users: 450, desc: 'Full access within their specific organization. Cannot view other organizations.' },
-  { title: 'Chief Medical Officer', type: 'Clinical', users: 120, desc: 'View-all access to clinical records, analytics, and quality compliance across the organization.' },
-  { title: 'Attending Physician', type: 'Clinical', users: '4,200', desc: 'Standard EMR access. Can create/edit clinical notes, prescribe, and order labs.' },
-  { title: 'Billing Specialist', type: 'Financial', users: '1,150', desc: 'Access to RCM, claims, invoices, and payment gateways. No clinical note editing.' },
-];
-
-const AUDIT: { time: string; user: string; action: string; resource: string; ip: string }[] = [
-  { time: 'Just Now', user: 'sysadmin@careconnect.com', action: 'Updated Feature Flag', resource: 'telemedicine_enabled (Apollo Hospitals)', ip: '192.168.1.42' },
-  { time: '2 mins ago', user: 'billing@mayoclinic.org', action: 'Downloaded Report', resource: 'Q3_Revenue_Summary.pdf', ip: '203.0.113.15' },
-  { time: '15 mins ago', user: 'dr.sharma@apollo.com', action: 'Viewed Record', resource: 'Patient #PT-992384', ip: '198.51.100.2' },
-  { time: '1 hour ago', user: 'api_service_acct', action: 'Data Sync', resource: 'FHIR Endpoint (HDFC Ergo)', ip: '10.0.0.5' },
+  { title: 'System Administrator', type: 'Global', users: '—', desc: 'Full access to all platform settings, infrastructure, and all tenant organizations.' },
+  { title: 'Organization Admin', type: 'Tenant', users: '—', desc: 'Full access within their specific organization. Cannot view other organizations.' },
+  { title: 'Chief Medical Officer', type: 'Clinical', users: '—', desc: 'View-all access to clinical records, analytics, and quality compliance across the organization.' },
+  { title: 'Attending Physician', type: 'Clinical', users: '—', desc: 'Standard EMR access. Can create/edit clinical notes, prescribe, and order labs.' },
+  { title: 'Billing Specialist', type: 'Financial', users: '—', desc: 'Access to RCM, claims, invoices, and payment gateways. No clinical note editing.' },
 ];
 
 const TAB_ITEMS = [
@@ -99,7 +78,7 @@ export default function AdminDashboard() {
   });
   const stats = statsRes?.data;
 
-  const { data: healthRes } = useQuery({
+  const { data: healthRes, isLoading: healthLoading } = useQuery({
     queryKey: ['admin_system_health'],
     queryFn: () => fetch(`${API}/api/admin/system-health`, { headers: authHeaders() }).then(r => r.json()),
     staleTime: 30000,
@@ -117,9 +96,9 @@ export default function AdminDashboard() {
     staleTime: 30000,
   });
 
-  const healthItems: { service: string; status: string; message?: string; detail?: string }[] = healthRes?.data ?? HEALTH;
-  const orgItems: Org[] = orgsRes?.data ?? ORGS;
-  const auditItems: { time: string; user: string; action: string; resource: string; ip: string }[] = auditRes?.data ?? AUDIT;
+  const healthItems: { service: string; status: string; message?: string; detail?: string }[] = healthRes?.data ?? [];
+  const orgItems: Org[] = orgsRes?.data ?? [];
+  const auditItems: { time: string; user: string; action: string; resource: string; ip: string }[] = auditRes?.data ?? [];
 
   const orgColumns: Column<Org>[] = [
     {
@@ -218,7 +197,13 @@ export default function AdminDashboard() {
                 <Button variant="link" size="sm" onClick={() => router.push('/admin/system/dashboard')}>View All</Button>
               </CardHeader>
               <CardContent className="space-y-3">
-                {healthItems.map((h) => {
+                {healthLoading ? (
+                  <div className="space-y-2">
+                    {[0,1,2].map(i => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}
+                  </div>
+                ) : healthItems.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">System health data unavailable.</p>
+                ) : healthItems.map((h) => {
                   const isOp = h.status === 'Operational';
                   const detail = h.detail ?? h.message;
                   return (
@@ -339,20 +324,24 @@ export default function AdminDashboard() {
               <CardDescription>Immutable records of all platform activity for HIPAA and SOC2 compliance.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Timeline>
-                {auditItems.map((a) => (
-                  <TimelineItem
-                    key={`${a.time}-${a.user}`}
-                    icon={FileText}
-                    tone="brand"
-                    title={<span>{a.user} <span className="font-normal text-muted-foreground">{a.action}</span></span>}
-                    meta={a.time}
-                  >
-                    <span className="font-medium text-primary">{a.resource}</span>
-                    <span className="ml-3 font-mono text-xs text-subtle-foreground">IP: {a.ip}</span>
-                  </TimelineItem>
-                ))}
-              </Timeline>
+              {auditItems.length === 0 ? (
+                <EmptyState icon={FileText} title="No audit records" description="Platform audit events will appear here once the audit logging API is connected." />
+              ) : (
+                <Timeline>
+                  {auditItems.map((a) => (
+                    <TimelineItem
+                      key={`${a.time}-${a.user}`}
+                      icon={FileText}
+                      tone="brand"
+                      title={<span>{a.user} <span className="font-normal text-muted-foreground">{a.action}</span></span>}
+                      meta={a.time}
+                    >
+                      <span className="font-medium text-primary">{a.resource}</span>
+                      <span className="ml-3 font-mono text-xs text-subtle-foreground">IP: {a.ip}</span>
+                    </TimelineItem>
+                  ))}
+                </Timeline>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -365,7 +354,13 @@ export default function AdminDashboard() {
               <CardDescription>Real-time status for all platform services and infrastructure.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {healthItems.map((h) => {
+              {healthLoading ? (
+                <div className="space-y-2">
+                  {[0,1,2,3,4].map(i => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}
+                </div>
+              ) : healthItems.length === 0 ? (
+                <EmptyState icon={Monitor} title="Health data unavailable" description="System health metrics will appear here once the monitoring API is connected." />
+              ) : healthItems.map((h) => {
                 const isOp = h.status === 'Operational';
                 const detail = h.detail ?? h.message;
                 return (

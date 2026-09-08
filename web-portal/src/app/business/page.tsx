@@ -133,9 +133,9 @@ export default function BusinessPage() {
                                 ))}
                             </div>
                             <div className="biz-dash-main">
-                                <div className="biz-dash-welcome">Good morning, Dr. Reddy <span>· Tuesday, 2 Sep 2025</span></div>
+                                <div className="biz-dash-welcome">Good morning, Dr. Patel <span>· Tuesday</span></div>
                                 <div className="biz-dash-metrics">
-                                    {[['24', "Today's Queue", '↑ 3 vs yesterday', 'up'], ['₹18.4k', 'This Week', '↑ 12%', 'up'], ['4.9', 'Avg Rating', '98% positive', 'up']].map(([val, lbl, chg, dir]) => (
+                                    {[['24', "Today's Queue", '↑ 3 vs yesterday', 'up'], ['₹18k', 'This Week', '↑ 12%', 'up'], ['4.9', 'Avg Rating', '98% positive', 'up']].map(([val, lbl, chg, dir]) => (
                                         <div key={lbl} className="biz-dash-metric">
                                             <div className="dm-val">{val}</div>
                                             <div className="dm-lbl">{lbl}</div>
@@ -145,7 +145,7 @@ export default function BusinessPage() {
                                 </div>
                                 <div className="biz-dash-queue">
                                     <div className="dq-head"><span className="dq-title">Live Queue</span><span className="dq-badge">6 waiting</span></div>
-                                    {[['Meera Pillai', 'Consult', 'In Room', 'st-c'], ['Arun Sharma', 'Follow-up', 'Waiting', 'st-w'], ['Neha Joshi', 'New Patient', 'Waiting', 'st-w'], ['Vijay Kumar', 'Lab Review', 'Booked', 'st-p']].map(([name, type, status, cls], i) => (
+                                    {[['Patient A', 'Consult', 'In Room', 'st-c'], ['Patient B', 'Follow-up', 'Waiting', 'st-w'], ['Patient C', 'New Patient', 'Waiting', 'st-w'], ['Patient D', 'Lab Review', 'Booked', 'st-p']].map(([name, type, status, cls], i) => (
                                         <div key={name} className="dq-row">
                                             <div className="dq-num">{i + 1}</div>
                                             <div className="dq-name">{name}</div>

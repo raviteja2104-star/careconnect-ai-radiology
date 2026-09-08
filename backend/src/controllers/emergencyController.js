@@ -19,19 +19,8 @@ const triggerSOS = async (req, res, next) => {
             description,
             priority: 'critical',
             vitalSigns,
-            // Simulate ambulance dispatch
-            assignedAmbulance: {
-                vehicleId: `AMB-${Math.floor(Math.random() * 1000)}`,
-                driverName: 'Rajesh Kumar',
-                driverPhone: '+91-9876543210',
-                eta: Math.floor(Math.random() * 10) + 3, // 3-12 min ETA
-            },
-            nearestHospital: {
-                name: 'CareConnect City Hospital',
-                address: '123 Healthcare Avenue, Medical District',
-                distance: parseFloat((Math.random() * 5 + 1).toFixed(1)),
-                phone: '+91-1800-123-4567',
-            },
+            assignedAmbulance: null,
+            nearestHospital: null,
         });
 
         // Quick status update to "dispatched"
