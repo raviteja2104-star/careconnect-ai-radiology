@@ -32,10 +32,11 @@ const protect = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const resolvedId = decoded.id || decoded._id || decoded.userId;
 
         // ── Demo / offline mode (dev/test only) ───────────────────────────────────
         if (!isDBConnected() && process.env.NODE_ENV !== 'production') {
-            const demoUser = DEMO_USERS.find(u => u._id === decoded.id);
+            const demoUser = DEMO_USERS.find(u => u._id === resolvedId);
             if (!demoUser) {
                 return res.status(401).json({ success: false, message: 'Demo user not found.' });
             }
@@ -47,7 +48,7 @@ const protect = async (req, res, next) => {
         }
 
         // ── Normal DB mode ────────────────────────────────────────────────────────
-        const user = await User.findById(decoded.id).select('-password');
+        const user = await User.findById(resolvedId).select('-password');
         if (!user) return res.status(401).json({ success: false, message: 'User not found.' });
         if (!user.isActive) return res.status(401).json({ success: false, message: 'Account has been deactivated.' });
 
