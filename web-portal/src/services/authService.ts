@@ -7,7 +7,7 @@ export interface AuthUserSession {
   userId: string;
   name: string;
   email: string;
-  role: 'SUPER_ADMIN' | 'PHYSICIAN' | 'NURSE' | 'PHARMACIST' | 'LAB_TECH' | 'RADIOLOGIST' | 'PATIENT' | 'BILLER';
+  role: 'SUPER_ADMIN' | 'PHYSICIAN' | 'NURSE' | 'PHARMACIST' | 'LAB_TECH' | 'RADIOLOGIST' | 'PATIENT' | 'BILLER' | 'RECEPTIONIST';
   tenantId: string;
   hospitalName: string;
   permissions: string[];
@@ -137,7 +137,7 @@ export function mapBackendRole(role?: string): AuthUserSession['role'] {
     case 'pharmacist': return 'PHARMACIST';
     case 'nurse': return 'NURSE';
     case 'biller': return 'BILLER';
-    case 'reception':
+    case 'reception': return 'RECEPTIONIST';
     case 'emergency':
       return 'PHYSICIAN';
     default:
@@ -154,6 +154,7 @@ const ROLE_PERMISSIONS: Record<AuthUserSession['role'], string[]> = {
   RADIOLOGIST: ['read:imaging', 'write:reports', 'sign:reports'],
   PATIENT: ['read:self', 'book:appointments'],
   BILLER: ['read:billing', 'write:billing'],
+  RECEPTIONIST: ['read:appointments', 'write:appointments', 'read:patients'],
 };
 
 export function backendUserDisplayName(user: BackendUser): string {

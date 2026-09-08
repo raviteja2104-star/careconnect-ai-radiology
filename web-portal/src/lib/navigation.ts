@@ -80,7 +80,7 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         id: 'frontdesk',
         label: 'Front Desk',
-        roles: ['SUPER_ADMIN'],
+        roles: ['SUPER_ADMIN', 'RECEPTIONIST'],
         items: [
             { name: 'Reception', path: '/reception/dashboard', icon: MonitorPlay, keywords: 'front office' },
             { name: 'Check-in', path: '/reception/checkin', icon: UserCheck, keywords: 'arrival' },
@@ -153,13 +153,13 @@ export function isChromeless(pathname: string): boolean {
 
 type Role = AuthUserSession['role'];
 
-export const CLINICAL_ROLES: Role[] = ['PHYSICIAN', 'NURSE', 'RADIOLOGIST', 'LAB_TECH', 'PHARMACIST', 'SUPER_ADMIN'];
+export const CLINICAL_ROLES: Role[] = ['PHYSICIAN', 'NURSE', 'RADIOLOGIST', 'LAB_TECH', 'PHARMACIST', 'SUPER_ADMIN', 'RECEPTIONIST'];
 
 /** Route-prefix access rules, checked longest-prefix-first. Unlisted routes are open to all roles. */
 const ROUTE_ACCESS: Array<{ prefix: string; roles: Role[] }> = [
     { prefix: '/admin', roles: ['SUPER_ADMIN'] },
     { prefix: '/teleradiology', roles: ['RADIOLOGIST', 'PHYSICIAN', 'SUPER_ADMIN'] },
-    { prefix: '/reception', roles: ['SUPER_ADMIN'] },
+    { prefix: '/reception', roles: ['SUPER_ADMIN', 'RECEPTIONIST'] },
     { prefix: '/health-records/dashboard', roles: CLINICAL_ROLES },
     { prefix: '/emr', roles: CLINICAL_ROLES },
     { prefix: '/dashboard', roles: CLINICAL_ROLES },
