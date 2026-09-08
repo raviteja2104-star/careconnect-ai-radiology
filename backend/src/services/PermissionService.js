@@ -14,6 +14,14 @@ const { LEGACY_ROLE_MAP } = require('../constants/permissions');
  * Returns { permissions: string[], workspaces: string[] }
  */
 async function getEffectivePermissions(userId) {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+        // Fallback for offline demo mode
+        const demoPermissions = { 'demo-doctor-1': ['DOCTOR.VIEW_PATIENTS', 'DOCTOR.VIEW_MEDICAL_RECORDS', 'DOCTOR.EDIT_CLINICAL_NOTES', 'DOCTOR.SIGN_CLINICAL_NOTES', 'DOCTOR.CREATE_PRESCRIPTION', 'DOCTOR.ORDER_LAB', 'DOCTOR.CREATE_ENCOUNTER'], 'demo-patient-1': ['PATIENT.VIEW_MEDICAL_RECORDS', 'PATIENT.VIEW_LAB_RESULTS', 'PATIENT.VIEW_PROFILE'], 'demo-radiologist-1': ['RADIOLOGY.VIEW_WORKLIST', 'RADIOLOGY.VIEW_STUDIES', 'RADIOLOGY.CREATE_REPORT'], 'demo-admin-1': ['ADMIN.VIEW_USERS', 'ADMIN.VIEW_DASHBOARD', 'STAFF.VIEW_APPOINTMENTS'] };
+        const basePerms = demoPermissions[userId] || [];
+        return { permissions: basePerms, workspaces: Object.keys(demoPermissions).some(k => k === userId) ? ['PATIENT', 'DOCTOR', 'RADIOLOGY', 'ADMINISTRATION'] : [] };
+    }
+
     const now = new Date();
 
     const userRoles = await UserRole.find({
@@ -28,7 +36,7 @@ async function getEffectivePermissions(userId) {
     for (const ur of userRoles) {
         if (!ur.role || !ur.role.isActive) continue;
         (ur.role.permissions || []).forEach(p => permSet.add(p));
-        (ur.role.workspaces  || []).forEach(w => workspaceSet.add(w));
+        (ur.role.workspaces || []).forEach(w => workspaceSet.add(w));
     }
 
     const overrides = await UserPermissionOverride.find({
@@ -47,7 +55,7 @@ async function getEffectivePermissions(userId) {
 
     return {
         permissions: [...permSet],
-        workspaces:  [...workspaceSet],
+        workspaces: [...workspaceSet],
     };
 }
 
@@ -74,7 +82,7 @@ async function ensureUserHasRole(user) {
     const role = await Role.findOne({ name: roleName, isActive: true }).lean();
     if (!role) return;
 
-    await UserRole.create({ user: user._id, role: role._id, grantedBy: user._id }).catch(() => {});
+    await UserRole.create({ user: user._id, role: role._id, grantedBy: user._id }).catch(() => { });
 }
 
 module.exports = { getEffectivePermissions, userHasPermissions, ensureUserHasRole };
