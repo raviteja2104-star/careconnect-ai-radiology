@@ -151,8 +151,7 @@ app.get('/metrics', (req, res) => {
     res.send(Telemetry.prometheusText());
 });
 
-// Serve uploaded files — authentication required; unauthenticated requests → 401
-app.use('/uploads', protect, express.static(path.join(__dirname, '..', 'uploads')));
+// Files are stored on S3 and served via getPageFile / presigned URLs — no local static serve needed.
 
 // Health check — also attempts a live connection probe so the error is visible
 app.get('/api/health', async (req, res) => {

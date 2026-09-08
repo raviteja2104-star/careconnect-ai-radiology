@@ -12,32 +12,14 @@
  */
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
 const { protect, authorize } = require('../middleware/auth');
 const orthanc = require('../services/OrthancClient');
 
 const DICOMWEB_BASE = process.env.DICOMWEB_URL || `http://localhost:${process.env.PORT || 5000}/api/dicomweb`;
 
-// Configure multer for DICOM uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        // Use the provided sopUID if available, otherwise use original name
-        const sopUID = req.body.sopUID;
-        if (sopUID) {
-            cb(null, `${sopUID}.dcm`);
-        } else {
-            cb(null, file.originalname);
-        }
-    }
-});
-const upload = multer({ storage });
+// Memory storage — Vercel has no persistent disk; real DICOM storage goes to Orthanc
+const upload = multer({ storage: multer.memoryStorage() });
 
 // PUBLIC: /health is a liveness probe with no PHI. Every other DICOMweb endpoint
 // (QIDO/WADO expose patient names, IDs, birth dates and pixel data) requires a
@@ -202,14 +184,6 @@ router.get('/rs/studies/:studyUID/series/:seriesUID/instances/:sopUID', (req, re
 router.get('/rs/studies/:studyUID/series/:seriesUID/instances/:sopUID/frames/:frame', (req, res) => {
     const { sopUID } = req.params;
 
-    // Check if real DICOM file exists
-    const dicomDir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
-    const dicomFile = path.join(dicomDir, `${sopUID}.dcm`);
-    if (fs.existsSync(dicomFile)) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-        return res.sendFile(dicomFile);
-    }
-
     // Serve synthetic grayscale image as multipart/related
     const sliceIdx = parseInt(req.params.frame) || 1;
     const { createCanvas } = (() => { try { return require('canvas'); } catch (_) { return {}; } })();
@@ -266,24 +240,11 @@ router.get('/wado', async (req, res) => {
         }
     }
 
-    const { requestType, studyUID, seriesUID, objectUID, contentType } = req.query;
+    const { requestType, objectUID } = req.query;
     if (requestType !== 'WADO') return res.status(400).json({ error: 'Only requestType=WADO supported' });
 
-    // Check for real DICOM file
-    const dicomDir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
-    const dicomFile = path.join(dicomDir, `${objectUID}.dcm`);
-    if (fs.existsSync(dicomFile)) {
-        res.setHeader('Content-Type', 'application/dicom');
-
-        return res.sendFile(dicomFile);
-    }
-
-    // Return 404 with helpful message — OHIF will gracefully skip
-    res.status(404).json({
-        error: 'DICOM file not found',
-        hint: 'Upload real DICOM files to backend/uploads/dicom/<sopUID>.dcm',
-        objectUID,
-    });
+    // Real DICOM files are served by Orthanc (handled above); without Orthanc there is no file.
+    res.status(404).json({ error: 'DICOM file not found. Upload to Orthanc PACS first.', objectUID });
 });
 
 // ── STOW-RS / Simple File Upload ──────────────────────────────────────────
@@ -297,12 +258,11 @@ router.post('/upload', authorize('radiologist', 'admin'), upload.single('dicomFi
     try { pacsUp = await orthanc.isReachable(); } catch (_) { pacsUp = false; }
     if (pacsUp) {
         try {
-            const buffer = fs.readFileSync(req.file.path);
-            const stored = await orthanc.storeInstance(buffer);
+            const stored = await orthanc.storeInstance(req.file.buffer);
             return res.status(200).json({
                 success: true,
                 message: 'DICOM file stored in Orthanc PACS',
-                file: req.file.filename,
+                file: req.file.originalname,
                 orthanc: stored,
             });
         } catch (err) {
@@ -323,8 +283,6 @@ router.post('/upload', authorize('radiologist', 'admin'), upload.single('dicomFi
 // STOW-RS (Standard) — MOCK FALLBACK. When Orthanc is reachable the /rs proxy
 // middleware above forwards the STOW multipart to Orthanc before this runs.
 router.post('/rs/studies', authorize('radiologist', 'admin'), (req, res) => {
-    const dicomDir = path.join(__dirname, '..', '..', 'uploads', 'dicom');
-    if (!fs.existsSync(dicomDir)) fs.mkdirSync(dicomDir, { recursive: true });
     res.status(200).json({ '00081190': { vr: 'UR', Value: [`${DICOMWEB_BASE}/rs/studies`] } });
 });
 

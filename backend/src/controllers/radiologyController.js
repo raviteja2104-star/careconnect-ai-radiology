@@ -24,7 +24,9 @@ const uploadScan = async (req, res, next) => {
         const scanId = `SCAN-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
         const pacsId = `PACS-${uuidv4()}`;
 
-        const fileUrl = req.file ? req.file.path.replace(/\\/g, '/') : 'demo://no-file-db-offline';
+        const fileUrl = req.file
+            ? (req.file.location || req.file.path?.replace(/\\/g, '/') || req.file.originalname || 'uploaded')
+            : 'demo://no-file-db-offline';
         const fileName = req.file ? req.file.originalname : 'demo-scan.dcm';
 
         if (!isDBConnected()) {
@@ -73,7 +75,9 @@ const uploadScan = async (req, res, next) => {
             fileUrl, fileName,
             fileSize: req.file?.size,
             mimeType: req.file?.mimetype,
-            pacsPath: req.file?.destination?.replace(/\\/g, '/'),
+            pacsPath: req.file?.key
+                ? `s3://${process.env.S3_BUCKET}/${req.file.key}`
+                : req.file?.destination?.replace(/\\/g, '/'),
             dicomMetadata: { studyInstanceUID: `1.2.840.${Date.now()}`, modality: scanType || 'CR', studyDate: new Date(), institutionName: 'CareConnect Medical Center' },
             priority: priority || 'normal',
             clinicalNotes,

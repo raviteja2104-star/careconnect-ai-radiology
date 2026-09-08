@@ -1,6 +1,9 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const { v4: uuidv4 } = require('uuid');
 
+const { s3, BUCKET, uploadBuffer, getObjectBuffer, streamObject } = require('../lib/s3');
 const HealthDocument = require('../models/HealthDocument');
 const DocumentExtraction = require('../models/DocumentExtraction');
 const Prescription = require('../models/Prescription');
@@ -79,6 +82,7 @@ function serializeExtraction(e) {
 
 // POST /api/health-records/documents  (multipart: files[], patientId, documentType?, capturedVia, caregiverAuthorizationId?)
 exports.uploadDocument = async (req, res) => {
+    const tmpFiles = [];
     try {
         const { patientId, documentType, capturedVia, caregiverAuthorizationId } = req.body;
         if (!patientId) return res.status(400).json({ message: 'patientId is required.' });
@@ -90,17 +94,32 @@ exports.uploadDocument = async (req, res) => {
         const perm = await CaregiverAuthzService.canCapture(req.user, patientId);
         if (!perm.allowed) return res.status(403).json({ message: 'You are not authorized to add records for this patient.' });
 
-        const { checksumFile } = require('../middleware/healthDocumentUpload');
-        const files = await Promise.all(
-            req.files.map(async (f) => ({
-                absolutePath: f.path,
-                fileKey: path.relative(require('../middleware/healthDocumentUpload').SECURE_ROOT, f.path),
+        const { checksumBuffer, S3_HEALTH_PREFIX } = require('../middleware/healthDocumentUpload');
+        const dateStr = new Date().toISOString().split('T')[0];
+
+        const files = await Promise.all(req.files.map(async (f) => {
+            const ext = path.extname(f.originalname || '') || '';
+            const s3Key = `${S3_HEALTH_PREFIX}/${patientId}/${dateStr}/${uuidv4()}${ext}`;
+
+            if (!s3 || !BUCKET) {
+                throw new Error('S3 is not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET on Vercel.');
+            }
+            await uploadBuffer(s3Key, f.buffer, f.mimetype);
+
+            // AI pipeline reads files via fs — write a tmp copy and clean up after
+            const tmpPath = path.join(os.tmpdir(), `cc-upload-${uuidv4()}${ext}`);
+            await fs.promises.writeFile(tmpPath, f.buffer);
+            tmpFiles.push(tmpPath);
+
+            return {
+                absolutePath: tmpPath,
+                fileKey: s3Key,
                 mimeType: f.mimetype,
                 originalName: f.originalname,
-                sizeBytes: f.size,
-                checksum: await checksumFile(f.path),
-            }))
-        );
+                sizeBytes: f.size || f.buffer.length,
+                checksum: checksumBuffer(f.buffer),
+            };
+        }));
 
         const { document, extraction } = await HealthDocumentPipeline.createDocument({
             files,
@@ -117,24 +136,39 @@ exports.uploadDocument = async (req, res) => {
         if (err.code === 'VIRUS_DETECTED') return res.status(422).json({ message: err.message, code: 'VIRUS_DETECTED' });
         if (isValidationError(err)) return res.status(400).json({ message: err.message });
         res.status(500).json({ message: err.message });
+    } finally {
+        for (const p of tmpFiles) fs.promises.unlink(p).catch(() => {});
     }
 };
 
 // POST /api/health-records/documents/:id/reprocess — retry AI extraction (e.g. after an AI-service outage).
 exports.reprocessDocument = async (req, res) => {
+    const tmpFiles = [];
     try {
         const document = await HealthDocument.findById(req.params.id);
         if (!document) return res.status(404).json({ message: 'Document not found.' });
         const perm = await CaregiverAuthzService.canCapture(req.user, document.patientId);
         if (!perm.allowed) return res.status(403).json({ message: 'You are not authorized to reprocess this document.' });
 
-        const { SECURE_ROOT } = require('../middleware/healthDocumentUpload');
-        const aiPages = document.pages.map((p) => ({
-            absolutePath: path.join(SECURE_ROOT, p.fileKey),
-            mimeType: p.mimeType,
-            pageNumber: p.pageNumber,
-            encryption: p.encryption || null,
-        }));
+        let aiPages;
+        if (s3 && BUCKET) {
+            aiPages = await Promise.all(document.pages.map(async (p) => {
+                const buffer = await getObjectBuffer(p.fileKey);
+                const ext = path.extname(p.fileKey || '');
+                const tmpPath = path.join(os.tmpdir(), `cc-reprocess-${uuidv4()}${ext}`);
+                await fs.promises.writeFile(tmpPath, buffer);
+                tmpFiles.push(tmpPath);
+                return { absolutePath: tmpPath, mimeType: p.mimeType, pageNumber: p.pageNumber, encryption: null };
+            }));
+        } else {
+            const { SECURE_ROOT } = require('../middleware/healthDocumentUpload');
+            aiPages = document.pages.map((p) => ({
+                absolutePath: path.join(SECURE_ROOT, p.fileKey),
+                mimeType: p.mimeType,
+                pageNumber: p.pageNumber,
+                encryption: p.encryption || null,
+            }));
+        }
         const result = await HealthDocumentAiClient.extractDocument(aiPages, document.documentType);
         const fields = (result.fields || []).map((f) => ({
             key: f.key, label: f.label || f.key, value: f.value ?? null,
@@ -156,6 +190,8 @@ exports.reprocessDocument = async (req, res) => {
         }
         if (isCastError(err)) return res.status(404).json({ message: 'Document not found.' });
         res.status(500).json({ message: err.message });
+    } finally {
+        for (const p of tmpFiles) fs.promises.unlink(p).catch(() => {});
     }
 };
 
@@ -206,18 +242,21 @@ exports.getPageFile = async (req, res) => {
         const page = document.pages.find((p) => p.pageNumber === Number(req.params.pageNumber));
         if (!page) return res.status(404).json({ message: 'Page not found.' });
 
+        // Serve from S3 when configured; SSE is transparent so no decryption needed.
+        if (s3 && BUCKET) {
+            return streamObject(page.fileKey, res, page.mimeType);
+        }
+
+        // Local dev fallback — serve from disk (legacy diskStorage path)
         const { SECURE_ROOT } = require('../middleware/healthDocumentUpload');
         const absolutePath = path.join(SECURE_ROOT, page.fileKey);
-        // Defense in depth against a fileKey ever containing traversal
-        // segments (shouldn't happen — it's server-generated — but this is a
-        // medical-document file stream, worth the extra check).
         if (!absolutePath.startsWith(path.join(SECURE_ROOT))) {
             return res.status(400).json({ message: 'Invalid page reference.' });
         }
         if (!fs.existsSync(absolutePath)) return res.status(404).json({ message: 'File no longer available.' });
 
         res.setHeader('Content-Type', page.mimeType);
-        res.setHeader('Cache-Control', 'private, no-store'); // never cache a medical document response
+        res.setHeader('Cache-Control', 'private, no-store');
         if (page.encryption) {
             const FileEncryptionService = require('../services/FileEncryptionService');
             FileEncryptionService.decryptToStream(absolutePath, page.encryption).pipe(res);
