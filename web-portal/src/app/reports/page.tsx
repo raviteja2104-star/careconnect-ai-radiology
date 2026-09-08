@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   IndianRupee, Users, Activity, Bed, Download, Calendar, Filter,
   CreditCard, FlaskConical, Pill, Building2, Landmark, Banknote, Smartphone,
@@ -12,53 +13,61 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, Button, Select, Badge,
-  Progress, EmptyState, Input,
+  Progress, EmptyState, Input, SkeletonCard,
 } from '@/components/ui';
+import { useCallback } from 'react';
 import { CHART_COLORS, chartGrid, chartAxis, chartTooltip } from '@/lib/chart-theme';
 
-const DEPT_REVENUE = [
-  { dept: 'Cardiology & Catheterization', rev: 'â‚¹ 44,50,000', pct: 30 },
-  { dept: 'Orthopedics & Joint Replacement', rev: 'â‚¹ 32,80,000', pct: 22 },
-  { dept: 'ICU & Emergency Care', rev: 'â‚¹ 26,40,000', pct: 18 },
-  { dept: 'Pharmacy & Drug Sales', rev: 'â‚¹ 18,20,000', pct: 12 },
-  { dept: 'Laboratory & Radiology Services', rev: 'â‚¹ 14,80,000', pct: 10 },
-  { dept: 'General Surgery & Day Care', rev: 'â‚¹ 11,80,000', pct: 8 },
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+type RangeKey = 'today' | 'week' | 'month' | 'quarter' | 'year';
+
+const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: 'today',   label: 'Today' },
+  { value: 'week',    label: 'This Week' },
+  { value: 'month',   label: 'This Month' },
+  { value: 'quarter', label: 'This Quarter' },
+  { value: 'year',    label: 'Financial Year' },
 ];
 
-const PAYMENT_MODES = [
-  { label: 'TPA / Health Insurance', amount: 'â‚¹ 82,40,000 (55.5%)', badge: '540 Claims', tone: 'info' as const, icon: Landmark },
-  { label: 'UPI / Card / NetBanking', amount: 'â‚¹ 48,10,000 (32.4%)', badge: 'Digital', tone: 'success' as const, icon: Smartphone },
-  { label: 'Cash Receipts', amount: 'â‚¹ 18,00,000 (12.1%)', badge: 'Desk Counter', tone: 'warning' as const, icon: Banknote },
-];
+function inrFmt(n: number): string {
+  if (n >= 10_000_000) return `₹ ${(n / 10_000_000).toFixed(2)} Cr`;
+  if (n >= 100_000)    return `₹ ${(n / 100_000).toFixed(2)} L`;
+  return `₹ ${Math.round(n).toLocaleString('en-IN')}`;
+}
 
-const WARD_OCCUPANCY = [
-  { ward: 'Intensive Care Unit (ICU)', value: 92, stat: '23 / 25 Beds (92%)', note: '2 Ventilators Available', tone: 'danger' as const },
-  { ward: 'Cardiac Care Unit (CCU)', value: 93.3, stat: '14 / 15 Beds (93.3%)', note: '1 Bed Available', tone: 'warning' as const },
-  { ward: 'Private & Deluxe Rooms', value: 88.5, stat: '62 / 70 Beds (88.5%)', note: '8 Beds Available', tone: 'brand' as const },
-  { ward: 'General Ward', value: 83.5, stat: '117 / 140 Beds (83.5%)', note: '23 Beds Available', tone: 'success' as const },
-];
-
-const LAB_VOLUME = [
-  { name: 'Complete Blood Count (CBC)', value: '1,420 Tests' },
-  { name: 'HbA1c & Fasting Blood Glucose', value: '980 Tests' },
-  { name: 'Lipid Profile & Renal Function Test', value: '740 Tests' },
-];
-
-const PHARMACY_VOLUME = [
-  { name: 'Telmisartan 40mg (Antihypertensive)', value: '4,200 Tablets' },
-  { name: 'Metformin 500mg SR (Antidiabetic)', value: '3,850 Tablets' },
-  { name: 'Amoxicillin + Clavulanic Acid 625mg', value: '1,940 Strips' },
-];
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+interface ReportData {
+  kpis: {
+    grossRevenue: number;
+    bedOccupancyPct: number;
+    totalBeds: number;
+    occupiedBeds: number;
+    patientFootfall: number;
+    avgLosDays: number | null;
+    opdRevenue: number;
+    ipdRevenue: number;
+    pharmacyRevenue: number;
+  };
+  deptRevenue:     { dept: string; total: number; pct: number }[];
+  paymentModes:    { label: string; total: number; badge: string }[];
+  wardOccupancy:   { ward: string; total: number; occupied: number; pct: number }[];
+  labVolume:       { name: string; count: number }[];
+  pharmacyVolume:  { name: string; count: number }[];
+  range: string;
+  generatedAt: string;
+}
 
 interface PatientSummary {
-  demographics?: { name?: string; age?: number; gender?: string; bloodGroup?: string; };
+  demographics?: { name?: string; age?: number; gender?: string; bloodGroup?: string };
   allergies?: string[];
   chronicDiseases?: string[];
-  medications?: { name: string; dosage?: string; frequency?: string; }[];
+  medications?: { name: string; dosage?: string; frequency?: string }[];
   surgeries?: string[];
-  documentCounts?: { prescriptions?: number; labReports?: number; documents?: number; diagnosticReports?: number; };
+  documentCounts?: Record<string, number>;
 }
 
 function PatientReportTab() {
@@ -71,14 +80,13 @@ function PatientReportTab() {
     if (!patientId.trim()) return;
     setLoading(true); setError(null); setSummary(null);
     try {
-      const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
       const r = await fetch(`${API}/api/health-records/patients/${patientId.trim()}/summary`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: authHeaders(),
       });
       const data = await r.json();
       if (!r.ok || !data.success) { setError(data.message || `HTTP ${r.status}`); return; }
       setSummary(data.data ?? data);
-    } catch (e) { setError('Could not reach server.'); }
+    } catch { setError('Could not reach server.'); }
     finally { setLoading(false); }
   }, [patientId]);
 
@@ -99,7 +107,7 @@ function PatientReportTab() {
               className="max-w-sm font-mono text-sm"
             />
             <Button onClick={fetch_} disabled={!patientId.trim() || loading}>
-              <Search className="h-4 w-4" aria-hidden /> {loading ? 'Loadingâ€¦' : 'Fetch Summary'}
+              <Search className="h-4 w-4" aria-hidden /> {loading ? 'Loading…' : 'Fetch Summary'}
             </Button>
           </div>
           {error && <p className="mt-3 text-sm text-danger">{error}</p>}
@@ -112,14 +120,13 @@ function PatientReportTab() {
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><User className="h-4 w-4" /> Demographics</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                {summary.demographics.name && <p><span className="text-muted-foreground">Name:</span> <strong>{summary.demographics.name}</strong></p>}
-                {summary.demographics.age && <p><span className="text-muted-foreground">Age:</span> {summary.demographics.age} yrs</p>}
-                {summary.demographics.gender && <p><span className="text-muted-foreground">Gender:</span> {summary.demographics.gender}</p>}
+                {summary.demographics.name      && <p><span className="text-muted-foreground">Name:</span> <strong>{summary.demographics.name}</strong></p>}
+                {summary.demographics.age       && <p><span className="text-muted-foreground">Age:</span> {summary.demographics.age} yrs</p>}
+                {summary.demographics.gender    && <p><span className="text-muted-foreground">Gender:</span> {summary.demographics.gender}</p>}
                 {summary.demographics.bloodGroup && <p><span className="text-muted-foreground">Blood Group:</span> {summary.demographics.bloodGroup}</p>}
               </CardContent>
             </Card>
           )}
-
           {summary.chronicDiseases && summary.chronicDiseases.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Heart className="h-4 w-4" /> Chronic Conditions</CardTitle></CardHeader>
@@ -128,7 +135,6 @@ function PatientReportTab() {
               </CardContent>
             </Card>
           )}
-
           {summary.allergies && summary.allergies.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Activity className="h-4 w-4" /> Allergies</CardTitle></CardHeader>
@@ -137,7 +143,6 @@ function PatientReportTab() {
               </CardContent>
             </Card>
           )}
-
           {summary.medications && summary.medications.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Pill className="h-4 w-4" /> Current Medications</CardTitle></CardHeader>
@@ -145,13 +150,12 @@ function PatientReportTab() {
                 {summary.medications.map((m, i) => (
                   <div key={i} className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
                     <p className="font-medium">{m.name}</p>
-                    {(m.dosage || m.frequency) && <p className="text-xs text-muted-foreground">{m.dosage}{m.frequency ? ` Â· ${m.frequency}` : ''}</p>}
+                    {(m.dosage || m.frequency) && <p className="text-xs text-muted-foreground">{m.dosage}{m.frequency ? ` · ${m.frequency}` : ''}</p>}
                   </div>
                 ))}
               </CardContent>
             </Card>
           )}
-
           {summary.documentCounts && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><FileText className="h-4 w-4" /> Record Counts</CardTitle></CardHeader>
@@ -165,12 +169,11 @@ function PatientReportTab() {
               </CardContent>
             </Card>
           )}
-
           {summary.surgeries && summary.surgeries.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Clock className="h-4 w-4" /> Surgical History</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                {summary.surgeries.map((s, i) => <p key={i} className="text-muted-foreground">â€¢ {s}</p>)}
+                {summary.surgeries.map((s, i) => <p key={i} className="text-muted-foreground">• {s}</p>)}
               </CardContent>
             </Card>
           )}
@@ -180,20 +183,43 @@ function PatientReportTab() {
   );
 }
 
+const PAYMENT_ICONS = [Landmark, Smartphone, Banknote];
+const PAYMENT_TONES = ['info', 'success', 'warning'] as const;
+
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'financial' | 'occupancy' | 'clinical' | 'opd-ipd' | 'patient'>('financial');
-  const [dateRange, setDateRange] = useState('This Month (Jul 2026)');
-  const [selectedDept, setSelectedDept] = useState('All Departments');
+  const [range, setRange] = useState<RangeKey>('month');
+
+  const { data: reportRes, isLoading } = useQuery({
+    queryKey: ['executive-report', range],
+    queryFn: () =>
+      fetch(`${API}/api/reports/executive?range=${range}`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+
+  const report: ReportData | null = reportRes?.data ?? null;
+  const kpis = report?.kpis;
+
+  const grossRevenue     = kpis?.grossRevenue ?? 0;
+  const opdRevenue       = kpis?.opdRevenue ?? 0;
+  const ipdRevenue       = kpis?.ipdRevenue ?? 0;
+  const pharmacyRevenue  = kpis?.pharmacyRevenue ?? 0;
+  const occupancyPct     = kpis?.bedOccupancyPct ?? 0;
+  const occupiedBeds     = kpis?.occupiedBeds ?? 0;
+  const totalBeds        = kpis?.totalBeds ?? 0;
+  const footfall         = kpis?.patientFootfall ?? 0;
+  const avgLos           = kpis?.avgLosDays;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Executive Analytics & Reports"
-        description="Real-time operational, financial, bed utilization, & medico-legal compliance analytics."
+        description="Operational, financial, bed utilization & clinical analytics — live from the database."
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Reports' }]}
         actions={
-          <Button onClick={() => alert(`Exporting CareConnect Executive Report (${dateRange}) as PDF & CSV...`)}>
-            <Download className="h-4 w-4" aria-hidden /> Export Report (PDF/CSV)
+          <Button variant="outline" disabled title="Export requires Data Lakehouse integration">
+            <Download className="h-4 w-4" aria-hidden /> Export Report
           </Button>
         }
       />
@@ -204,156 +230,140 @@ export default function ReportsPage() {
           <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden />
           <Select
             aria-label="Date range"
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="w-auto min-w-48"
+            value={range}
+            onChange={(e) => setRange(e.target.value as RangeKey)}
+            className="w-auto min-w-40"
           >
-            <option>Today (25 Jul 2026)</option>
-            <option>This Week</option>
-            <option>This Month (Jul 2026)</option>
-            <option>Q3 2026</option>
-            <option>Financial Year 2026-27</option>
+            {RANGE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </Select>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <Select
-            aria-label="Department"
-            value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
-            className="w-auto min-w-44"
-          >
-            <option>All Departments</option>
-            <option>Cardiology</option>
-            <option>Pediatrics</option>
-            <option>Orthopedics</option>
-            <option>Neurology</option>
-            <option>General Surgery</option>
-            <option>ICU & Emergency</option>
-          </Select>
-        </div>
+        {report && (
+          <span className="text-xs text-muted-foreground">
+            Generated {new Date(report.generatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
       </div>
 
       {/* Executive KPIs */}
-      <StatGrid>
-        <StatCard
-          label="Gross Revenue (Jul 2026)"
-          value="â‚¹ 1,48,50,000"
-          sub="+14.2% Â· OPD: â‚¹42.5L | IPD: â‚¹88.0L | Pharmacy: â‚¹18.0L"
-          icon={IndianRupee}
-          trend="up"
-          trendPositive
-          tone="emerald"
-          delay={0}
-        />
-        <StatCard
-          label="Bed Occupancy Rate"
-          value="86.4%"
-          sub="+5.1% Â· 216 of 250 Beds Occupied (ICU: 92%)"
-          icon={Bed}
-          trend="up"
-          trendPositive
-          tone="brand"
-          delay={0.05}
-        />
-        <StatCard
-          label="Total Patient Footfall"
-          value="3,842 Patients"
-          sub="+8.7% Â· OPD: 3,120 | IPD Admissions: 722"
-          icon={Users}
-          trend="up"
-          trendPositive
-          tone="violet"
-          delay={0.1}
-        />
-        <StatCard
-          label="Avg Length of Stay (ALOS)"
-          value="3.8 Days"
-          sub="-0.4 Days Â· Readmission Rate: 2.1% (Low)"
-          icon={Activity}
-          trend="down"
-          trendPositive
-          tone="amber"
-          delay={0.15}
-        />
-      </StatGrid>
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[0,1,2,3].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : (
+        <StatGrid>
+          <StatCard
+            label="Gross Revenue"
+            value={grossRevenue > 0 ? inrFmt(grossRevenue) : '—'}
+            sub={grossRevenue > 0 ? `OPD: ${inrFmt(opdRevenue)} · IPD: ${inrFmt(ipdRevenue)} · Pharmacy: ${inrFmt(pharmacyRevenue)}` : 'No invoices in period'}
+            icon={IndianRupee}
+            tone="emerald"
+            delay={0}
+          />
+          <StatCard
+            label="Bed Occupancy Rate"
+            value={totalBeds > 0 ? `${occupancyPct}%` : '—'}
+            sub={totalBeds > 0 ? `${occupiedBeds} of ${totalBeds} Beds Occupied` : 'No bed records'}
+            icon={Bed}
+            tone="brand"
+            delay={0.05}
+          />
+          <StatCard
+            label="Patient Footfall"
+            value={footfall > 0 ? footfall.toLocaleString('en-IN') : '—'}
+            sub={footfall > 0 ? 'Appointments in period' : 'No appointments in period'}
+            icon={Users}
+            tone="violet"
+            delay={0.1}
+          />
+          <StatCard
+            label="Avg Length of Stay"
+            value={avgLos !== null ? `${avgLos} Days` : '—'}
+            sub={avgLos !== null ? 'Current occupied beds average' : 'No occupied beds with admit date'}
+            icon={Activity}
+            tone="amber"
+            delay={0.15}
+          />
+        </StatGrid>
+      )}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'financial' | 'occupancy' | 'clinical' | 'opd-ipd' | 'patient')}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList className="max-w-full overflow-x-auto no-scrollbar">
-          <TabsTrigger value="financial">
-            <CreditCard className="h-4 w-4" aria-hidden /> Financial & Revenue
-          </TabsTrigger>
-          <TabsTrigger value="occupancy">
-            <Bed className="h-4 w-4" aria-hidden /> Bed Occupancy & ADT
-          </TabsTrigger>
-          <TabsTrigger value="clinical">
-            <FlaskConical className="h-4 w-4" aria-hidden /> Clinical, Lab & Pharmacy
-          </TabsTrigger>
-          <TabsTrigger value="opd-ipd">
-            <Building2 className="h-4 w-4" aria-hidden /> OPD vs IPD & Demographics
-          </TabsTrigger>
-          <TabsTrigger value="patient">
-            <User className="h-4 w-4" aria-hidden /> Patient Clinical Report
-          </TabsTrigger>
+          <TabsTrigger value="financial"><CreditCard className="h-4 w-4" aria-hidden /> Financial & Revenue</TabsTrigger>
+          <TabsTrigger value="occupancy"><Bed className="h-4 w-4" aria-hidden /> Bed Occupancy & ADT</TabsTrigger>
+          <TabsTrigger value="clinical"><FlaskConical className="h-4 w-4" aria-hidden /> Clinical, Lab & Pharmacy</TabsTrigger>
+          <TabsTrigger value="opd-ipd"><Building2 className="h-4 w-4" aria-hidden /> OPD vs IPD & Demographics</TabsTrigger>
+          <TabsTrigger value="patient"><User className="h-4 w-4" aria-hidden /> Patient Clinical Report</TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: FINANCIAL & REVENUE ANALYTICS */}
+        {/* TAB 1: FINANCIAL */}
         <TabsContent value="financial">
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <Card className="xl:col-span-2">
               <CardHeader className="flex-row items-start justify-between space-y-0">
                 <div>
                   <CardTitle>Departmental Revenue Breakdown</CardTitle>
-                  <CardDescription className="mt-1.5">Jul 2026 Â· share of gross revenue by service line</CardDescription>
+                  <CardDescription className="mt-1.5">Revenue by invoice type for selected period</CardDescription>
                 </div>
-                <Badge tone="brand">Total: â‚¹ 1.48 Cr</Badge>
+                {grossRevenue > 0 && <Badge tone="brand">Total: {inrFmt(grossRevenue)}</Badge>}
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={DEPT_REVENUE} layout="vertical" margin={{ left: 8, right: 24 }}>
-                    <CartesianGrid {...chartGrid} horizontal={false} vertical />
-                    <XAxis {...chartAxis} type="number" unit="%" domain={[0, 35]} />
-                    <YAxis {...chartAxis} type="category" dataKey="dept" width={220} />
-                    <Tooltip
-                      {...chartTooltip}
-                      formatter={(value, _name, entry: { payload?: { rev?: string } }) => [
-                        `${entry?.payload?.rev} (${value}%)`,
-                        'Revenue',
-                      ]}
-                    />
-                    <Bar dataKey="pct" radius={[0, 8, 8, 0]} barSize={18}>
-                      {DEPT_REVENUE.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {!report || report.deptRevenue.length === 0 ? (
+                  <EmptyState icon={CreditCard} title="No revenue data" description="No paid invoices found for the selected period." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={report.deptRevenue} layout="vertical" margin={{ left: 8, right: 24 }}>
+                      <CartesianGrid {...chartGrid} horizontal={false} vertical />
+                      <XAxis {...chartAxis} type="number" unit="%" domain={[0, 100]} />
+                      <YAxis {...chartAxis} type="category" dataKey="dept" width={200} />
+                      <Tooltip
+                        {...chartTooltip}
+                        formatter={(value, _name, entry: { payload?: { total?: number } }) => [
+                          `${inrFmt(entry?.payload?.total ?? 0)} (${value}%)`,
+                          'Revenue',
+                        ]}
+                      />
+                      <Bar dataKey="pct" radius={[0, 8, 8, 0]} barSize={18}>
+                        {report.deptRevenue.map((_, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Payment Collection Modes</CardTitle>
-                <CardDescription>How this month&apos;s revenue was collected</CardDescription>
+                <CardDescription>How revenue was collected</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {PAYMENT_MODES.map((mode) => (
-                  <div
-                    key={mode.label}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 p-4"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <mode.icon className="h-4 w-4" aria-hidden />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-muted-foreground">{mode.label}</p>
-                        <p className="text-sm font-bold text-foreground tabular-nums">{mode.amount}</p>
+                {!report || report.paymentModes.every(m => m.total === 0) ? (
+                  <EmptyState icon={CreditCard} title="No payment data" description="No paid invoices in this period." />
+                ) : (
+                  report.paymentModes.filter(m => m.total > 0).map((mode, i) => {
+                    const Icon = PAYMENT_ICONS[i % PAYMENT_ICONS.length];
+                    const tone = PAYMENT_TONES[i % PAYMENT_TONES.length];
+                    const pct = grossRevenue > 0 ? Math.round((mode.total / grossRevenue) * 100) : 0;
+                    return (
+                      <div key={mode.label} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 p-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Icon className="h-4 w-4" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium text-muted-foreground">{mode.label}</p>
+                            <p className="text-sm font-bold text-foreground tabular-nums">{inrFmt(mode.total)} ({pct}%)</p>
+                          </div>
+                        </div>
+                        <Badge tone={tone}>{mode.badge}</Badge>
                       </div>
-                    </div>
-                    <Badge tone={mode.tone}>{mode.badge}</Badge>
-                  </div>
-                ))}
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
           </div>
@@ -363,24 +373,33 @@ export default function ReportsPage() {
         <TabsContent value="occupancy">
           <Card>
             <CardHeader>
-              <CardTitle>Ward & ICU Bed Occupancy Breakdown</CardTitle>
-              <CardDescription>Live utilization across critical and general wards</CardDescription>
+              <CardTitle>Ward & ICU Bed Occupancy</CardTitle>
+              <CardDescription>Current utilisation across all wards</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {WARD_OCCUPANCY.map((ward, i) => (
-                  <div
-                    key={ward.ward}
-                    className="animate-fade-up rounded-2xl border border-border bg-muted/30 p-4"
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{ward.ward}</p>
-                    <p className="mt-1.5 text-xl font-bold text-foreground tabular-nums">{ward.stat}</p>
-                    <Progress value={ward.value} tone={ward.tone} size="sm" className="mt-3" />
-                    <p className="mt-2 text-xs text-subtle-foreground">{ward.note}</p>
-                  </div>
-                ))}
-              </div>
+              {!report || report.wardOccupancy.length === 0 ? (
+                <EmptyState icon={Bed} title="No bed records" description="No BedRecord data found in the database." />
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {report.wardOccupancy.map((ward, i) => {
+                    const tone = ward.pct >= 90 ? 'danger' : ward.pct >= 80 ? 'warning' : ward.pct >= 60 ? 'brand' : 'success';
+                    return (
+                      <div
+                        key={ward.ward}
+                        className="animate-fade-up rounded-2xl border border-border bg-muted/30 p-4"
+                        style={{ animationDelay: `${i * 50}ms` }}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{ward.ward}</p>
+                        <p className="mt-1.5 text-xl font-bold text-foreground tabular-nums">
+                          {ward.occupied} / {ward.total} Beds ({ward.pct}%)
+                        </p>
+                        <Progress value={ward.pct} tone={tone} size="sm" className="mt-3" />
+                        <p className="mt-2 text-xs text-subtle-foreground">{ward.total - ward.occupied} Bed{ward.total - ward.occupied !== 1 ? 's' : ''} Available</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -394,17 +413,21 @@ export default function ReportsPage() {
                   <FlaskConical className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
-                  <CardTitle>Laboratory & Diagnostic Test Volume</CardTitle>
-                  <CardDescription className="mt-1">Highest-volume investigations this period</CardDescription>
+                  <CardTitle>Lab Order Volume</CardTitle>
+                  <CardDescription className="mt-1">Most-ordered investigation panels this period</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {LAB_VOLUME.map((row) => (
-                  <div key={row.name} className="flex items-center justify-between rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm">
-                    <span className="text-muted-foreground">{row.name}</span>
-                    <span className="font-semibold text-foreground tabular-nums">{row.value}</span>
-                  </div>
-                ))}
+                {!report || report.labVolume.length === 0 ? (
+                  <EmptyState icon={FlaskConical} title="No lab orders" description="No lab orders placed in this period." />
+                ) : (
+                  report.labVolume.map((row) => (
+                    <div key={row.name} className="flex items-center justify-between rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm">
+                      <span className="text-muted-foreground">{row.name}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{row.count.toLocaleString('en-IN')} Orders</span>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -414,17 +437,21 @@ export default function ReportsPage() {
                   <Pill className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
-                  <CardTitle>Pharmacy Top Dispensed Medications</CardTitle>
+                  <CardTitle>Top Dispensed Medications</CardTitle>
                   <CardDescription className="mt-1">Most-issued formulations this period</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {PHARMACY_VOLUME.map((row) => (
-                  <div key={row.name} className="flex items-center justify-between rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm">
-                    <span className="text-muted-foreground">{row.name}</span>
-                    <span className="font-semibold text-foreground tabular-nums">{row.value}</span>
-                  </div>
-                ))}
+                {!report || report.pharmacyVolume.length === 0 ? (
+                  <EmptyState icon={Pill} title="No pharmacy data" description="No pharmacy orders placed in this period." />
+                ) : (
+                  report.pharmacyVolume.map((row) => (
+                    <div key={row.name} className="flex items-center justify-between rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm">
+                      <span className="text-muted-foreground">{row.name}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{row.count.toLocaleString('en-IN')} Dispensed</span>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -435,15 +462,11 @@ export default function ReportsPage() {
           <EmptyState
             icon={Building2}
             title="OPD vs IPD report in preparation"
-            description="Footfall and demographic comparisons for this period are still being compiled. Check back shortly or export the executive report meanwhile."
-            action={{
-              label: 'Export Report (PDF/CSV)',
-              onClick: () => alert(`Exporting CareConnect Executive Report (${dateRange}) as PDF & CSV...`),
-            }}
+            description="Footfall and demographic comparisons for this period are being compiled."
           />
         </TabsContent>
 
-        {/* TAB 5: PATIENT CLINICAL REPORT â€” uses real backend */}
+        {/* TAB 5: PATIENT CLINICAL REPORT */}
         <TabsContent value="patient" className="mt-6">
           <PatientReportTab />
         </TabsContent>

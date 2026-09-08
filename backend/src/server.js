@@ -360,6 +360,7 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/integrations', require('./routes/integrationRoutes'));
 app.use('/api/master-data', require('./routes/masterDataRoutes'));
 app.use('/api/commercial', require('./routes/commercialRoutes'));
+app.use('/api/reports', require('./routes/reportsRoutes'));
 
 // 404 handler
 app.use('*', (req, res) => {
