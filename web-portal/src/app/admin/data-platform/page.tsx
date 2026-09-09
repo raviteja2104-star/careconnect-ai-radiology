@@ -178,6 +178,11 @@ export default function EnterpriseDataPlatformPage() {
         }
       />
 
+      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
+        <span>⚠</span>
+        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
+      </div>
+
       <StatGrid>
         <StatCard label="Active patients (twin)" value={twin.activePatients.toLocaleString()} sub="Live across all facilities" icon={Activity} tone="brand" trend="up" delay={0} />
         <StatCard label="Chronic care cohort" value={totalCohort.toLocaleString()} sub={`${popHealth.length} tracked conditions`} icon={Heart} tone="rose" trend="neutral" delay={0.05} />

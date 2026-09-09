@@ -6,10 +6,17 @@ const communicationMessageSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Sender of the message (doctor/admin); absent on system-generated notifications
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  // Groups messages into a conversation thread; derived from sorted participant IDs if not supplied
+  threadId: { type: String, index: true },
   channel: {
     type: String,
-    enum: ['SMS', 'WhatsApp', 'Email', 'Push'],
-    required: true
+    enum: ['SMS', 'WhatsApp', 'Email', 'Push', 'In-App'],
+    default: 'In-App',
   },
   templateId: { type: String },
   content: { type: String, required: true },

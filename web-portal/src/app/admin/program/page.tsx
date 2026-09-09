@@ -159,6 +159,11 @@ export default function EnterpriseProgramPage() {
         actions={<Badge tone="brand" dot>Phase 20 Complete</Badge>}
       />
 
+      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
+        <span>⚠</span>
+        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
+      </div>
+
       <StatGrid>
         <StatCard
           label="CI/CD build success"

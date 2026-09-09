@@ -208,6 +208,7 @@ export default function EnterpriseWorkflowStudioPage() {
             {activeWorkflow.name}
             <Badge tone="brand">v{activeWorkflow.version}.0 Published</Badge>
             {saveToast && <Badge tone="success" dot>Saved</Badge>}
+            {saveToast && <span className="text-xs font-normal text-warning">Note: Workflow definitions are not yet persisted. This feature is in preview.</span>}
           </span>
         }
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Workflow Builder' }]}
@@ -225,6 +226,11 @@ export default function EnterpriseWorkflowStudioPage() {
           </>
         }
       />
+
+      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
+        <span>⚠</span>
+        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
+      </div>
 
       {validationResult && (
         <motion.div

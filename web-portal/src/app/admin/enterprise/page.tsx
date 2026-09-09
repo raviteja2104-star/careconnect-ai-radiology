@@ -97,6 +97,11 @@ export default function EnterpriseIntegrationHubPage() {
         }
       />
 
+      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
+        <span>⚠</span>
+        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
+      </div>
+
       <StatGrid>
         <StatCard label="Platform uptime" value={`${health.uptimePct}%`} sub="Rolling 30-day availability" icon={Server} tone="emerald" trend="up" delay={0} />
         <StatCard label="CPU usage" value={`${health.cpuUsagePct}%`} sub="Cluster average" icon={Cpu} tone="brand" delay={0.05} />

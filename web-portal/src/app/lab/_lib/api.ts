@@ -541,6 +541,52 @@ export function postAmend(id: string, body: { reason: string } & ResultsPayload)
     });
 }
 
+/* ─── LIS v2 helpers (used by /lab/worklist inline result form) ─── */
+
+export interface LabWorklistParams {
+    status?: string;
+    category?: string;
+}
+
+/** Fetch worklist via the newer /api/lab/lis/worklist endpoint (supports `category` filter). */
+export async function fetchLabWorklist(params?: LabWorklistParams): Promise<WithDemo<WorklistItem[]>> {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.category) qs.set('category', params.category);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    try {
+        const body = await request<{ items?: WorklistItem[] } | WorklistItem[]>(`/api/lab/lis/worklist${suffix}`);
+        const items = Array.isArray(body) ? body : Array.isArray((body as { items?: WorklistItem[] }).items) ? (body as { items: WorklistItem[] }).items : [];
+        return { data: items, demo: false };
+    } catch (err) {
+        if (err instanceof ApiOfflineError) return { data: demoFilter(DEMO_ITEMS, params as WorklistQuery), demo: true };
+        throw err;
+    }
+}
+
+export interface SimpleResultBody {
+    result: string;
+    unit?: string;
+    referenceRange?: string;
+    notes?: string;
+}
+
+/** Submit a simplified single result value via PUT /api/lab/lis/:id/result. */
+export function submitLabResult(id: string, body: SimpleResultBody): Promise<WorklistItem> {
+    return request<WorklistItem>(`/api/lab/lis/${encodeURIComponent(id)}/result`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+    });
+}
+
+/** Update order status (PENDING → IN_PROGRESS → COMPLETED) via PUT /api/lab/lis/:id/status. */
+export function updateLabStatus(id: string, status: string): Promise<WorklistItem> {
+    return request<WorklistItem>(`/api/lab/lis/${encodeURIComponent(id)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    });
+}
+
 /* ───────────────────── Flags, ranges & entry checks ───────────────── */
 
 /** Parse a reference range of the shape "low – high" (any dash flavor). */

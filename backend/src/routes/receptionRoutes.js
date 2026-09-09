@@ -17,7 +17,7 @@ router.use(protect);
 router.route('/dashboard').get(authorize('admin', 'doctor', 'nurse', 'reception'), getDashboardStats);
 router.route('/doctors-status').get(authorize('admin', 'doctor', 'nurse', 'reception'), getDoctorsStatus);
 router.route('/appointments').get(authorize('admin', 'doctor', 'nurse', 'reception'), getAppointments);
-router.route('/checkin').post(authorize('admin', 'doctor', 'nurse'), checkinAppointment);
-router.route('/walkin').post(authorize('admin', 'doctor', 'nurse'), registerWalkIn);
+router.route('/checkin').post(authorize('admin', 'doctor', 'nurse', 'reception'), checkinAppointment);
+router.route('/walkin').post(authorize('admin', 'doctor', 'nurse', 'reception'), registerWalkIn);
 
 module.exports = router;

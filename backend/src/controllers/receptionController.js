@@ -149,10 +149,24 @@ exports.checkinAppointment = async (req, res) => {
 // @route   POST /api/reception/walkin
 exports.registerWalkIn = async (req, res) => {
   try {
-    const { patientName, phone, department, doctorId, priorityReason } = req.body;
-    
-    // In full app, create or find User account
-    
+    const { patientName, phone, age, gender, department, doctorId, priorityReason } = req.body;
+
+    // Create or find a User record for this walk-in patient
+    let patient = await User.findOne({ phone });
+    if (!patient) {
+      const nameParts = patientName.trim().split(/\s+/);
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || 'WalkIn';
+      patient = await User.create({
+        firstName,
+        lastName,
+        phone,
+        role: 'patient',
+        password: require('crypto').randomUUID(),
+        ...(gender && { gender }),
+      });
+    }
+
     // Generate Token
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -166,9 +180,10 @@ exports.registerWalkIn = async (req, res) => {
 
     const token = await QueueToken.create({
       tokenNumber,
+      patient: patient._id,
       patientName,
       department,
-      doctor: doctorId,
+      doctor: doctorId || undefined,
       priorityReason: priorityReason || 'Normal',
       priority,
       status: 'WAITING'
@@ -178,7 +193,7 @@ exports.registerWalkIn = async (req, res) => {
       req.app.get('io').emit('QUEUE_UPDATED', { department });
     }
 
-    res.status(201).json({ success: true, data: token });
+    res.status(201).json({ success: true, data: { ...token.toObject(), patientId: patient._id } });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }

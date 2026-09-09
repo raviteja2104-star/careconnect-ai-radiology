@@ -53,15 +53,15 @@ exports.getFinancials = async (req, res) => {
 
     const [totalRevResult, monthRevResult, pendingRevResult, invoiceCount] = await Promise.all([
       Invoice.aggregate([
-        { $match: { status: 'Completed' } },
+        { $match: { status: 'PAID' } },
         { $group: { _id: null, sum: { $sum: '$totalAmount' } } },
       ]),
       Invoice.aggregate([
-        { $match: { status: 'Completed', createdAt: { $gte: monthStart } } },
+        { $match: { status: 'PAID', createdAt: { $gte: monthStart } } },
         { $group: { _id: null, sum: { $sum: '$totalAmount' } } },
       ]),
       Invoice.aggregate([
-        { $match: { status: 'Pending' } },
+        { $match: { status: 'UNPAID' } },
         { $group: { _id: null, sum: { $sum: '$totalAmount' } } },
       ]),
       Invoice.countDocuments(),

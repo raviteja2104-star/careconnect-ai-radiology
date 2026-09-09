@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   getAnalytics,
   sendMessage,
-  getHistory
+  getHistory,
+  getThreads,
+  getThreadMessages,
 } = require('../controllers/communicationController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -11,7 +13,11 @@ const { protect, authorize } = require('../middleware/auth');
 router.use(protect);
 
 router.route('/analytics').get(getAnalytics);
-router.route('/send').post(authorize('doctor', 'admin'), sendMessage);
+router.route('/send').post(sendMessage);
 router.route('/history').get(getHistory);
+
+// Thread-structured endpoints used by the messaging UI
+router.route('/threads').get(getThreads);
+router.route('/threads/:threadId/messages').get(getThreadMessages);
 
 module.exports = router;

@@ -100,6 +100,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Telerad Command Center', path: '/teleradiology/command-center', icon: Radar, keywords: 'radiology tat sla network' },
             { name: 'Observability', path: '/admin/observability', icon: Gauge, keywords: 'slo traces metrics' },
             { name: 'Audit Log', path: '/admin/audit', icon: ShieldCheck, keywords: 'security hash chain compliance phi access' },
+            { name: 'Audit Logs', path: '/admin/audit-logs', icon: ShieldCheck, keywords: 'audit trail access log user activity ip paginated filter' },
             { name: 'System Health', path: '/admin/system/dashboard', icon: ServerCog, keywords: 'sysops cpu memory' },
             { name: 'Operations', path: '/admin/operations', icon: Factory, keywords: 'capacity' },
             { name: 'AI Operations', path: '/admin/operations/ai', icon: BrainCircuit, keywords: 'predictions queue ai' },

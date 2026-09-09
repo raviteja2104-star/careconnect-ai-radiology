@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { User, Phone, Stethoscope, CheckCircle, IndianRupee, Ticket, ShieldAlert } from 'lucide-react';
+import { User, Phone, Stethoscope, CheckCircle, IndianRupee, Ticket, ShieldAlert, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent,
@@ -29,17 +29,29 @@ function SectionHeading({ step, icon: Icon, title, description }: {
   );
 }
 
+interface TokenResult {
+  tokenNumber: string;
+  patientName: string;
+  department: string;
+  priorityReason: string;
+  patientId: string;
+  estimatedWaitMinutes?: number;
+}
+
+const INITIAL_FORM = {
+  patientName: '',
+  phone: '',
+  department: 'Cardiology',
+  doctorId: '',
+  priorityReason: 'Normal'
+};
+
 export default function WalkInRegistration() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState({
-    patientName: '',
-    phone: '',
-    department: 'Cardiology',
-    doctorId: '',
-    priorityReason: 'Normal'
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM);
+  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
 
   const { data: doctorsRes } = useQuery({
     queryKey: ['doctors', formData.department],
@@ -56,9 +68,10 @@ export default function WalkInRegistration() {
         body: JSON.stringify(data)
       }).then(res => res.json()),
     onSuccess: (res) => {
-      // In a real app, open print modal for the token
-      alert(`Token Generated: ${res.data.tokenNumber}`);
-      router.push('/reception/dashboard');
+      if (res.success && res.data) {
+        setTokenResult(res.data as TokenResult);
+        queryClient.invalidateQueries({ queryKey: ['reception-dashboard'] });
+      }
     }
   });
 
@@ -82,6 +95,59 @@ export default function WalkInRegistration() {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="xl:col-span-2"
         >
+          {tokenResult ? (
+            <Card>
+              <CardContent className="pt-8 pb-8">
+                <div className="flex flex-col items-center gap-6 text-center">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-success/10 text-success">
+                    <CheckCircle className="h-8 w-8" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-subtle-foreground mb-1">Token Generated</p>
+                    <p className="text-5xl font-bold tracking-tight tabular-nums text-foreground">{tokenResult.tokenNumber}</p>
+                  </div>
+                  <div className="w-full max-w-sm rounded-xl border border-border bg-muted/40 px-5 py-4 text-left space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Patient</span>
+                      <span className="font-medium text-foreground">{tokenResult.patientName}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Department</span>
+                      <span className="font-medium text-foreground">{tokenResult.department}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Priority</span>
+                      <Badge tone={tokenResult.priorityReason === 'Emergency' ? 'danger' : tokenResult.priorityReason === 'VIP' ? 'warning' : 'neutral'}>
+                        {tokenResult.priorityReason}
+                      </Badge>
+                    </div>
+                    {tokenResult.estimatedWaitMinutes != null && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Est. wait</span>
+                        <span className="font-medium text-foreground">{tokenResult.estimatedWaitMinutes} min</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => router.push('/reception/dashboard')}
+                    >
+                      Back to Dashboard
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => { setTokenResult(null); setFormData(INITIAL_FORM); }}
+                    >
+                      <PlusCircle className="h-4 w-4" aria-hidden />
+                      New Walk-in
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
           <Card>
             <CardContent className="pt-6">
               <form onSubmit={handleSubmit} className="space-y-8">
@@ -200,6 +266,7 @@ export default function WalkInRegistration() {
               </form>
             </CardContent>
           </Card>
+          )}
         </motion.div>
 
         {/* Context rail */}

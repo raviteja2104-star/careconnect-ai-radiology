@@ -70,9 +70,9 @@ const triggerAIAnalysis = async (scan) => {
             await scan.save();
         }
     } catch (e) {
-        scan.aiReport = { findings: 'AI analysis complete (fallback).', riskLevel: 'low', confidence: 0.87, detectedIssues: [], recommendations: ['No immediate concerns'], processedAt: new Date() };
-        scan.status = 'ai_completed';
-        scan.statusHistory.push({ status: 'ai_completed', notes: 'Fallback mode' });
+        scan.aiReport = { findings: 'AI analysis unavailable — manual radiologist review required.', riskLevel: 'UNANALYZED', confidence: null, requiresManualReview: true, fallbackUsed: true, detectedIssues: [], recommendations: [], processedAt: new Date() };
+        scan.status = 'PENDING_REVIEW';
+        scan.statusHistory.push({ status: 'PENDING_REVIEW', notes: 'AI service unreachable — manual review required' });
         await scan.save();
     }
 };

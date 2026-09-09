@@ -7,19 +7,55 @@ const SchedulingEngine = require('../services/SchedulingEngine');
 const TxRunner = require('../services/TxRunner');
 const { v4: uuidv4 } = require('uuid');
 
+const SPECIALTY_FALLBACK = [
+  { id: 'Cardiology', name: 'Cardiology', icon: 'Heart', desc: 'Heart and cardiovascular system' },
+  { id: 'Neurology', name: 'Neurology', icon: 'Brain', desc: 'Brain and nervous system' },
+  { id: 'Orthopedics', name: 'Orthopedics', icon: 'Activity', desc: 'Bones, joints, ligaments' },
+  { id: 'Pediatrics', name: 'Pediatrics', icon: 'Baby', desc: 'Child healthcare' },
+  { id: 'Ophthalmology', name: 'Ophthalmology', icon: 'Eye', desc: 'Eye and vision care' },
+  { id: 'General Medicine', name: 'General Medicine', icon: 'Stethoscope', desc: 'Primary healthcare' },
+];
+
+const SPECIALTY_META = {
+  Cardiology: { icon: 'Heart', desc: 'Heart and cardiovascular system' },
+  Neurology: { icon: 'Brain', desc: 'Brain and nervous system' },
+  Orthopedics: { icon: 'Activity', desc: 'Bones, joints, ligaments' },
+  Pediatrics: { icon: 'Baby', desc: 'Child healthcare' },
+  Ophthalmology: { icon: 'Eye', desc: 'Eye and vision care' },
+  'General Medicine': { icon: 'Stethoscope', desc: 'Primary healthcare' },
+  Dermatology: { icon: 'Stethoscope', desc: 'Skin, hair and nails' },
+  Gastroenterology: { icon: 'Activity', desc: 'Digestive system' },
+  Oncology: { icon: 'Stethoscope', desc: 'Cancer care' },
+  Psychiatry: { icon: 'Brain', desc: 'Mental health' },
+  Radiology: { icon: 'Eye', desc: 'Medical imaging' },
+  Urology: { icon: 'Stethoscope', desc: 'Urinary tract and male health' },
+};
+
 // @desc    Get specialties
 // @route   GET /api/appointments/specialties
 exports.getSpecialties = async (req, res) => {
   try {
-    const specialties = [
-      { id: 'Cardiology', name: 'Cardiology', icon: 'Heart', desc: 'Heart and cardiovascular system' },
-      { id: 'Neurology', name: 'Neurology', icon: 'Brain', desc: 'Brain and nervous system' },
-      { id: 'Orthopedics', name: 'Orthopedics', icon: 'Activity', desc: 'Bones, joints, ligaments' },
-      { id: 'Pediatrics', name: 'Pediatrics', icon: 'Baby', desc: 'Child healthcare' },
-      { id: 'Ophthalmology', name: 'Ophthalmology', icon: 'Eye', desc: 'Eye and vision care' },
-      { id: 'General Medicine', name: 'General Medicine', icon: 'Stethoscope', desc: 'Primary healthcare' },
-    ];
-    res.json({ success: true, data: specialties });
+    const isConnected = mongoose.connection.readyState === 1;
+    if (!isConnected) {
+      return res.json({ success: true, data: SPECIALTY_FALLBACK, source: 'fallback' });
+    }
+
+    const distinct = await DoctorProfile.distinct('specialty');
+
+    if (!distinct || distinct.length === 0) {
+      return res.json({ success: true, data: SPECIALTY_FALLBACK, source: 'fallback' });
+    }
+
+    const specialties = distinct
+      .filter(Boolean)
+      .map(s => ({
+        id: s,
+        name: s,
+        icon: SPECIALTY_META[s]?.icon || 'Stethoscope',
+        desc: SPECIALTY_META[s]?.desc || `${s} specialist`,
+      }));
+
+    res.json({ success: true, data: specialties, source: 'db' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

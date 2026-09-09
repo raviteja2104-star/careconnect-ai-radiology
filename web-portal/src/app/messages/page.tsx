@@ -93,17 +93,17 @@ export default function MessagesPage() {
   const [inputText, setInputText] = useState('');
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
 
-  const { data: channelsData, isLoading: channelsLoading } = useQuery({
-    queryKey: ['communication', 'channels'],
+  const { data: channelsData, isLoading: channelsLoading, isError: channelsError } = useQuery({
+    queryKey: ['communication', 'threads'],
     queryFn: () =>
-      fetch(`${API_BASE}/api/communication/history`, { headers: getAuthHeader() }).then(r => r.json()),
+      fetch(`${API_BASE}/api/communication/threads`, { headers: getAuthHeader() }).then(r => r.json()),
     staleTime: 60000,
   });
 
-  const { data: threadData, isLoading: threadLoading } = useQuery({
+  const { data: threadData, isLoading: threadLoading, isError: threadError } = useQuery({
     queryKey: ['communication', 'thread', activeChannel],
     queryFn: () =>
-      fetch(`${API_BASE}/api/communication/history?threadId=${activeChannel}`, { headers: getAuthHeader() }).then(r => r.json()),
+      fetch(`${API_BASE}/api/communication/threads/${activeChannel}/messages`, { headers: getAuthHeader() }).then(r => r.json()),
     enabled: !!activeChannel,
     staleTime: 30000,
   });
@@ -118,7 +118,7 @@ export default function MessagesPage() {
     onSuccess: () => {
       setOptimisticMessages([]);
       queryClient.invalidateQueries({ queryKey: ['communication', 'thread', activeChannel] });
-      queryClient.invalidateQueries({ queryKey: ['communication', 'channels'] });
+      queryClient.invalidateQueries({ queryKey: ['communication', 'threads'] });
     },
   });
 
@@ -197,6 +197,13 @@ export default function MessagesPage() {
                 <SkeletonCard />
                 <SkeletonCard />
               </div>
+            ) : channelsError ? (
+              <EmptyState
+                icon={MessageCircle}
+                title="Could not load threads"
+                description="Unable to reach the messaging service. Please refresh."
+                className="p-8"
+              />
             ) : rawChannels.length === 0 ? (
               <EmptyState
                 icon={MessageCircle}
@@ -292,6 +299,12 @@ export default function MessagesPage() {
               <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto bg-muted/20 p-6">
                 {threadLoading ? (
                   <SkeletonCard />
+                ) : threadError ? (
+                  <EmptyState
+                    icon={MessageCircle}
+                    title="Could not load messages"
+                    description="Unable to fetch this thread. Please try again."
+                  />
                 ) : messages.length === 0 ? (
                   <EmptyState
                     icon={MessageCircle}
