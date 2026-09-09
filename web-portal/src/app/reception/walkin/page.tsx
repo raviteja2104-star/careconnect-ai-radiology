@@ -61,12 +61,17 @@ export default function WalkInRegistration() {
   const doctors = doctorsRes?.data || [];
 
   const registerMutation = useMutation({
-    mutationFn: (data: object) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/walkin`, {
+    mutationFn: (data: object) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/reception/walkin`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(data)
-      }).then(res => res.json()),
+      }).then(res => res.json());
+    },
     onSuccess: (res) => {
       if (res.success && res.data) {
         setTokenResult(res.data as TokenResult);

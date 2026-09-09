@@ -63,9 +63,23 @@ router.post('/orders', protect, async (req, res, next) => {
         if (!isDB()) {
             return res.status(503).json({ success: false, message: 'Database unavailable' });
         }
-        const { patientId, doctorId, prescriptionId, medicines, items, amount } = req.body;
+        const { patientId, patientName, patientPhone, doctorId, prescriptionId, medicines, items, amount, orderId } = req.body;
+        // Resolve patient info from DB if not provided
+        let resolvedPatientName = patientName;
+        let resolvedPatientPhone = patientPhone;
+        if ((!resolvedPatientName || !resolvedPatientPhone) && patientId) {
+            const User = require('../models/User');
+            const patient = await User.findById(patientId).select('firstName lastName phone fullName').lean();
+            if (patient) {
+                resolvedPatientName = resolvedPatientName || patient.fullName || `${patient.firstName} ${patient.lastName}`.trim();
+                resolvedPatientPhone = resolvedPatientPhone || patient.phone || '';
+            }
+        }
         const order = await PharmacyOrder.create({
+            orderId: orderId || `RX-${Date.now()}`,
             patientId: patientId || req.user._id,
+            patientName: resolvedPatientName || 'Unknown Patient',
+            patientPhone: resolvedPatientPhone || '',
             doctorId: doctorId || null,
             prescriptionId: prescriptionId || null,
             medicines,
