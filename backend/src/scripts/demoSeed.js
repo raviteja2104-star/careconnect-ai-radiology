@@ -138,18 +138,14 @@ const DEMO_USERS = [
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
-async function hashPassword(plain) {
-    return bcrypt.hash(plain, 12);
-}
-
 async function upsertUser(data) {
-    const { rbacRole, password: _pw, ...fields } = data;
-    fields.password = await hashPassword(DEMO_PASSWORD);
+    const { rbacRole, ...fields } = data;
+    // Pass plain-text password — Mongoose pre-save hook hashes it on save/create
+    fields.password = DEMO_PASSWORD;
 
     let user = await User.findOne({ email: fields.email });
     if (user) {
         Object.assign(user, fields);
-        user.password = fields.password;
         await user.save();
         console.log(`  ↻  Updated  ${fields.email}`);
     } else {
