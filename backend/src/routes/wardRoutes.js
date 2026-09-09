@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const c = require('../controllers/wardController');
 
 router.use(protect);
@@ -11,6 +11,6 @@ router.get('/nursing',   c.getNursing);
 router.get('/icu',       c.getICU);
 router.get('/ot',        c.getOT);
 router.get('/ems',       c.getEMS);
-router.patch('/discharge/:patientId', c.dischargePatient);
+router.patch('/discharge/:patientId', authorize('admin', 'doctor', 'nurse'), c.dischargePatient);
 
 module.exports = router;

@@ -42,7 +42,7 @@ router.route('/:patientId/wallet').get(
 );
 
 // Lookup by MRN / QR / name — reception staff use this for the QR check-in flow
-router.get('/lookup', permitAny('STAFF.MANAGE_RECORDS', 'DOCTOR.VIEW_PATIENTS', 'RECEPTIONIST.CHECK_IN'), lookupPatient);
+router.get('/lookup', permitAny('STAFF.MANAGE_RECORDS', 'DOCTOR.VIEW_PATIENTS', 'STAFF.CHECKIN_PATIENTS'), lookupPatient);
 
 router.get('/family', getFamilyMembers);
 router.post('/family', addFamilyMember);

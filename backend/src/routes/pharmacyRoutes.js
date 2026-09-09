@@ -58,7 +58,7 @@ router.get('/orders', protect, async (req, res, next) => {
 });
 
 // ── POST /orders — create a new pharmacy order ────────────────────────────────
-router.post('/orders', protect, async (req, res, next) => {
+router.post('/orders', protect, authorize('admin', 'doctor', 'pharmacist', 'nurse'), async (req, res, next) => {
     try {
         if (!isDB()) {
             return res.status(503).json({ success: false, message: 'Database unavailable' });
@@ -96,7 +96,7 @@ router.post('/orders', protect, async (req, res, next) => {
 });
 
 // ── PUT /orders/:id/status — update order status ──────────────────────────────
-router.put('/orders/:id/status', protect, async (req, res, next) => {
+router.put('/orders/:id/status', protect, authorize('admin', 'pharmacist', 'doctor'), async (req, res, next) => {
     try {
         if (!isDB()) {
             return res.status(503).json({ success: false, message: 'Database unavailable' });
@@ -181,7 +181,7 @@ router.get('/stats', protect, async (req, res, next) => {
 });
 
 // PATCH /api/pharmacy/queue/:rxId/dispense
-router.patch('/queue/:rxId/dispense', protect, async (req, res, next) => {
+router.patch('/queue/:rxId/dispense', protect, authorize('admin', 'pharmacist'), async (req, res, next) => {
     try {
         const { rxId } = req.params;
         if (!isDB()) {

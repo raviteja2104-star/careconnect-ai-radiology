@@ -64,7 +64,7 @@ export const LOGIN_PORTALS: LoginPortal[] = [
         headline: 'The hospital, moving as one.',
         sub: 'Front desk, diagnostics, dispensing and emergency response on a shared operational backbone.',
         icon: MonitorPlay,
-        roles: ['reception', 'lab_tech', 'pharmacist', 'emergency'],
+        roles: ['reception', 'lab_tech', 'pharmacist', 'nurse', 'emergency'],
         allowRegister: false,
         tile: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
     },
