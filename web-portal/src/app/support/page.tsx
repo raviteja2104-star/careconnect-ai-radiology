@@ -209,11 +209,10 @@ export default function SupportPage() {
                   <p className="text-xs text-muted-foreground">We respond within 24 hours</p>
                 </div>
               </div>
-              <Button className="w-full" asChild>
-                <a href="mailto:support@careconnect.health">
-                  <MessageCircle className="h-4 w-4" aria-hidden /> Email us
-                </a>
-              </Button>
+              <a href="mailto:support@careconnect.health"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors">
+                <MessageCircle className="h-4 w-4" aria-hidden /> Email us
+              </a>
             </CardContent>
           </Card>
 
