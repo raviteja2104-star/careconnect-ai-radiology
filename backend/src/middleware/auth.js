@@ -22,9 +22,15 @@ const protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const resolvedId = decoded.id || decoded._id || decoded.userId;
 
-        // ── Offline fallback ──────────────────────────────────────────────────────
+        // ── Ensure DB connection (Vercel serverless cold-start) ───────────────────
         if (!isDBConnected()) {
-            return res.status(503).json({ success: false, message: 'Service temporarily unavailable. Please try again.' });
+            try {
+                const connectDB = require('../config/database');
+                await connectDB();
+            } catch (_) { /* ignore — readyState check below is the gate */ }
+            if (!isDBConnected()) {
+                return res.status(503).json({ success: false, message: 'Service temporarily unavailable. Please try again.' });
+            }
         }
 
         // ── Normal DB mode ────────────────────────────────────────────────────────
