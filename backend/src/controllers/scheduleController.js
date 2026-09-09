@@ -1,4 +1,5 @@
 const DoctorSchedule = require('../models/DoctorSchedule');
+const DoctorProfile  = require('../models/DoctorProfile');
 const SchedulingEngine = require('../services/SchedulingEngine');
 
 // @desc    Get schedule for a doctor
@@ -66,7 +67,8 @@ exports.getDoctorSlots = async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ success: false, error: 'date query param required (YYYY-MM-DD)' });
 
-    const slots = await SchedulingEngine.getAvailableSlots(doctorId, date);
+    const profile = await DoctorProfile.findOne({ user: doctorId }).select('hospital').lean();
+    const slots = await SchedulingEngine.getAvailableSlots(doctorId, date, profile?.hospital);
     res.json({ success: true, data: slots, date });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

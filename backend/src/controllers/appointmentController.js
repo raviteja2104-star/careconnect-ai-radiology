@@ -143,12 +143,16 @@ exports.getAvailability = async (req, res) => {
   try {
     const { id } = req.params;
     const { date } = req.query;
-    
+
     if (!date) {
       return res.status(400).json({ success: false, error: 'Date is required' });
     }
 
-    const availableSlots = await SchedulingEngine.getAvailableSlots(id, date);
+    // Look up the doctor's hospital so SchedulingEngine can find the correct schedule
+    const profile = await DoctorProfile.findOne({ user: id }).select('hospital').lean();
+    const hospital = profile?.hospital;
+
+    const availableSlots = await SchedulingEngine.getAvailableSlots(id, date, hospital);
     res.json({ success: true, data: availableSlots });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
