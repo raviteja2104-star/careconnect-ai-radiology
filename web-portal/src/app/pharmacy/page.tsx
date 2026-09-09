@@ -30,7 +30,7 @@ function relativeTime(dateStr: string): string {
 }
 
 type RxItem = {
-  rxId: string;
+  orderId: string;
   patientName: string;
   doctorName: string;
   createdAt: string;
@@ -138,11 +138,11 @@ export default function PharmacyDashboard() {
 
   const queueColumns: Column<RxItem>[] = [
     {
-      key: 'rxId',
-      header: 'Rx ID',
+      key: 'orderId',
+      header: 'Order ID',
       sortable: true,
-      accessor: r => r.rxId,
-      cell: r => <span className="text-sm font-bold text-foreground">{r.rxId}</span>,
+      accessor: r => r.orderId,
+      cell: r => <span className="text-sm font-bold text-foreground">{r.orderId}</span>,
     },
     {
       key: 'patient',
@@ -293,10 +293,10 @@ export default function PharmacyDashboard() {
                   ) : (
                     <div className="space-y-3">
                       {queue.filter(r => r.aiFlag).map(rx => (
-                        <div key={rx.rxId} className="rounded-xl border border-danger/30 bg-danger-soft p-3">
+                        <div key={rx.orderId} className="rounded-xl border border-danger/30 bg-danger-soft p-3">
                           <div className="mb-1 flex items-start justify-between">
                             <span className="text-xs font-bold text-danger">Drug Interaction Flag</span>
-                            <span className="font-mono text-xs text-danger/80">{rx.rxId}</span>
+                            <span className="font-mono text-xs text-danger/80">{rx.orderId}</span>
                           </div>
                           <p className="mb-2 text-xs text-foreground">{rx.aiMsg ?? 'Potential drug interaction detected — pharmacist review required.'}</p>
                           <button
@@ -338,13 +338,13 @@ export default function PharmacyDashboard() {
                       {queue.filter(r => r.status === 'Ready').map((rx, i) => (
                         <li key={i} className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/40">
                           <div>
-                            <p className="text-sm font-bold text-foreground">{rx.rxId}</p>
+                            <p className="text-sm font-bold text-foreground">{rx.orderId}</p>
                             <p className="text-xs text-muted-foreground">{rx.patientName} · {rx.items.length} item{rx.items.length !== 1 ? 's' : ''}</p>
                           </div>
                           <Button
                             size="sm"
                             disabled={dispenseMutation.isPending}
-                            onClick={() => dispenseMutation.mutate(rx.rxId)}
+                            onClick={() => dispenseMutation.mutate(rx.orderId)}
                           >
                             Dispense
                           </Button>
@@ -370,7 +370,7 @@ export default function PharmacyDashboard() {
             <DataTable<RxItem>
               columns={queueColumns}
               data={queue}
-              rowKey={(r) => r.rxId}
+              rowKey={(r) => r.orderId}
               searchPlaceholder="Search Rx ID or Patient..."
               exportName="prescription-queue"
               emptyTitle="No prescriptions in queue"
@@ -384,12 +384,12 @@ export default function PharmacyDashboard() {
                     <Button
                       size="sm"
                       disabled={dispenseMutation.isPending}
-                      onClick={() => dispenseMutation.mutate(rx.rxId)}
+                      onClick={() => dispenseMutation.mutate(rx.orderId)}
                     >
                       Dispense
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.rxId}`} disabled title="Print">
+                  <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.orderId}`} disabled title="Print">
                     <Printer className="h-4 w-4" />
                   </Button>
                 </div>

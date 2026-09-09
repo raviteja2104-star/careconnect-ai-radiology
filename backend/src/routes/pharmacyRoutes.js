@@ -189,7 +189,7 @@ router.patch('/queue/:rxId/dispense', protect, authorize('admin', 'pharmacist'),
         }
         const PharmacyOrder = require('../models/PharmacyOrder');
         const order = await PharmacyOrder.findOneAndUpdate(
-            { rxId, status: { $ne: 'Dispensed' } },
+            { orderId: rxId, status: { $ne: 'Dispensed' } },
             { status: 'Dispensed', dispensedAt: new Date() },
             { new: true }
         );
