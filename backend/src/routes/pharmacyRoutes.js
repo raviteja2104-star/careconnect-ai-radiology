@@ -134,7 +134,7 @@ router.get('/prescriptions', protect, async (req, res, next) => {
         const rxs = await Prescription.find({ status: { $in: ['active', 'pending'] } })
             .sort({ createdAt: -1 })
             .limit(20)
-            .populate('matchedCatalogEntryId', 'name')
+            .populate({ path: 'matchedCatalogEntryId', select: 'name', strictPopulate: false })
             .lean();
         res.json({ success: true, data: rxs });
     } catch (err) { next(err); }
