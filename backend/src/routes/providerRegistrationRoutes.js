@@ -40,12 +40,7 @@ router.post('/register', async (req, res) => {
         }
 
         if (!isDB()) {
-            // Demo mode — return a fake registration token
-            const demoToken = `demo_reg_${Date.now()}`;
-            return res.status(201).json({
-                success: true, demo: true,
-                data: { id: `draft_${Date.now()}`, token: demoToken, status: 'DRAFT', step: step || 1 },
-            });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         const Model = getModel();
@@ -103,7 +98,7 @@ router.post('/register', async (req, res) => {
 router.put('/register/:id', async (req, res) => {
     try {
         const { token, step, ...fields } = req.body;
-        if (!isDB()) return res.json({ success: true, demo: true, data: { status: 'DRAFT', step } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
 
         const Model = getModel();
         const reg = await Model.findOne({ _id: req.params.id, token });
@@ -127,7 +122,7 @@ router.put('/register/:id', async (req, res) => {
 router.get('/register/:id', async (req, res) => {
     try {
         const { token } = req.query;
-        if (!isDB()) return res.json({ success: true, demo: true, data: { status: 'DRAFT' } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
 
         const Model = getModel();
         const reg = await Model.findOne({ _id: req.params.id, token }).lean();
@@ -158,7 +153,7 @@ router.get('/register/:id', async (req, res) => {
 router.post('/register/:id/submit', async (req, res) => {
     try {
         const { token } = req.body;
-        if (!isDB()) return res.json({ success: true, demo: true, data: { status: 'SUBMITTED' } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
 
         const Model = getModel();
         const reg = await Model.findOne({ _id: req.params.id, token });
@@ -217,7 +212,7 @@ const { protect, authorize } = require('../middleware/auth');
 // ── GET /api/provider/admin/registrations — list all registrations ────────────
 router.get('/admin/registrations', protect, authorize('admin'), async (req, res) => {
     try {
-        if (!isDB()) return res.json({ success: true, demo: true, data: [] });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const { status, page = '1', limit = '20' } = req.query;
         const Model = getModel();
         const filter = {};
@@ -236,7 +231,7 @@ router.get('/admin/registrations', protect, authorize('admin'), async (req, res)
 // ── GET /api/provider/admin/registrations/:id — get one registration ──────────
 router.get('/admin/registrations/:id', protect, authorize('admin'), async (req, res) => {
     try {
-        if (!isDB()) return res.json({ success: true, demo: true, data: null });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const reg = await getModel().findById(req.params.id).lean();
         if (!reg) return res.status(404).json({ success: false, message: 'Registration not found.' });
         return res.json({ success: true, data: reg });
@@ -248,7 +243,7 @@ router.get('/admin/registrations/:id', protect, authorize('admin'), async (req, 
 // ── POST /api/provider/admin/registrations/:id/approve — approve and create Provider ──
 router.post('/admin/registrations/:id/approve', protect, authorize('admin'), async (req, res) => {
     try {
-        if (!isDB()) return res.json({ success: true, demo: true, data: { status: 'APPROVED' } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const Model = getModel();
         const reg = await Model.findById(req.params.id);
         if (!reg) return res.status(404).json({ success: false, message: 'Registration not found.' });
@@ -315,7 +310,7 @@ router.post('/admin/registrations/:id/approve', protect, authorize('admin'), asy
 // ── POST /api/provider/admin/registrations/:id/reject — reject ────────────────
 router.post('/admin/registrations/:id/reject', protect, authorize('admin'), async (req, res) => {
     try {
-        if (!isDB()) return res.json({ success: true, demo: true, data: { status: 'REJECTED' } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const Model = getModel();
         const reg = await Model.findById(req.params.id);
         if (!reg) return res.status(404).json({ success: false, message: 'Registration not found.' });
@@ -353,7 +348,7 @@ router.post('/admin/registrations/:id/reject', protect, authorize('admin'), asyn
 // ── POST /api/provider/admin/registrations/:id/needs-changes — request changes ─
 router.post('/admin/registrations/:id/needs-changes', protect, authorize('admin'), async (req, res) => {
     try {
-        if (!isDB()) return res.json({ success: true, demo: true, data: { status: 'NEEDS_CHANGES' } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const { notes } = req.body;
         if (!notes) return res.status(400).json({ success: false, message: 'notes (reason) is required.' });
         const Model = getModel();

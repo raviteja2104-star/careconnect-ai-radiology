@@ -6,27 +6,12 @@ const User = require('../models/User');
 
 const isDB = () => { const m = require('mongoose'); return m.connection.readyState === 1; };
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_QUEUE = [
-    { _id: 'cc-001', scanId: 'CC-001', patientName: 'Ravi Teja', age: 31, scanType: 'CT', bodyPart: 'Head', priority: 'emergency', status: 'pending', aiRisk: 'high', aiConf: 0.96, finding: 'Subdural Hematoma', centre: 'Apollo Diagnostics', receivedAt: new Date(Date.now() - 300000), tat: 30 },
-    { _id: 'cc-002', scanId: 'CC-002', patientName: 'Priya Sharma', age: 45, scanType: 'MRI', bodyPart: 'Spine', priority: 'urgent', status: 'in_review', aiRisk: 'medium', aiConf: 0.82, finding: 'Disc Herniation L4-L5', centre: 'Yashoda Hospitals', receivedAt: new Date(Date.now() - 1320000), tat: 120 },
-    { _id: 'cc-003', scanId: 'CC-003', patientName: 'Amit Kumar', age: 58, scanType: 'X-Ray', bodyPart: 'Chest', priority: 'normal', status: 'pending', aiRisk: 'low', aiConf: 0.78, finding: 'Normal Study', centre: 'KIMS Diagnostics', receivedAt: new Date(Date.now() - 3600000), tat: 240 },
-];
-
 // ── GET /worklist  — radiologist smart queue ──────────────────────────────────
 router.get('/worklist', protect, async (req, res, next) => {
     try {
         const { priority, status, page = 1, limit = 20 } = req.query;
         if (!isDB()) {
-            let q = [...MOCK_QUEUE];
-            if (priority) q = q.filter(c => c.priority === priority);
-            if (status) q = q.filter(c => c.status === status);
-            // Sort: emergency first, then by receivedAt
-            q.sort((a, b) => {
-                const pOrder = { emergency: 0, urgent: 1, normal: 2 };
-                return (pOrder[a.priority] - pOrder[b.priority]) || (new Date(a.receivedAt) - new Date(b.receivedAt));
-            });
-            return res.json({ success: true, data: q, total: q.length, page: 1, pages: 1 });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
         const filter = {};
         if (priority) filter.priority = priority;
@@ -55,11 +40,7 @@ router.post('/submit', protect, authorize('doctor', 'admin', 'radiologist'), asy
         const tat = { emergency: 30, urgent: 120, normal: 360 }[priority] || 360;
 
         if (!isDB()) {
-            return res.status(201).json({
-                success: true,
-                message: 'Case submitted. AI analysis initiated.',
-                data: { caseId, scanId: caseId, patientName: `${patientFirstName} ${patientLastName}`, scanType, bodyPart, priority, status: 'pending', tatMinutes: tat, createdAt: new Date() },
-            });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         const scan = await RadiologyScan.create({
@@ -82,8 +63,7 @@ router.post('/submit', protect, authorize('doctor', 'admin', 'radiologist'), asy
 router.get('/worklist/:id', protect, async (req, res, next) => {
     try {
         if (!isDB()) {
-            const c = MOCK_QUEUE.find(q => q._id === req.params.id || q.scanId === req.params.id);
-            return c ? res.json({ success: true, data: c }) : res.status(404).json({ success: false, message: 'Case not found' });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
         const scan = await RadiologyScan.findById(req.params.id).populate('patientId').populate('assignedRadiologist', 'firstName lastName specialization');
         if (!scan) return res.status(404).json({ success: false, message: 'Scan not found' });
@@ -95,7 +75,7 @@ router.get('/worklist/:id', protect, async (req, res, next) => {
 router.put('/worklist/:id/assign', protect, authorize('admin', 'radiologist'), async (req, res, next) => {
     try {
         const { radiologistId } = req.body;
-        if (!isDB()) return res.json({ success: true, message: 'Case assigned (demo).' });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const scan = await RadiologyScan.findByIdAndUpdate(req.params.id, { assignedRadiologist: radiologistId, status: 'assigned', assignedAt: new Date() }, { new: true });
         if (!scan) return res.status(404).json({ success: false, message: 'Case not found' });
         req.io?.emit('case_assigned', { scanId: scan.scanId, radiologistId });
@@ -107,7 +87,7 @@ router.put('/worklist/:id/assign', protect, authorize('admin', 'radiologist'), a
 router.put('/worklist/:id/report', protect, authorize('radiologist', 'doctor', 'admin'), async (req, res, next) => {
     try {
         const { findings, impression, recommendations, riskLevel, notes, action } = req.body;
-        if (!isDB()) return res.json({ success: true, message: `Report ${action}d (demo).`, data: { status: action === 'approve' ? 'approved' : 'rejected', findings, impression } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'reported';
         const scan = await RadiologyScan.findByIdAndUpdate(req.params.id, {
             finalReport: { findings, impression, recommendations, riskLevel, notes, reviewedBy: req.user._id, reviewedAt: new Date() },
