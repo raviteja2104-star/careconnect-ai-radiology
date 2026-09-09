@@ -70,6 +70,8 @@ function mapApiAppointment(raw: RawAppointment): AppointmentData {
   const dateStr = raw.date ? new Date(raw.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const statusMap: Record<string, AppointmentData['status']> = {
     scheduled: 'Upcoming', confirmed: 'Upcoming', upcoming: 'Upcoming', booked: 'Upcoming',
+    checked_in: 'Upcoming', waiting: 'Upcoming', vitals: 'Upcoming',
+    doctor_ready: 'Upcoming', in_consultation: 'Upcoming',
     completed: 'Completed', done: 'Completed',
     cancelled: 'Cancelled', canceled: 'Cancelled',
   };

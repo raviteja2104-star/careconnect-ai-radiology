@@ -1,10 +1,10 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronRight, ArrowLeft, Activity, Heart, Eye, Brain, Stethoscope, Baby,
-  MapPin, Clock, Calendar as CalendarIcon, Video, CheckCircle, ShieldCheck, Star,
+  MapPin, Clock, Calendar as CalendarIcon, Video, CheckCircle, ShieldCheck, Star, AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -34,6 +34,13 @@ export default function BookAppointmentPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
+  const [bookingError, setBookingError] = useState('');
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    setAuthed(!!token);
+  }, []);
 
   // Form State
   const [specialty, setSpecialty] = useState('');
@@ -67,20 +74,27 @@ export default function BookAppointmentPage() {
 
   // Mutation
   const bookMutation = useMutation({
-    mutationFn: (bookingData: unknown) => {
+    mutationFn: async (bookingData: unknown) => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      return fetch(`${API_BASE}/appointments`, {
+      const res = await fetch(`${API_BASE}/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(bookingData)
-      }).then(res => res.json());
+        body: JSON.stringify(bookingData),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || json.error || 'Booking failed. Please try again.');
+      return json;
     },
     onSuccess: () => {
+      setBookingError('');
       setStep(6);
-    }
+    },
+    onError: (err: Error) => {
+      setBookingError(err.message);
+    },
   });
 
   const specialties = specialtiesRes?.data || [];
@@ -112,6 +126,17 @@ export default function BookAppointmentPage() {
   const selectedDoctor = doctors.find((d: any) => d._id === doctor);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectedSpecialty = specialties.find((s: any) => s.id === specialty);
+
+  if (authed === false) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+        <ShieldCheck className="h-12 w-12 text-muted-foreground/40" />
+        <h2 className="text-xl font-semibold text-foreground">Sign in to book an appointment</h2>
+        <p className="max-w-sm text-sm text-muted-foreground">You need to be logged in as a patient to book appointments.</p>
+        <Button onClick={() => router.push('/login')}>Sign In</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -291,7 +316,11 @@ export default function BookAppointmentPage() {
                                   <Star className="h-3 w-3 fill-current" aria-hidden />
                                   {doc.rating}
                                 </Badge>
-                                <Badge tone="brand">Next: {doc.nextSlot}</Badge>
+                                {doc.consultationFee ? (
+                                  <Badge tone="brand">₹{doc.consultationFee} / visit</Badge>
+                                ) : (
+                                  <Badge tone="neutral">{doc.exp}</Badge>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -533,6 +562,13 @@ export default function BookAppointmentPage() {
                       <span className="mt-1 block text-xs text-muted-foreground">Automatically verify coverage before billing.</span>
                     </span>
                   </label>
+
+                  {bookingError && (
+                    <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      {bookingError}
+                    </div>
+                  )}
 
                   <Button
                     size="lg"

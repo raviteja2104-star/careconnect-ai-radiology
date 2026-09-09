@@ -92,6 +92,8 @@ exports.getDoctors = async (req, res) => {
           rating: p.rating || 4.5,
           experienceYears: p.experienceYears || 0,
           exp: `${p.experienceYears || 0} Yrs`,
+          consultationFee: p.consultationFee || 0,
+          consultationType: p.consultationType || 'In-Person',
           room: p.room || '',
           isActive: p.user?.isActive !== false,
           image: p.user?.profilePicture || null,
@@ -392,11 +394,23 @@ exports.getAppointments = async (req, res) => {
 
     const appointments = await Appointment
       .find(filter)
-      .populate('doctor', 'firstName lastName email specialization')
+      .populate('doctor', 'firstName lastName email specialization profilePicture hospital department')
       .sort({ date: 1 })
       .lean();
 
-    res.json({ success: true, data: appointments });
+    const formatted = appointments.map(a => ({
+      ...a,
+      doctor: a.doctor
+        ? {
+            ...a.doctor,
+            name: `${a.doctor.firstName} ${a.doctor.lastName}`.trim(),
+            specialty: a.specialty || a.doctor.specialization || '',
+            image: a.doctor.profilePicture || null,
+          }
+        : null,
+    }));
+
+    res.json({ success: true, data: formatted });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
