@@ -61,43 +61,73 @@ exports.getSpecialties = async (req, res) => {
   }
 };
 
-// @desc    Get doctors by specialty
-// @route   GET /api/appointments/doctors?specialty=Cardiology
+// @desc    Get doctors with optional filters
+// @route   GET /api/appointments/doctors?specialty=&hospital=&department=&status=
 exports.getDoctors = async (req, res) => {
   try {
-    const { specialty } = req.query;
-    let query = {};
-    if (specialty) {
-      query.specialty = specialty;
-    }
-    
-    const profiles = await DoctorProfile.find(query).populate('user', 'firstName lastName profilePicture');
+    const { specialty, hospital, department, status } = req.query;
+    const profileQuery = {};
+    if (specialty) profileQuery.specialty = specialty;
+    if (hospital) profileQuery.hospital = hospital;
+    if (department) profileQuery.department = department;
+
+    const profiles = await DoctorProfile.find(profileQuery)
+      .populate('user', 'firstName lastName profilePicture isActive specialization department hospital gender phone email')
+      .lean();
 
     if (profiles.length > 0) {
-      const formatted = profiles.map(p => ({
-        _id: p.user?._id || p._id,
-        name: p.user ? `${p.user.firstName} ${p.user.lastName}` : p.name,
-        specialty: p.specialty,
-        rating: p.rating || 4.5,
-        exp: `${p.experienceYears || 0} Yrs`,
-        nextSlot: 'Today, Available',
-        image: p.user?.profilePicture || null,
-      }));
+      const formatted = profiles
+        .filter(p => {
+          if (status === 'active') return p.user?.isActive !== false;
+          if (status === 'inactive') return p.user?.isActive === false;
+          return true;
+        })
+        .map(p => ({
+          _id: p.user?._id || p._id,
+          profileId: p._id,
+          name: p.user ? `${p.user.firstName} ${p.user.lastName}` : 'Unknown',
+          specialty: p.specialty,
+          department: p.department || p.user?.department || '',
+          hospital: p.hospital || p.user?.hospital || 'CareConnect Main Hospital',
+          rating: p.rating || 4.5,
+          experienceYears: p.experienceYears || 0,
+          exp: `${p.experienceYears || 0} Yrs`,
+          room: p.room || '',
+          isActive: p.user?.isActive !== false,
+          image: p.user?.profilePicture || null,
+          phone: p.user?.phone || '',
+          email: p.user?.email || '',
+          gender: p.user?.gender || '',
+        }));
       return res.json({ success: true, data: formatted });
     }
 
-    // Fall back to User collection (real doctors in the system)
-    const userQuery = { role: 'doctor', isActive: true };
+    // Fallback: User collection
+    const userQuery = { role: 'doctor' };
+    if (status === 'active') userQuery.isActive = true;
+    if (status === 'inactive') userQuery.isActive = false;
     if (specialty) userQuery.specialization = specialty;
-    const doctors = await User.find(userQuery).select('firstName lastName specialization consultationFee rating').lean();
+    if (hospital) userQuery.hospital = hospital;
+    if (department) userQuery.department = department;
+    const doctors = await User.find(userQuery)
+      .select('firstName lastName specialization department hospital consultationFee rating isActive phone email gender')
+      .lean();
     const formatted = doctors.map(d => ({
       _id: d._id,
+      profileId: null,
       name: `${d.firstName} ${d.lastName}`,
       specialty: d.specialization || 'General Medicine',
+      department: d.department || '',
+      hospital: d.hospital || 'CareConnect Main Hospital',
       rating: d.rating || 4.5,
-      exp: d.experience ? `${d.experience} Yrs` : 'N/A',
-      nextSlot: 'Today, Available',
+      experienceYears: 0,
+      exp: 'N/A',
+      room: '',
+      isActive: d.isActive !== false,
       image: null,
+      phone: d.phone || '',
+      email: d.email || '',
+      gender: d.gender || '',
     }));
     res.json({ success: true, data: formatted });
   } catch (error) {

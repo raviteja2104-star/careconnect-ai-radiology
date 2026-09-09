@@ -7,30 +7,22 @@ const doctorProfileSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  specialty: {
+  specialty: { type: String, required: true },
+  department: { type: String, default: '' },
+  hospital: { type: String, default: 'CareConnect Main Hospital' },
+  qualification: { type: String, default: '' },
+  experienceYears: { type: Number, default: 0 },
+  consultationFee: { type: Number, default: 0 },
+  medicalRegNumber: { type: String, default: '' },
+  consultationType: {
     type: String,
-    required: true
+    enum: ['In-Person', 'Telemedicine', 'Both'],
+    default: 'In-Person'
   },
-  experienceYears: {
-    type: Number,
-    default: 0
-  },
-  rating: {
-    type: Number,
-    default: 5.0
-  },
-  hospital: {
-    type: String,
-    default: 'CareConnect Main Hospital'
-  },
-  room: {
-    type: String
-  },
+  room: { type: String, default: '' },
+  rating: { type: Number, default: 5.0 },
   availability: [{
-    dayOfWeek: {
-      type: String, // e.g., 'Monday'
-      required: true
-    },
+    dayOfWeek: { type: String, required: true },
     slots: [{
       time: String,
       isBooked: { type: Boolean, default: false }
