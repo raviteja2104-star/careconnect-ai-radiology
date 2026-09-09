@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import type { Metadata } from 'next';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/components/providers/SessionProvider';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,26 +12,6 @@ import {
     Star, Heart, Brain, Eye, Baby, Bone, Zap, Menu, X, Globe,
     ShieldCheck, Clock, BadgeCheck, BarChart3, Home as HomeIcon,
 } from 'lucide-react';
-
-// NOTE: metadata exports are only consumed by Next.js in server components.
-// This page is a client component ('use client'). For the metadata to be
-// picked up, add a server-side layout.tsx or wrapper around this page.
-export const metadata: Metadata = {
-    title: 'CareConnect — Healthcare Operating System',
-    description: 'Find doctors, book appointments, access health records, and consult online. India\'s most comprehensive digital health platform.',
-    openGraph: {
-        title: 'CareConnect — Healthcare Operating System',
-        description: 'Find doctors, book appointments, access health records, and consult online.',
-        url: 'https://www.careconnect.care',
-        siteName: 'CareConnect',
-        type: 'website',
-    },
-    twitter: {
-        card: 'summary_large_image',
-        title: 'CareConnect — Healthcare Operating System',
-        description: 'Find doctors, book appointments, access health records, and consult online.',
-    },
-}
 
 /* ─── types ──────────────────────────────────────────────────────────── */
 type SearchCategory = 'doctor' | 'lab' | 'hospital' | 'checkup' | 'pharmacy' | 'diagnostics';
