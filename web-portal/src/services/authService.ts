@@ -105,7 +105,7 @@ export const USER_STORAGE_KEY = 'cc-user';
 /** Backend role strings (lowercase) as stored in MongoDB. */
 export type BackendRole =
   | 'patient' | 'doctor' | 'radiologist' | 'admin'
-  | 'lab_tech' | 'pharmacist' | 'reception' | 'emergency';
+  | 'lab_tech' | 'pharmacist' | 'reception' | 'nurse' | 'emergency';
 
 /** Shape of the user object returned by /api/auth login/register/me. */
 export interface BackendUser {
