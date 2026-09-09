@@ -196,6 +196,19 @@ const DEFAULT_ROLES = [
         ],
     },
     {
+        name: 'NURSE',
+        displayName: 'Nurse',
+        description: 'Clinical nurse with access to patient vitals, ward management, and care coordination.',
+        workspaces: ['HOSPITAL_STAFF'],
+        isSystem: true,
+        permissions: [
+            'STAFF.MANAGE_RECORDS',
+            'STAFF.VIEW_APPOINTMENTS', 'STAFF.CHECKIN_PATIENTS',
+            'STAFF.VIEW_LAB_ORDERS',
+            'DOCTOR.VIEW_PATIENTS', 'DOCTOR.VIEW_MEDICAL_RECORDS',
+        ],
+    },
+    {
         name: 'EMERGENCY_STAFF',
         displayName: 'Emergency Staff',
         description: 'Responds to SOS alerts and manages emergency dispatch.',
@@ -243,9 +256,14 @@ const LEGACY_ROLE_MAP = {
     radiologist:  'RADIOLOGIST',
     admin:        'HOSPITAL_ADMIN',
     super_admin:  'SUPER_ADMIN',
+    // reception is the stored enum value (not receptionist)
+    reception:    'RECEPTIONIST',
     receptionist: 'RECEPTIONIST',
     lab_tech:     'LAB_TECHNICIAN',
+    // pharmacist is the stored enum value (not pharmacy)
+    pharmacist:   'PHARMACY_STAFF',
     pharmacy:     'PHARMACY_STAFF',
+    nurse:        'NURSE',
     emergency:    'EMERGENCY_STAFF',
 };
 
