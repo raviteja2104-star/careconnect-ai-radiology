@@ -13,7 +13,7 @@ const {
     setupSecurity
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
-const rateLimit = require('../middleware/rateLimit');
+const { rateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
