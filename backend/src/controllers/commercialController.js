@@ -3,48 +3,15 @@
  * Tenant management and financial reporting for the commercial admin portal.
  */
 
-const DEMO_TENANTS = [
-  {
-    name: 'Apollo Health Network',
-    region: 'APAC',
-    plan: 'Enterprise',
-    maxUsers: 1000,
-    currentUsers: 847,
-    status: 'Active',
-    contactEmail: 'admin@apollo.example',
-  },
-  {
-    name: 'CityCare Hospitals',
-    region: 'APAC',
-    plan: 'Professional',
-    maxUsers: 200,
-    currentUsers: 134,
-    status: 'Active',
-    contactEmail: 'admin@citycare.example',
-  },
-  {
-    name: 'TeleMed Global',
-    region: 'Global',
-    plan: 'Enterprise+',
-    maxUsers: 5000,
-    currentUsers: 2341,
-    status: 'Trial',
-    contactEmail: 'admin@telemedglobal.example',
-  },
-];
-
 exports.getTenants = async (req, res) => {
   try {
     const mongoose = require('mongoose');
     const dbConnected = mongoose.connection.readyState === 1;
     if (!dbConnected) {
-      return res.json({ success: true, data: DEMO_TENANTS });
+      return res.status(503).json({ success: false, error: 'Database unavailable. Please try again shortly.' });
     }
     const Tenant = require('../models/Tenant');
     const tenants = await Tenant.find().sort({ createdAt: -1 }).lean();
-    if (!tenants.length) {
-      return res.json({ success: true, data: DEMO_TENANTS });
-    }
     res.json({ success: true, data: tenants });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

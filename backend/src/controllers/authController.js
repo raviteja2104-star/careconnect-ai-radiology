@@ -5,8 +5,36 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { ensureUserHasRole, getEffectivePermissions } = require('../services/PermissionService');
 
-// In-memory OTP store for demonstration
-const otpStore = new Map();
+// OTP store: Redis-backed when available, falls back to in-memory Map for single-instance dev.
+// On serverless multi-instance deployments, ensure REDIS_URL is set so OTPs survive cold starts.
+const { getClient: getRedis, isReady: isRedisReady } = require('../services/RedisClient');
+const _otpMemStore = new Map();
+const OTP_TTL_S = 300; // 5 minutes
+
+const otpStore = {
+    async set(identifier, otp) {
+        if (isRedisReady()) {
+            await getRedis().set(`otp:${identifier}`, otp, 'EX', OTP_TTL_S);
+        } else {
+            _otpMemStore.set(identifier, { otp, expires: Date.now() + OTP_TTL_S * 1000 });
+        }
+    },
+    async get(identifier) {
+        if (isRedisReady()) {
+            return getRedis().get(`otp:${identifier}`);
+        }
+        const rec = _otpMemStore.get(identifier);
+        if (!rec || rec.expires < Date.now()) return null;
+        return rec.otp;
+    },
+    async delete(identifier) {
+        if (isRedisReady()) {
+            await getRedis().del(`otp:${identifier}`);
+        } else {
+            _otpMemStore.delete(identifier);
+        }
+    },
+};
 
 // Helper: wait for DB to be ready (handles Vercel serverless cold starts)
 const waitForDB = async (maxMs = 12000) => {
@@ -90,8 +118,8 @@ const sendOtp = async (req, res, next) => {
         // Generate a 6-digit OTP. Set STATIC_OTP env var for testing only — never in production.
         const otp = process.env.STATIC_OTP || Math.floor(100000 + Math.random() * 900000).toString();
         
-        // Store OTP with expiration (5 mins)
-        otpStore.set(identifier, { otp, expires: Date.now() + 5 * 60 * 1000 });
+        // Store OTP with 5-minute TTL (Redis when available, in-memory fallback for dev)
+        await otpStore.set(identifier, otp);
 
         if (process.env.NODE_ENV !== 'production') {
             // Never log OTPs in production — development/test only
@@ -111,13 +139,13 @@ const verifyOtp = async (req, res, next) => {
         
         if (!identifier || !otp) return res.status(400).json({ success: false, message: 'Provide identifier and OTP.' });
 
-        const record = otpStore.get(identifier);
-        if (!record || record.otp !== otp || record.expires < Date.now()) {
+        const storedOtp = await otpStore.get(identifier);
+        if (!storedOtp || storedOtp !== otp) {
             return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
         }
 
         // OTP is valid, clear it
-        otpStore.delete(identifier);
+        await otpStore.delete(identifier);
 
         if (!isDBConnected()) {
             return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });

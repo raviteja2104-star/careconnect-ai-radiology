@@ -3,24 +3,15 @@
  * Feature flags and key/value config management via MasterConfig model.
  */
 
-const DEMO_FLAGS = [
-  { key: 'telemedicine_enabled', label: 'Telemedicine', isEnabled: true, category: 'Features' },
-  { key: 'ai_scribe_enabled', label: 'AI Scribe', isEnabled: true, category: 'Features' },
-  { key: 'patient_portal_enabled', label: 'Patient Portal', isEnabled: false, category: 'Features' },
-];
-
 exports.getFeatureFlags = async (req, res) => {
   try {
     const mongoose = require('mongoose');
     const dbConnected = mongoose.connection.readyState === 1;
     if (!dbConnected) {
-      return res.json({ success: true, data: DEMO_FLAGS });
+      return res.status(503).json({ success: false, error: 'Database unavailable. Please try again shortly.' });
     }
     const MasterConfig = require('../models/MasterConfig');
     const flags = await MasterConfig.find({ isFeatureFlag: true }).lean();
-    if (!flags.length) {
-      return res.json({ success: true, data: DEMO_FLAGS });
-    }
     res.json({ success: true, data: flags });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -37,7 +28,7 @@ exports.setFeatureFlag = async (req, res) => {
     const mongoose = require('mongoose');
     const dbConnected = mongoose.connection.readyState === 1;
     if (!dbConnected) {
-      return res.json({ success: true, data: { key, isEnabled, isFeatureFlag: true } });
+      return res.status(503).json({ success: false, error: 'Database unavailable. Please try again shortly.' });
     }
     const MasterConfig = require('../models/MasterConfig');
     const updated = await MasterConfig.findOneAndUpdate(
