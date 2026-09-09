@@ -34,6 +34,8 @@ interface OrdersPanelProps {
     diagnoses?: string[];
     patientMeta?: { age?: number; gender?: string };
     onChanged: () => void;
+    /** Called with the submitted drugs after a medication order is successfully placed — use to trigger print. */
+    onMedicationPlaced?: (drugs: DrugLine[]) => void;
 }
 
 const COMMON_LAB_TESTS = [
@@ -57,7 +59,7 @@ const STATUS_TONE: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'n
 
 export function OrdersPanel({
     encounterId, serverOrders, initialTab, allergies, currentMedications,
-    diagnoses = [], patientMeta = {}, onChanged,
+    diagnoses = [], patientMeta = {}, onChanged, onMedicationPlaced,
 }: OrdersPanelProps) {
     const { toast } = useToast();
     const [tab, setTab] = React.useState<OrderPanelTab>(initialTab && initialTab !== 'list' ? initialTab : 'lab');
@@ -271,8 +273,12 @@ export function OrdersPanel({
     const submitMedication = async () => {
         const body = buildMedicationBody();
         if (!body) return;
+        const submittedDrugs = drugs.filter((d) => d.name.trim());
         const ok = await submitOrder(body, 'medication');
-        if (ok) resetMedication();
+        if (ok) {
+            onMedicationPlaced?.(submittedDrugs);
+            resetMedication();
+        }
     };
 
     const resetMedication = () => {

@@ -362,21 +362,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         </span>
     );
 
-    const printRx = () => {
-        const medOrders = (bundle?.orders || []).filter((o) => o.category === 'medication');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const drugs = medOrders.flatMap((o: any) => {
-            const rawDrugs = Array.isArray(o?.details?.drugs) ? o.details.drugs : [];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return rawDrugs.map((d: any) => ({
-                name: String(d?.name || ''),
-                dose: d?.dose as string | undefined,
-                frequency: d?.frequency as string | undefined,
-                duration: d?.duration as string | undefined,
-                instructions: [d?.instructions, d?.foodTiming].filter(Boolean).join('; ') || undefined,
-                route: d?.route as string | undefined,
-            }));
-        });
+    const buildAndPrint = (drugList: { name: string; dose?: string; frequency?: string; duration?: string; instructions?: string; route?: string }[]) => {
         const patient = p360?.patient;
         const ageYears = patient?.dateOfBirth
             ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / 31557600000)
@@ -401,10 +387,39 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             diagnosis: diagnoses.map((d: any) => d.term).join(', ') || undefined,
-            drugs,
+            drugs: drugList,
         });
         const opened = openPrescriptionPrintWindow(html);
         if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print prescriptions.');
+    };
+
+    const printRx = () => {
+        const medOrders = (bundle?.orders || []).filter((o) => o.category === 'medication');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const drugs = medOrders.flatMap((o: any) => {
+            const rawDrugs = Array.isArray(o?.details?.drugs) ? o.details.drugs : [];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return rawDrugs.map((d: any) => ({
+                name: String(d?.name || ''),
+                dose: d?.dose as string | undefined,
+                frequency: d?.frequency as string | undefined,
+                duration: d?.duration as string | undefined,
+                instructions: [d?.instructions, d?.foodTiming].filter(Boolean).join('; ') || undefined,
+                route: d?.route as string | undefined,
+            }));
+        });
+        buildAndPrint(drugs);
+    };
+
+    const handleMedicationPlaced = (submittedDrugs: import('../../_lib/api').DrugLine[]) => {
+        buildAndPrint(submittedDrugs.map((d) => ({
+            name: d.name,
+            dose: d.dose,
+            frequency: d.frequency,
+            duration: d.duration,
+            instructions: [d.instructions, d.foodTiming].filter(Boolean).join('; ') || undefined,
+            route: d.route,
+        })));
     };
 
     return (
@@ -618,6 +633,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                             gender: p360?.patient.gender,
                         }}
                         onChanged={() => queryClient.invalidateQueries({ queryKey: ['emr', 'encounter', encounterId] })}
+                        onMedicationPlaced={handleMedicationPlaced}
                     />
                     </div>
                 </div>

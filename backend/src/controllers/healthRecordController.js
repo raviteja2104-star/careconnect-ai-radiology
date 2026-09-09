@@ -476,6 +476,10 @@ exports.getSummary = async (req, res) => {
 // GET /api/health-records/dashboard — staff-facing counts + worklists (section 26).
 exports.getDashboard = async (req, res) => {
     try {
+        const isDBConnected = () => require('mongoose').connection.readyState === 1;
+        if (!isDBConnected()) {
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
+        }
         if (!CaregiverAuthzService.STAFF_VIEW_ROLES.includes(req.user.role)) {
             return res.status(403).json({ message: 'Staff access only.' });
         }

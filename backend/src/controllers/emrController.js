@@ -474,6 +474,10 @@ exports.createOrder = async (req, res) => {
             });
         }
         const traceId = traceOf(req);
+        const mongoose = require('mongoose');
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid encounter ID — open a real patient encounter to place orders.' });
+        }
         const encounter = await Encounter.findById(req.params.id);
         if (!encounter) return res.status(404).json({ message: 'Encounter not found' });
 
