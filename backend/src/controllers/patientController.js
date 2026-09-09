@@ -19,7 +19,7 @@ const isDBConnected = () => require('mongoose').connection.readyState === 1;
 exports.listPatients = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.json({ success: true, data: [{ _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', role: 'patient', mrn: 'MRN-DEMO1' }], total: 1, page: 1, limit: 100 });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
         const { search = '', page = 1, limit = 100 } = req.query;
         const skip = (Number(page) - 1) * Number(limit);
@@ -56,7 +56,7 @@ exports.listPatients = async (req, res) => {
 exports.createPatient = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.status(201).json({ success: true, data: { _id: 'demo-new-pt', firstName: req.body.firstName, lastName: req.body.lastName, role: 'patient', mrn: 'MRN-NEW-DEMO' } });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
         const { firstName, lastName, phone, email, dateOfBirth, gender, bloodGroup, allergies, diagnosis } = req.body;
 
@@ -155,10 +155,10 @@ exports.addFamilyMember = async (req, res) => {
     try {
         const { name, relationship, dateOfBirth, bloodGroup, phone } = req.body;
         if (!name || !relationship) return res.status(400).json({ success: false, message: 'name and relationship are required.' });
-        const mongoose = require('mongoose');
-        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(req.user._id)) {
-            return res.json({ success: true, data: { _id: 'demo-' + Date.now(), name, relationship, dateOfBirth, bloodGroup, phone } });
+        if (!isDBConnected()) {
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
+        const mongoose = require('mongoose');
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { $push: { familyMembers: { name, relationship, dateOfBirth, bloodGroup, phone } } },

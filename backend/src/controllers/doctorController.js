@@ -100,9 +100,7 @@ const updateConsultation = async (req, res, next) => {
     try {
         const { id } = req.params;
         if (!isDBConnected()) {
-            const c = MOCK_CONSULTATIONS.find(c => c._id === id);
-            if (c) Object.assign(c, req.body);
-            return res.json({ success: true, message: 'Consultation updated.', data: c || { _id: id, ...req.body } });
+            return res.status(503).json({ success: false, error: 'Database unavailable. Please try again shortly.' });
         }
         const consultation = await Consultation.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
         if (!consultation) return res.status(404).json({ success: false, message: 'Consultation not found.' });
@@ -114,7 +112,7 @@ const updateConsultation = async (req, res, next) => {
 const requestScan = async (req, res, next) => {
     try {
         if (!isDBConnected()) {
-            return res.status(201).json({ success: true, message: 'Scan request created (demo mode).', data: { _id: `req-${Date.now()}`, ...req.body, requestedBy: req.user._id, status: 'pending', createdAt: new Date().toISOString() } });
+            return res.status(503).json({ success: false, error: 'Database unavailable. Please try again shortly.' });
         }
         const { patientId, scanType, bodyPart, priority, clinicalNotes } = req.body;
         const { v4: uuidv4 } = require('uuid');

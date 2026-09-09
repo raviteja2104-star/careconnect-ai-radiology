@@ -86,7 +86,7 @@ router.get('/', protect, async (req, res, next) => {
 // ── Mark as read ──────────────────────────────────────────────────────────────
 router.put('/:id/read', protect, async (req, res, next) => {
     try {
-        if (!isDB()) return res.json({ success: true, message: 'Marked as read (demo).' });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Service temporarily unavailable.' });
         // Scope to the calling user's own notifications — prevents IDOR
         const doc = await Notification.findOneAndUpdate(
             { _id: req.params.id, userId: req.user._id },
@@ -100,7 +100,7 @@ router.put('/:id/read', protect, async (req, res, next) => {
 // ── Mark all as read ──────────────────────────────────────────────────────────
 router.put('/read-all', protect, async (req, res, next) => {
     try {
-        if (!isDB()) return res.json({ success: true, message: 'All marked as read (demo).' });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Service temporarily unavailable.' });
         await Notification.updateMany({ userId: req.user._id, read: false }, { read: true });
         res.json({ success: true, message: 'All marked as read.' });
     } catch (err) { next(err); }
