@@ -26,6 +26,8 @@ const Encounter    = require('../models/Encounter');
 const Invoice      = require('../models/Invoice');
 const PharmacyOrder = require('../models/PharmacyOrder');
 const QueueToken   = require('../models/QueueToken');
+const DoctorProfile  = require('../models/DoctorProfile');
+const DoctorSchedule = require('../models/DoctorSchedule');
 
 let Prescription, LabOrder;
 try { Prescription = require('../models/Prescription'); } catch (_) {}
@@ -64,6 +66,18 @@ const DEMO_USERS = [
         experience: 10, consultationFee: 500,
         hospital: DEMO_HOSPITAL, department: 'General Medicine',
         rating: 4.8,
+    },
+    {
+        firstName: 'Dr. Raj', lastName: 'Sharma',
+        email: 'demo.doctor2@careconnect.care',
+        phone: '+91-9000000011', role: 'doctor',
+        rbacRole: 'DOCTOR',
+        isActive: true, isVerified: true,
+        specialization: 'General Medicine',
+        licenseNumber: 'MCI-DEMO-10002',
+        experience: 15, consultationFee: 600,
+        hospital: DEMO_HOSPITAL, department: 'General Medicine',
+        rating: 4.9,
     },
     {
         firstName: 'Priya', lastName: 'Nair',
@@ -188,6 +202,8 @@ async function cleanup() {
         Invoice.deleteMany({ patient: { $in: ids } }),
         PharmacyOrder.deleteMany({ patientId: { $in: ids } }),
         QueueToken.deleteMany({ patientName: /^\[DEMO\]/ }),
+        DoctorProfile.deleteMany({ user: { $in: ids } }),
+        DoctorSchedule.deleteMany({ doctor: { $in: ids } }),
     ]);
     console.log('  ✓  Demo data removed');
 }
@@ -220,9 +236,59 @@ async function seed() {
     /* convenience aliases */
     const patient    = createdUsers['demo.patient@careconnect.care'];
     const doctor     = createdUsers['demo.doctor@careconnect.care'];
+    const doctor2    = createdUsers['demo.doctor2@careconnect.care'];
     const superAdmin = createdUsers['demo.superadmin@careconnect.care'];
     // super admin also gets SUPER_ADMIN overriding the default HOSPITAL_ADMIN
     await assignRbacRole(superAdmin._id, 'SUPER_ADMIN');
+
+    /* 3b — DoctorProfile entries for demo doctors */
+    console.log('\n3️⃣b  Seeding DoctorProfile entries…');
+    const DEMO_DOCTOR_PROFILES = [
+        {
+            userId: doctor._id,
+            specialty: 'General Physician',
+            department: 'General Medicine',
+            hospital: DEMO_HOSPITAL,
+            qualification: 'MBBS, MD (General Medicine)',
+            experienceYears: 10,
+            consultationFee: 500,
+            medicalRegNumber: 'MCI-DEMO-10001',
+            consultationType: 'Both',
+            room: 'Room 101',
+        },
+        {
+            userId: doctor2._id,
+            specialty: 'General Medicine',
+            department: 'General Medicine',
+            hospital: DEMO_HOSPITAL,
+            qualification: 'MBBS, MD, DNB',
+            experienceYears: 15,
+            consultationFee: 600,
+            medicalRegNumber: 'MCI-DEMO-10002',
+            consultationType: 'In-Person',
+            room: 'Room 102',
+        },
+    ];
+    for (const dp of DEMO_DOCTOR_PROFILES) {
+        await DoctorProfile.findOneAndUpdate(
+            { user: dp.userId },
+            { user: dp.userId, specialty: dp.specialty, department: dp.department,
+              hospital: dp.hospital, qualification: dp.qualification,
+              experienceYears: dp.experienceYears, consultationFee: dp.consultationFee,
+              medicalRegNumber: dp.medicalRegNumber, consultationType: dp.consultationType,
+              room: dp.room, rating: 4.8 },
+            { upsert: true, new: true }
+        );
+        await DoctorSchedule.findOneAndUpdate(
+            { doctor: dp.userId, hospital: dp.hospital },
+            { doctor: dp.userId, hospital: dp.hospital,
+              weeklySchedule: { Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: [] },
+              leaves: [], exceptions: [] },
+            { upsert: true, new: true }
+        );
+        const u = await User.findById(dp.userId).select('firstName lastName').lean();
+        console.log(`  ✓  DoctorProfile for ${u?.firstName} ${u?.lastName}`);
+    }
 
     /* 4 — Appointments */
     console.log('\n4️⃣  Creating demo appointments…');
