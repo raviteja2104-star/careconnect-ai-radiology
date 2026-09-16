@@ -31,6 +31,7 @@ const EXPANDED_ROLES = [
     'pharmacist',
     'reception', // added by this expand
     'emergency', // added by this expand
+    'nurse',     // exists in User model; guard must accept it
 ];
 
 module.exports = {
