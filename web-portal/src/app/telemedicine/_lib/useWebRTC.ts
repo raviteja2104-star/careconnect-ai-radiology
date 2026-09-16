@@ -89,6 +89,7 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     endedRef.current = false;
     let cancelled = false;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState('media-denied');
       setError('This browser does not support camera/microphone capture.');
       return;
@@ -127,6 +128,7 @@ export function useWebRTC({ sessionId, role }: UseWebRTCOptions): UseWebRTCResul
     if (!sessionId || !mediaReady || endedRef.current) return;
 
     if (!PUSHER_KEY) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState('failed');
       setError('Real-time service is not configured. Set NEXT_PUBLIC_PUSHER_KEY.');
       return;

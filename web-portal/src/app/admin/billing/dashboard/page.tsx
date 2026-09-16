@@ -84,6 +84,7 @@ export default function RevenueDashboard() {
 
   useEffect(() => {
     if (invoicesRes?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLiveInvoices(invoicesRes.data.slice(0, 10));
     }
   }, [invoicesRes]);

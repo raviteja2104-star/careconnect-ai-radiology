@@ -59,6 +59,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     React.useEffect(() => {
         const trimmed = query.trim();
         if (trimmed.length < 2) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setClinicalData(null);
             return;
         }

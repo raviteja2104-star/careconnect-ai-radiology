@@ -195,7 +195,7 @@ export default function ReceptionDashboard() {
                   })}
                   <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
-                    Status derived from live OPD queue and today's appointments.
+                    Status derived from live OPD queue and today&apos;s appointments.
                   </div>
                 </>
               )}

@@ -39,6 +39,7 @@ export default function BookAppointmentPage() {
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthed(!!token);
   }, []);
 
