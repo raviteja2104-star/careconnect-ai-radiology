@@ -73,7 +73,7 @@ const createRole = async (req, res, next) => {
             createdBy: req.user._id,
         });
 
-        await AuditLog.create({
+        await AuditLog.append({
             actorId: req.user._id, action: 'CREATE_ROLE', resource: 'ROLE',
             resourceId: role._id.toString(), details: { name: role.name }, result: 'success', ip: req.ip,
         });
@@ -113,7 +113,7 @@ const updateRole = async (req, res, next) => {
 
         await role.save();
 
-        await AuditLog.create({
+        await AuditLog.append({
             actorId: req.user._id, action: 'UPDATE_ROLE', resource: 'ROLE',
             resourceId: role._id.toString(), details: { name: role.name, changes: req.body }, result: 'success', ip: req.ip,
         });
@@ -165,7 +165,7 @@ const assignRole = async (req, res, next) => {
             { upsert: true, new: true }
         );
 
-        await AuditLog.create({
+        await AuditLog.append({
             actorId: req.user._id, action: 'ASSIGN_ROLE', resource: 'USER_ROLE',
             resourceId: assignment._id.toString(), details: { userId, roleName: role.name }, result: 'success', ip: req.ip,
         });
@@ -188,7 +188,7 @@ const revokeRole = async (req, res, next) => {
             { $set: { isActive: false } }
         );
 
-        await AuditLog.create({
+        await AuditLog.append({
             actorId: req.user._id, action: 'REVOKE_ROLE', resource: 'USER_ROLE',
             resourceId: `${userId}:${roleId}`, details: { userId, roleId }, result: 'success', ip: req.ip,
         });
@@ -241,7 +241,7 @@ const setPermissionOverride = async (req, res, next) => {
             { upsert: true, new: true }
         );
 
-        await AuditLog.create({
+        await AuditLog.append({
             actorId: req.user._id,
             action:  granted ? 'GRANT_PERMISSION' : 'REVOKE_PERMISSION',
             resource: 'PERMISSION_OVERRIDE',
