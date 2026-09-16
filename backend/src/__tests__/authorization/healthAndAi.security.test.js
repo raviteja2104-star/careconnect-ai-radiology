@@ -158,34 +158,47 @@ describe('C-04 — POST /api/ai/analyze-scan must require authentication', () =>
     });
 });
 
-// ── C-05: /uploads static serving must require auth ──────────────────────────
+// ── C-05: File access uses S3 presigned URLs, not unauthenticated local static ──
+//
+// Architecture: all uploaded files are stored in S3 (see src/lib/s3.js).
+// Access is granted via permit()-gated routes that call getPageFile / getPresignedUrl
+// AFTER permission checks pass.  There must be NO express.static('/uploads') exposed
+// without authentication.
 
-describe('C-05 — GET /uploads/* must require authentication', () => {
-    let uploadsApp;
-    beforeAll(() => {
-        const { protect: mockP } = require('../../middleware/auth');
-        const staticPath = require('path').join(__dirname, '..', '..', '..', 'uploads');
-        uploadsApp = express();
-        uploadsApp.use(express.json());
-        // Mirror the post-fix registration in server.js
-        uploadsApp.use('/uploads', mockP, express.static(staticPath));
+describe('C-05 — File access uses authenticated S3 presigned URLs (not bare express.static)', () => {
+    const healthRecordSrc = fs.readFileSync(
+        path.resolve(__dirname, '../../routes/healthRecordRoutes.js'), 'utf8'
+    );
+    const s3LibSrc = fs.readFileSync(
+        path.resolve(__dirname, '../../lib/s3.js'), 'utf8'
+    );
+
+    it('[source] server.js does NOT expose a bare express.static on /uploads', () => {
+        // There must be no unguarded static file serving of the uploads directory.
+        // The old pattern (app.use('/uploads', express.static(...))) must not exist.
+        expect(serverSrc).not.toMatch(/app\.use\(['"]\/uploads['"],\s*express\.static/);
     });
 
-    it('returns 401 when requesting a file without authentication', async () => {
-        const res = await request(uploadsApp).get('/uploads/general/avatar.jpg');
-        expect(res.status).toBe(401);
+    it('[source] server.js explicitly documents that files are served via S3 presigned URLs', () => {
+        // Confirm the architecture comment is present so future devs cannot silently
+        // re-introduce local static serving without it being noticed in review.
+        expect(serverSrc).toMatch(/S3.*presigned/i);
     });
 
-    it('returns 401 for a request with a fabricated Bearer token', async () => {
-        const res = await request(uploadsApp)
-            .get('/uploads/pacs/patient-1/CT/2024-01-01/scan.dcm')
-            .set('Authorization', 'Bearer fake_token');
-        expect(res.status).toBe(401);
+    it('[source] healthRecordRoutes document file route requires permit before getPageFile', () => {
+        // The /documents/:id/pages/:pageNumber/file route must have a permitAny guard
+        // before the getPageFile controller (which calls getPresignedUrl / streamObject).
+        expect(healthRecordSrc).toMatch(/documents.*pages.*file[\s\S]{0,200}permitAny/);
     });
 
-    // Source-level guard: express.static on /uploads must be guarded by protect
-    it('[source] server.js /uploads route includes protect before express.static', () => {
-        // Must match: app.use('/uploads', protect, express.static(
-        expect(serverSrc).toMatch(/app\.use\(['"]\/uploads['"],\s*protect,\s*express\.static/);
+    it('[source] s3.js getPresignedUrl is exported as a named function (not an open endpoint)', () => {
+        // Verify the presigned URL helper is a named export, not exposed directly as a route.
+        expect(s3LibSrc).toMatch(/function getPresignedUrl/);
+        expect(s3LibSrc).toMatch(/module\.exports.*getPresignedUrl/);
+    });
+
+    it('[source] s3.js upload stores files with server-side encryption', () => {
+        // Files must be stored with AES256 SSE to protect health records at rest.
+        expect(s3LibSrc).toMatch(/ServerSideEncryption.*AES256/);
     });
 });

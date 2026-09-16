@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   getPredictions,
   getRecommendations,
   runSimulation
 } = require('../controllers/aiOperationsController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permitAny } = require('../middleware/permit');
 
-// AI operations dashboards require an authenticated session.
 router.use(protect);
 
 router.route('/predictions').get(getPredictions);
 router.route('/recommendations').get(getRecommendations);
-router.route('/simulate').post(authorize('doctor', 'admin'), runSimulation);
+router.route('/simulate').post(permitAny('DOCTOR.VIEW_PATIENTS', 'ADMIN.VIEW_ANALYTICS'), runSimulation);
 
 module.exports = router;

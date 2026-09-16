@@ -5,7 +5,8 @@
  */
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
 
 const ABDM_BASE = process.env.ABDM_BASE_URL || 'https://healthidsbx.abdm.gov.in/api';
 const isLive = () => !!process.env.ABDM_CLIENT_ID && !!process.env.ABDM_CLIENT_SECRET;
@@ -32,7 +33,7 @@ const getABDMToken = async () => {
 };
 
 // ── Generate ABHA OTP ─────────────────────────────────────────────────────────
-router.post('/generate-otp', protect, authorize('patient', 'admin'), async (req, res, next) => {
+router.post('/generate-otp', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS'), async (req, res, next) => {
     try {
         const { aadhaar, mobile, method = 'aadhaar' } = req.body;
         if (!isLive()) {
@@ -51,7 +52,7 @@ router.post('/generate-otp', protect, authorize('patient', 'admin'), async (req,
 });
 
 // ── Verify OTP & Create ABHA ──────────────────────────────────────────────────
-router.post('/verify-otp', protect, authorize('patient', 'admin'), async (req, res, next) => {
+router.post('/verify-otp', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS'), async (req, res, next) => {
     try {
         const { txnId, otp } = req.body;
         if (!isLive()) {
@@ -72,7 +73,7 @@ router.post('/verify-otp', protect, authorize('patient', 'admin'), async (req, r
 });
 
 // ── Fetch ABHA Profile ────────────────────────────────────────────────────────
-router.get('/profile', protect, authorize('patient', 'admin', 'doctor'), async (req, res, next) => {
+router.get('/profile', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS', 'DOCTOR.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
     try {
         if (!isLive()) {
             return res.json({
@@ -97,7 +98,7 @@ router.get('/profile', protect, authorize('patient', 'admin', 'doctor'), async (
 
 // ── Consent Management — Request records ──────────────────────────────────────
 // HIU consent request — initiated by a healthcare provider, not the patient
-router.post('/consent/request', protect, authorize('doctor', 'admin'), async (req, res, next) => {
+router.post('/consent/request', protect, permitAny('CLINICAL.MANAGE_TREATMENT_PLAN', 'ADMIN.VIEW_USERS'), async (req, res, next) => {
     try {
         const { patientAbha, purpose, dateFrom, dateTo, hiTypes } = req.body;
         if (!isLive()) {
@@ -126,7 +127,7 @@ router.post('/consent/request', protect, authorize('doctor', 'admin'), async (re
 });
 
 // ── Share health records via ABDM ─────────────────────────────────────────────
-router.post('/share', protect, authorize('patient', 'admin', 'doctor'), async (req, res, next) => {
+router.post('/share', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS', 'DOCTOR.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
     try {
         const { scanId, recipientAbha } = req.body;
         if (!isLive()) {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
 const RadiologyScan = require('../models/RadiologyScan');
 const User = require('../models/User');
 
@@ -27,7 +28,7 @@ router.get('/worklist', protect, async (req, res, next) => {
 
 // ── POST /submit  — diagnostic center upload ──────────────────────────────────
 // Restricted to clinical staff: patients must not be able to inject fake cases.
-router.post('/submit', protect, authorize('doctor', 'admin', 'radiologist'), async (req, res, next) => {
+router.post('/submit', protect, permitAny('DOCTOR.VIEW_PATIENTS', 'RADIOLOGY.CREATE_REPORT', 'ADMIN.VIEW_DASHBOARD'), async (req, res, next) => {
     try {
         const {
             patientFirstName, patientLastName, patientAge, patientGender, patientPhone, abhaId,
@@ -72,7 +73,7 @@ router.get('/worklist/:id', protect, async (req, res, next) => {
 });
 
 // ── PUT /worklist/:id/assign  — assign radiologist ───────────────────────────
-router.put('/worklist/:id/assign', protect, authorize('admin', 'radiologist'), async (req, res, next) => {
+router.put('/worklist/:id/assign', protect, permitAny('RADIOLOGY.VIEW_WORKLIST', 'ADMIN.VIEW_DASHBOARD'), async (req, res, next) => {
     try {
         const { radiologistId } = req.body;
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
@@ -84,7 +85,7 @@ router.put('/worklist/:id/assign', protect, authorize('admin', 'radiologist'), a
 });
 
 // ── PUT /worklist/:id/report  — submit radiologist report ────────────────────
-router.put('/worklist/:id/report', protect, authorize('radiologist', 'doctor', 'admin'), async (req, res, next) => {
+router.put('/worklist/:id/report', protect, permitAny('RADIOLOGY.CREATE_REPORT', 'DOCTOR.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_DASHBOARD'), async (req, res, next) => {
     try {
         const { findings, impression, recommendations, riskLevel, notes, action } = req.body;
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });

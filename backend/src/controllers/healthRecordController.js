@@ -483,10 +483,11 @@ exports.getDashboard = async (req, res) => {
         if (!CaregiverAuthzService.STAFF_VIEW_ROLES.includes(req.user.role)) {
             return res.status(403).json({ message: 'Staff access only.' });
         }
+        const tenantFilter = req.user.tenantId ? { tenantId: req.user.tenantId } : {};
         const [awaitingReview, clinicianReviewRequired, recentDocuments] = await Promise.all([
-            HealthDocument.find({ status: 'REVIEW_REQUIRED' }).sort({ createdAt: -1 }).limit(50).lean(),
-            HealthDocument.find({ status: 'CLINICIAN_REVIEW_REQUIRED' }).sort({ createdAt: -1 }).limit(50).lean(),
-            HealthDocument.find({}).sort({ createdAt: -1 }).limit(20).lean(),
+            HealthDocument.find({ ...tenantFilter, status: 'REVIEW_REQUIRED' }).sort({ createdAt: -1 }).limit(50).lean(),
+            HealthDocument.find({ ...tenantFilter, status: 'CLINICIAN_REVIEW_REQUIRED' }).sort({ createdAt: -1 }).limit(50).lean(),
+            HealthDocument.find(tenantFilter).sort({ createdAt: -1 }).limit(20).lean(),
         ]);
         const lowConfidenceDocs = await DocumentExtraction.find({
             status: 'COMPLETE',

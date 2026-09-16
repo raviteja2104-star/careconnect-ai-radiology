@@ -29,22 +29,13 @@ exports.getTransactions = async (req, res, next) => {
 };
 
 exports.topUp = async (req, res, next) => {
-    try {
-        const { amount, paymentMethod = 'upi', bonus = 0 } = req.body;
-        if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid amount' });
-        const totalCredits = Number(amount) + Number(bonus);
-
-        if (!isDB()) {
-            mockBalance += totalCredits;
-            const tx = { _id: `tx-${Date.now()}`, type: 'credit', amount: totalCredits, label: `Topup via ${paymentMethod}`, createdAt: new Date().toISOString() };
-            mockTransactions.unshift(tx);
-            return res.json({ success: true, data: { balanceAfter: mockBalance, transaction: tx } });
-        }
-
-        const user = await User.findByIdAndUpdate(req.user._id, { $inc: { credits: totalCredits } }, { new: true });
-        const tx = await WalletTransaction.create({ userId: req.user._id, type: 'credit', amount: totalCredits, label: `Topup`, status: 'completed', balanceAfter: user.credits });
-        res.json({ success: true, data: { balanceAfter: user.credits, transaction: tx } });
-    } catch (err) { next(err); }
+    // Wallet credits are managed exclusively through verified Razorpay payment flows.
+    // Direct credit top-up is disabled to prevent payment bypass.
+    // Credits are applied automatically via the payment webhook or /api/payment/verify.
+    return res.status(403).json({
+        success: false,
+        message: 'Direct wallet top-up is not permitted. Use the payment flow to add credits.',
+    });
 };
 
 exports.deductCredits = async (userId, { amount, label, referenceId, referenceType }) => {

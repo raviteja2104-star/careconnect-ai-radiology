@@ -56,10 +56,14 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    res.status(err.statusCode || 500).json({
-        success: false,
-        message: err.message || 'Internal Server Error',
-    });
+    const isProd = process.env.NODE_ENV === 'production';
+    const statusCode = err.statusCode || 500;
+    const message = (isProd && statusCode >= 500)
+        ? 'Internal Server Error'
+        : (err.message || 'Internal Server Error');
+    // Only log the real error server-side
+    if (isProd && statusCode >= 500) console.error('Internal error:', err);
+    res.status(statusCode).json({ success: false, message });
 };
 
 module.exports = errorHandler;

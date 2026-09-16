@@ -201,21 +201,21 @@ exports.payInvoice = async (req, res) => {
     }
 
     const isLive = !!(process.env.RAZORPAY_KEY_SECRET);
-    const isDemoOrder = !razorpay_order_id || String(razorpay_order_id).startsWith('order_demo_');
 
-    if (isLive && !isDemoOrder) {
-      // Verify Razorpay signature
+    if (isLive) {
+      // ALWAYS verify in live mode — no demo bypass
       const body = razorpay_order_id + '|' + razorpay_payment_id;
-      const expected = crypto
+      const expectedSig = crypto
         .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
         .update(body)
         .digest('hex');
-      if (expected !== razorpay_signature) {
-        return res.status(400).json({ success: false, message: 'Payment verification failed — invalid signature' });
+      if (!crypto.timingSafeEqual(Buffer.from(expectedSig, 'hex'), Buffer.from(razorpay_signature || '', 'hex'))) {
+        return res.status(400).json({ success: false, message: 'Payment verification failed.' });
       }
     }
 
-    const paid = amount ? amount / 100 : invoice.amountDue;
+    // Amount always comes from the invoice record, never from the client body.
+    const paid = invoice.amountDue;
     invoice.amountPaid = Math.min(invoice.amountPaid + paid, invoice.totalAmount);
     invoice.amountDue = Math.max(invoice.totalAmount - invoice.amountPaid, 0);
     invoice.status = invoice.amountDue <= 0 ? 'PAID' : 'PARTIALLY_PAID';
@@ -227,10 +227,10 @@ exports.payInvoice = async (req, res) => {
       aggregateId: invoice._id.toString(),
       tenantId: req.headers['x-tenant-id'] || 't-default',
       traceId: req.headers['x-trace-id'] || uuidv4(),
-      payload: { invoiceId: invoice._id, patientId: req.user._id, amount: paid, paymentId: razorpay_payment_id || 'demo', demo: isDemoOrder },
+      payload: { invoiceId: invoice._id, patientId: req.user._id, amount: paid, paymentId: razorpay_payment_id },
     }).catch(() => {});
 
-    res.json({ success: true, data: { invoice, amountPaid: paid, demo: isDemoOrder } });
+    res.json({ success: true, data: { invoice, amountPaid: paid } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -5,7 +5,8 @@
  */
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 const Notification = require('../models/Notification');
 
 let admin;
@@ -107,7 +108,7 @@ router.put('/read-all', protect, async (req, res, next) => {
 });
 
 // ── Send test notification (admin) ────────────────────────────────────────────
-router.post('/send', protect, authorize('admin'), async (req, res, next) => {
+router.post('/send', protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), async (req, res, next) => {
     try {
         const { userId, title, body, type = 'system' } = req.body;
         // Store in DB

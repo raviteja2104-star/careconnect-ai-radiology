@@ -7,10 +7,11 @@ const {
   updateDoctor,
   toggleDoctorStatus,
 } = require('../controllers/doctorAdminController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 
 router.use(protect);
-router.use(authorize('admin'));
+router.use(permit('CLINIC.MANAGE_DOCTORS'));
 
 router.get('/', listDoctors);
 router.post('/', createDoctor);

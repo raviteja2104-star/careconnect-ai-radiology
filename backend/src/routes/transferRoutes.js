@@ -1,15 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   createTransfer,
   getPatientJourney
 } = require('../controllers/transferController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permitAny } = require('../middleware/permit');
 
-// All transfer endpoints require an authenticated session.
 router.use(protect);
 
-router.route('/').post(authorize('doctor', 'admin'), createTransfer);
+router.route('/').post(permitAny('CLINICAL.MANAGE_TREATMENT_PLAN', 'ADMIN.VIEW_USERS'), createTransfer);
+
 // Ownership guard: patients may only fetch their own journey; clinical staff see any.
 router.route('/journey/:patientId').get((req, res, next) => {
     const STAFF_ROLES = ['admin', 'doctor', 'nurse', 'radiologist', 'reception'];

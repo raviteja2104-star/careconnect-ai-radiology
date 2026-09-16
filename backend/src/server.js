@@ -1,4 +1,21 @@
 require('dotenv').config();
+
+// Fail fast if critical env vars are missing
+const REQUIRED_ENV = ['JWT_SECRET', 'MONGODB_URI'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length > 0) {
+    console.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+}
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+    console.error('FATAL: JWT_SECRET must be at least 32 characters');
+    process.exit(1);
+}
+if (process.env.STATIC_OTP && process.env.NODE_ENV === 'production') {
+    console.error('FATAL: STATIC_OTP must not be set in production');
+    process.exit(1);
+}
+
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -10,6 +27,7 @@ const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const { rateLimit } = require('./middleware/rateLimit');
 const { protect } = require('./middleware/auth');
+const { permit } = require('./middleware/permit');
 const telemetryMiddleware = require('./middleware/telemetry');
 const Telemetry = require('./services/Telemetry');
 
@@ -61,6 +79,7 @@ const adtRoutes = require('./routes/adtRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const wardRoutes = require('./routes/wardRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const emergencyAccessRoutes = require('./routes/emergencyAccessRoutes');
 
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
@@ -99,7 +118,7 @@ OutboxWorker.start(5000);
                 { firstName: 'Nurse', lastName: 'Priya', email: 'nurse@careconnect.com', password: hash, role: 'nurse', isActive: true, isVerified: true },
                 { firstName: 'Reception', lastName: 'Staff', email: 'reception@careconnect.com', password: hash, role: 'reception', isActive: true, isVerified: true },
             ]);
-            console.log('✅  Seeded: admin, doctor, nurse, reception — password: Admin@123');
+            console.log('✅  Admin accounts seeded');
         }
         // Seed RBAC roles after DB is connected (was previously called before connect)
         await require('./seeds/rbacSeed').init();
@@ -109,6 +128,8 @@ OutboxWorker.start(5000);
 // Mount viewer routes BEFORE helmet to preserve custom CSP
 app.use('/viewer', viewerRoutes);
 app.use('/ohif', ohifRoutes);
+
+app.set('trust proxy', 1);
 
 // Middleware — skip helmet CSP for /ohif paths (already handled above).
 app.use((req, res, next) => {
@@ -131,7 +152,7 @@ app.use(cors({
     },
     credentials: true,
 }));
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -147,12 +168,9 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
 // Prometheus scrape endpoint. Secured via METRICS_TOKEN env var when set.
 // Configure your Prometheus scraper with: Authorization: Bearer <METRICS_TOKEN>
 app.get('/metrics', (req, res) => {
-    const metricsToken = process.env.METRICS_TOKEN;
-    if (metricsToken) {
-        const auth = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
-        if (auth !== metricsToken) {
-            return res.status(401).send('Unauthorized');
-        }
+    const token = req.headers['authorization']?.replace('Bearer ', '');
+    if (process.env.METRICS_TOKEN && token !== process.env.METRICS_TOKEN) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(Telemetry.prometheusText());
@@ -256,8 +274,7 @@ app.use('/api/billing', billingRoutes);
 //   consumedMin = max(0, target − observedAvailability) × observedWindowMin
 // and observedWindowMinutes is included so the UI can caveat the number.
 {
-    const authMw = require('./middleware/auth');
-    app.get('/api/system/slo', authMw.protect, authMw.authorize('admin'), (req, res) => {
+    app.get('/api/system/slo', protect, permit('ADMIN.VIEW_ANALYTICS'), (req, res) => {
         const snapshot = Telemetry.snapshot();
         const SLO_TARGET = 0.999; // 99.9% availability
         const SLO_WINDOW_MINUTES = 30 * 24 * 60; // 43,200 min rolling window
@@ -303,6 +320,7 @@ app.use('/api/adt', adtRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/ward', wardRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/emergency-access', emergencyAccessRoutes);
 app.use('/api/settings', require('./routes/settingsRoutes'));
 
 const userSearchRoutes = require('./routes/userSearchRoutes');

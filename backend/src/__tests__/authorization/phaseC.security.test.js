@@ -116,14 +116,14 @@ describe('H-13 — Command center routes restricted to clinical/admin staff', ()
         path.resolve(__dirname, '../../routes/commandRoutes.js'), 'utf8'
     );
 
-    it('[source] commandRoutes uses authorize with admin and clinical roles', () => {
-        expect(src).toMatch(/authorize\([^)]*'admin'/);
-        expect(src).toMatch(/authorize\([^)]*'doctor'/);
+    it('[source] commandRoutes uses permitAny with admin and clinical permissions', () => {
+        expect(src).toMatch(/permitAny\([^)]*'ADMIN\.VIEW_DASHBOARD'/);
+        expect(src).toMatch(/permitAny\([^)]*'PATIENTS\.VIEW_ALL'/);
     });
 
-    it('[source] commandRoutes applies protect and authorize to the whole router', () => {
+    it('[source] commandRoutes applies protect and permitAny to the whole router', () => {
         expect(src).toMatch(/router\.use\(protect\)/);
-        expect(src).toMatch(/router\.use\(authorize\(/);
+        expect(src).toMatch(/router\.use\(permitAny\(/);
     });
 });
 
@@ -182,19 +182,19 @@ describe('H-16 — Reception dashboard/appointments require staff role', () => {
         path.resolve(__dirname, '../../routes/receptionRoutes.js'), 'utf8'
     );
 
-    it('[source] /dashboard GET uses authorize with admin role', () => {
-        expect(src).toMatch(/dashboard.*authorize\([^)]*'admin'/s);
+    it('[source] /dashboard GET uses permitAny with admin/staff permissions', () => {
+        expect(src).toMatch(/dashboard.*permitAny\([^)]*'ADMIN\.VIEW_DASHBOARD'/s);
     });
 
-    it('[source] /appointments GET uses authorize with admin role', () => {
-        expect(src).toMatch(/appointments.*authorize\([^)]*'admin'/s);
+    it('[source] /appointments GET uses permitAny with admin/staff permissions', () => {
+        expect(src).toMatch(/appointments.*permitAny\([^)]*'STAFF\.VIEW_APPOINTMENTS'/s);
     });
 
-    it('[source] /checkin POST uses authorize with admin role', () => {
-        expect(src).toMatch(/checkin.*authorize\([^)]*'admin'/s);
+    it('[source] /checkin POST uses permitAny with checkin permissions', () => {
+        expect(src).toMatch(/checkin.*permitAny\([^)]*'STAFF\.CHECKIN_PATIENTS'/s);
     });
 
-    it('[source] /walkin POST uses authorize with admin role', () => {
-        expect(src).toMatch(/walkin.*authorize\([^)]*'admin'/s);
+    it('[source] /walkin POST uses permitAny with appointment creation permissions', () => {
+        expect(src).toMatch(/walkin.*permitAny\([^)]*'STAFF\.CREATE_APPOINTMENTS'/s);
     });
 });

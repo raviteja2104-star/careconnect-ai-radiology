@@ -1,9 +1,10 @@
 const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permitAny } = require('../middleware/permit');
 const { getExecutiveReport } = require('../controllers/reportsController');
 
 const router = express.Router();
 
-router.get('/executive', protect, authorize('admin', 'doctor'), getExecutiveReport);
+router.get('/executive', protect, permitAny('ADMIN.VIEW_ANALYTICS', 'DOCTOR.VIEW_PATIENTS'), getExecutiveReport);
 
 module.exports = router;

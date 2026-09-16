@@ -9,6 +9,6 @@ router.use(protect);
 router.get('/today', permitAny('DOCTOR.VIEW_PATIENTS', 'DOCTOR.EDIT_CLINICAL_NOTES', 'STAFF.MANAGE_RECORDS'), consultationController.getToday);
 
 router.patch('/:id/soap', permitAny('DOCTOR.EDIT_CLINICAL_NOTES', 'STAFF.MANAGE_RECORDS'), consultationController.saveSoap);
-router.post('/:id/sign', permitAny('DOCTOR.EDIT_CLINICAL_NOTES'), consultationController.signNote);
+router.post('/:id/sign', permitAny('CLINICAL.SIGN_CONSULTATION', 'DOCTOR.SIGN_CLINICAL_NOTES'), consultationController.signNote);
 
 module.exports = router;

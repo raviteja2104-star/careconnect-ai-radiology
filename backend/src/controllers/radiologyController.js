@@ -88,6 +88,9 @@ const listScans = async (req, res, next) => {
         const filter = {};
         if (req.user.role === 'patient') filter.patientId = req.user._id;
         else if (req.user.role === 'doctor') filter.requestedBy = req.user._id;
+        // Scope to the user's organization/hospital
+        if (req.user.tenantId) filter.tenantId = req.user.tenantId;
+        else if (req.user.hospitalId) filter.hospitalId = req.user.hospitalId;
         if (status) filter.status = status;
         if (scanType) filter.scanType = scanType;
         if (priority) filter.priority = priority;
@@ -107,6 +110,14 @@ const getScan = async (req, res, next) => {
         }
         const scan = await RadiologyScan.findById(req.params.id).populate('patientId', 'firstName lastName email dateOfBirth gender bloodGroup').populate('requestedBy', 'firstName lastName specialization hospital').populate('assignedRadiologist', 'firstName lastName certifications').populate('finalReport.reviewedBy', 'firstName lastName');
         if (!scan) return res.status(404).json({ success: false, message: 'Scan not found.' });
+        // Patient can only see their own scan
+        if (req.user.role === 'patient' && String(scan.patientId._id || scan.patientId) !== String(req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
+        // Clinical staff must be in the same tenant
+        if (req.user.role !== 'patient' && req.user.tenantId && scan.tenantId && String(scan.tenantId) !== String(req.user.tenantId)) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
         res.json({ success: true, data: scan });
     } catch (error) {
         next(error);

@@ -5,6 +5,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { ensureUserHasRole, getEffectivePermissions } = require('../services/PermissionService');
 
+if (process.env.STATIC_OTP && process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: STATIC_OTP must not be set in production');
+}
+
 // OTP store: Redis-backed when available, falls back to in-memory Map for single-instance dev.
 // On serverless multi-instance deployments, ensure REDIS_URL is set so OTPs survive cold starts.
 const { getClient: getRedis, isReady: isRedisReady } = require('../services/RedisClient');
@@ -58,7 +62,7 @@ const isDBConnected = () => {
 const register = async (req, res, next) => {
     try {
         await waitForDB();
-        const { firstName, lastName, email, password, phone, role, ...rest } = req.body;
+        const { firstName, lastName, email, password, phone } = req.body;
 
         if (!isDBConnected()) {
             return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
@@ -67,7 +71,7 @@ const register = async (req, res, next) => {
         const existingUser = await User.findOne({ email });
         if (existingUser) return res.status(400).json({ success: false, message: 'Email already registered.' });
 
-        const user = await User.create({ firstName, lastName, email, password, phone, role: role || 'patient', ...rest });
+        const user = await User.create({ firstName, lastName, email, password, phone, role: 'patient' });
         const token = generateToken(user._id);
         await ensureUserHasRole(user).catch(() => {});
         const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
@@ -123,7 +127,7 @@ const sendOtp = async (req, res, next) => {
 
         if (process.env.NODE_ENV !== 'production') {
             // Never log OTPs in production — development/test only
-            console.log(`🔑 OTP for ${identifier} is ${otp}`);
+            console.log('[Dev] OTP sent to', identifier);
         }
 
         res.json({ success: true, message: `OTP sent successfully to ${identifier}` });
@@ -185,9 +189,20 @@ const verifyOtp = async (req, res, next) => {
 const socialLogin = async (req, res, next) => {
     try {
         await waitForDB();
-        const { provider, token, profile } = req.body; 
+        const { provider, token, profile } = req.body;
         // Expected profile: { email, firstName, lastName, googleId/appleId }
-        
+
+        // TODO: Proper fix — use google-auth-library's OAuth2Client.verifyIdToken() to verify
+        // the Google ID token server-side before trusting any profile data from the client.
+        // For Apple, use apple-signin-auth to verify the identity token server-side.
+        // Until server-side verification is wired up, social login is disabled for safety.
+        if (provider === 'google') {
+            return res.status(501).json({ success: false, message: "Google OAuth must be verified server-side via googleapis library — not yet configured. Disable social login in frontend until configured." });
+        }
+        if (provider === 'apple') {
+            return res.status(501).json({ success: false, message: "Apple Sign In must be verified server-side via apple-signin-auth library — not yet configured. Disable social login in frontend until configured." });
+        }
+
         if (!isDBConnected()) {
             return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
@@ -236,8 +251,11 @@ const getMe = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
     try {
-        const fieldsToUpdate = { ...req.body };
-        ['password', 'pin', 'role', 'email', 'phone'].forEach(k => delete fieldsToUpdate[k]); // Protect sensitive fields
+        const ALLOWED_PROFILE_FIELDS = ['firstName', 'lastName', 'dateOfBirth', 'gender', 'bloodGroup', 'nationality', 'occupation', 'address', 'emergencyContact', 'allergies', 'chronicDiseases', 'medications'];
+        const fieldsToUpdate = {};
+        ALLOWED_PROFILE_FIELDS.forEach(k => {
+            if (req.body[k] !== undefined) fieldsToUpdate[k] = req.body[k];
+        });
         
         const user = await User.findByIdAndUpdate(req.user._id, fieldsToUpdate, { new: true, runValidators: true });
         res.json({ success: true, message: 'Profile updated.', data: user });

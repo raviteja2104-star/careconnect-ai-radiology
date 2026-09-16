@@ -1,22 +1,39 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
-const {
-  generateToken,
-  getDepartmentQueue,
-  callToken,
-  completeToken
-} = require('../controllers/queueController');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
+const { generateToken, getDepartmentQueue, callToken, completeToken } = require('../controllers/queueController');
+const audit = require('../middleware/audit');
 
-// Staff-only queue mutations (no dedicated 'reception' role exists; front-desk
-// flows are gated to 'admin'/'doctor').
-router.route('/token').post(protect, authorize('admin', 'doctor', 'reception'), generateToken);
-router.route('/call/:id').post(protect, authorize('admin', 'doctor', 'reception'), callToken);
-router.route('/complete/:id').post(protect, authorize('admin', 'doctor', 'reception'), completeToken);
+// Generate a queue token — reception or doctor can do this
+router.post(
+    '/token',
+    protect,
+    permitAny('OPD.CHECKIN', 'STAFF.CHECKIN_PATIENTS', 'OPD.MANAGE_QUEUE'),
+    audit('OPDQueue'),
+    generateToken
+);
 
-// PUBLIC: read-only department queue consumed by the unauthenticated waiting-room
-// TV board (web-portal/src/app/display/page.tsx fetches GET /api/queue/OPD).
-// Deliberately left without auth — do not add protect here.
-router.route('/:department').get(getDepartmentQueue);
+// Call the next patient
+router.post(
+    '/call/:id',
+    protect,
+    permitAny('OPD.CALL_NEXT', 'OPD.MANAGE_QUEUE', 'DOCTOR.VIEW_PATIENTS'),
+    audit('OPDQueue'),
+    callToken
+);
+
+// Mark patient as complete / checked out
+router.post(
+    '/complete/:id',
+    protect,
+    permitAny('OPD.CHECKOUT', 'OPD.MANAGE_QUEUE', 'CLINICAL.SIGN_CONSULTATION'),
+    audit('OPDQueue'),
+    completeToken
+);
+
+// PUBLIC read-only: waiting-room TV display fetches GET /api/queue/:department
+// without authentication. Deliberately left without protect().
+router.get('/:department', getDepartmentQueue);
 
 module.exports = router;

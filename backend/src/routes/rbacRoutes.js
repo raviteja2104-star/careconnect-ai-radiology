@@ -1,6 +1,6 @@
 const express    = require('express');
 const router     = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { permit } = require('../middleware/permit');
 const {
     listRoles, getRole, createRole, updateRole,
@@ -11,8 +11,8 @@ const {
     listUsersWithRoles,
 } = require('../controllers/rbacController');
 
-// All RBAC management requires authentication + admin-level role
-router.use(protect, authorize('admin', 'super_admin'));
+// All RBAC management requires authentication + ADMIN.MANAGE_PERMISSIONS (checked per-route below).
+router.use(protect);
 
 // ── Permission catalogue ──────────────────────────────────────────────────────
 router.get('/permissions', permit('ADMIN.MANAGE_PERMISSIONS'), getPermissionCatalogue);

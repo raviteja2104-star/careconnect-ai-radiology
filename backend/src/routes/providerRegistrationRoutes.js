@@ -207,10 +207,11 @@ router.post('/register/:id/submit', async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // ADMIN ENDPOINTS (require JWT + admin role)
 // ══════════════════════════════════════════════════════════════════════════════
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 
 // ── GET /api/provider/admin/registrations — list all registrations ────────────
-router.get('/admin/registrations', protect, authorize('admin'), async (req, res) => {
+router.get('/admin/registrations', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const { status, page = '1', limit = '20' } = req.query;
@@ -229,7 +230,7 @@ router.get('/admin/registrations', protect, authorize('admin'), async (req, res)
 });
 
 // ── GET /api/provider/admin/registrations/:id — get one registration ──────────
-router.get('/admin/registrations/:id', protect, authorize('admin'), async (req, res) => {
+router.get('/admin/registrations/:id', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const reg = await getModel().findById(req.params.id).lean();
@@ -241,7 +242,7 @@ router.get('/admin/registrations/:id', protect, authorize('admin'), async (req, 
 });
 
 // ── POST /api/provider/admin/registrations/:id/approve — approve and create Provider ──
-router.post('/admin/registrations/:id/approve', protect, authorize('admin'), async (req, res) => {
+router.post('/admin/registrations/:id/approve', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const Model = getModel();
@@ -308,7 +309,7 @@ router.post('/admin/registrations/:id/approve', protect, authorize('admin'), asy
 });
 
 // ── POST /api/provider/admin/registrations/:id/reject — reject ────────────────
-router.post('/admin/registrations/:id/reject', protect, authorize('admin'), async (req, res) => {
+router.post('/admin/registrations/:id/reject', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const Model = getModel();
@@ -346,7 +347,7 @@ router.post('/admin/registrations/:id/reject', protect, authorize('admin'), asyn
 });
 
 // ── POST /api/provider/admin/registrations/:id/needs-changes — request changes ─
-router.post('/admin/registrations/:id/needs-changes', protect, authorize('admin'), async (req, res) => {
+router.post('/admin/registrations/:id/needs-changes', protect, permit('ADMIN.MANAGE_PROVIDERS'), async (req, res) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const { notes } = req.body;

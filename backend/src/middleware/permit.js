@@ -1,4 +1,4 @@
-const { userHasPermissions, getEffectivePermissions } = require('../services/PermissionService');
+const { userHasPermissions, getEffectivePermissions } = require('../services/AuthorizationService');
 
 /**
  * permit(...requiredPermissions) — ALL permissions required (AND logic).

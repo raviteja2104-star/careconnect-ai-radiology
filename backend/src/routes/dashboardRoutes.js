@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
 
 const isDB = () => { const m = require('mongoose'); return m.connection.readyState === 1; };
 
 // ── GET /overview — command center KPIs ───────────────────────────────────────
-router.get('/overview', protect, async (req, res, next) => {
+router.get('/overview', protect, permitAny('ADMIN.VIEW_DASHBOARD', 'ADMIN.VIEW_ANALYTICS', 'CLINIC.VIEW_REPORTS'), async (req, res, next) => {
     try {
         if (!isDB()) {
             return res.json({
@@ -46,7 +47,7 @@ router.get('/overview', protect, async (req, res, next) => {
 
 // ── GET /activity — live activity feed from audit log ────────────────────────
 // Audit log contains PHI-adjacent metadata; restrict to admin and clinical staff.
-router.get('/activity', protect, authorize('admin', 'doctor', 'radiologist', 'nurse'), async (req, res, next) => {
+router.get('/activity', protect, permitAny('ADMIN.VIEW_AUDIT_LOG', 'ADMIN.VIEW_DASHBOARD', 'CLINIC.VIEW_REPORTS'), async (req, res, next) => {
     try {
         if (!isDB()) {
             return res.json({ success: true, data: [] });

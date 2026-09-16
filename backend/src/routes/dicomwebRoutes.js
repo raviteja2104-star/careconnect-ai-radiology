@@ -13,7 +13,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permitAny } = require('../middleware/permit');
 const orthanc = require('../services/OrthancClient');
 
 const DICOMWEB_BASE = process.env.DICOMWEB_URL || `http://localhost:${process.env.PORT || 5000}/api/dicomweb`;
@@ -54,7 +55,7 @@ router.use('/rs', async (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
         return doProxy();
     }
-    return authorize('radiologist', 'admin')(req, res, (err) => (err ? next(err) : doProxy()));
+    return permitAny('RADIOLOGY.CREATE_REPORT', 'ADMIN.VIEW_DASHBOARD')(req, res, (err) => (err ? next(err) : doProxy()));
 });
 
 // ── DICOM mock data (realistic UIDs) — FALLBACK when Orthanc is offline ──────
@@ -248,7 +249,7 @@ router.get('/wado', async (req, res) => {
 });
 
 // ── STOW-RS / Simple File Upload ──────────────────────────────────────────
-router.post('/upload', authorize('radiologist', 'admin'), upload.single('dicomFile'), async (req, res) => {
+router.post('/upload', permitAny('RADIOLOGY.CREATE_REPORT', 'ADMIN.VIEW_DASHBOARD'), upload.single('dicomFile'), async (req, res) => {
     if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
     // LIVE PACS PATH: push the received DICOM into Orthanc when reachable.
@@ -282,7 +283,7 @@ router.post('/upload', authorize('radiologist', 'admin'), upload.single('dicomFi
 
 // STOW-RS (Standard) — MOCK FALLBACK. When Orthanc is reachable the /rs proxy
 // middleware above forwards the STOW multipart to Orthanc before this runs.
-router.post('/rs/studies', authorize('radiologist', 'admin'), (req, res) => {
+router.post('/rs/studies', permitAny('RADIOLOGY.CREATE_REPORT', 'ADMIN.VIEW_DASHBOARD'), (req, res) => {
     res.status(200).json({ '00081190': { vr: 'UR', Value: [`${DICOMWEB_BASE}/rs/studies`] } });
 });
 

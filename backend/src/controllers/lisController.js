@@ -40,9 +40,10 @@ function notFound(res) {
 
 async function loadItem(req, res) {
     const item = await LabWorkItem.findById(req.params.id);
-    if (!item) {
-        notFound(res);
-        return null;
+    if (!item) { res.status(404).json({ success: false, message: 'Lab work item not found.' }); return null; }
+    // Tenant isolation
+    if (req.user.tenantId && item.tenantId && String(item.tenantId) !== String(req.user.tenantId)) {
+        res.status(403).json({ success: false, message: 'Access denied.' }); return null;
     }
     return item;
 }
@@ -179,6 +180,7 @@ exports.getWorklist = async (req, res) => {
         }
         const { status, priority, q } = req.query;
         const filter = {};
+        if (req.user.tenantId) filter.tenantId = req.user.tenantId;
         if (status) filter.status = status;
         if (priority) filter.priority = priority;
         if (q) {
@@ -572,6 +574,11 @@ exports.history = async (req, res) => {
         const { patientId, parameter } = req.query;
         if (!patientId || !parameter) {
             return res.status(400).json({ success: false, message: 'patientId and parameter query params are required' });
+        }
+
+        // Ownership: patients may only view their own lab history.
+        if (req.user.role === 'patient' && String(req.user._id) !== String(patientId)) {
+            return res.status(403).json({ success: false, message: 'You may only view your own lab history.' });
         }
 
         const items = await LabWorkItem.find({ patientId, status: 'RELEASED' }).lean();

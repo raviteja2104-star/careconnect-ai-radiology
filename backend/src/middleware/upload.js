@@ -20,7 +20,17 @@ function makeStorage(keyFn) {
 
 const SCAN_MIME_TYPES = new Set([
     'image/jpeg', 'image/png', 'image/dicom', 'application/dicom',
-    'application/octet-stream', 'image/tiff', 'image/bmp',
+    'image/tiff', 'image/bmp',
+]);
+
+const GENERAL_ALLOWED_MIMES = new Set([
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain', 'text/csv',
 ]);
 
 const uploadScan = multer({
@@ -47,6 +57,13 @@ const uploadGeneral = multer({
         cb(null, `general/${uuidv4()}${ext}`);
     }),
     limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (GENERAL_ALLOWED_MIMES.has(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`File type '${file.mimetype}' is not allowed.`));
+        }
+    },
 });
 
 module.exports = { uploadScan, uploadGeneral };

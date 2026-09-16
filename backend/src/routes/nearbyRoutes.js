@@ -1,7 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
 const audit = require('../middleware/audit');
 const ctrl = require('../controllers/nearbyController');
 const importCtrl = require('../controllers/importController');
@@ -42,7 +43,7 @@ router.patch('/appointments/:id/cancel', ctrl.cancelAppointment);
 router.patch('/appointments/:id/reschedule', ctrl.rescheduleAppointment);
 router.post('/appointments/:id/checkin', ctrl.checkinAppointment);
 // Reconciles provider _lib's checkInAppointment(), which already calls this path.
-router.patch('/appointments/:id/status', authorize('admin', 'doctor'), ctrl.setAppointmentStatus);
+router.patch('/appointments/:id/status', permitAny('DOCTOR.VIEW_PATIENTS', 'ADMIN.VIEW_DASHBOARD'), ctrl.setAppointmentStatus);
 
 /* ── Lab bookings (patient) ── */
 router.post('/lab-bookings', ctrl.createLabBooking);
@@ -52,45 +53,45 @@ router.get('/lab-bookings/mine', ctrl.listMyLabBookings);
 router.post('/providers/:id/reviews', ctrl.createReview);
 
 /* ── Provider-admin (admin, doctor — interim) ── */
-router.get('/providers', authorize('admin', 'doctor'), ctrl.listMyProviders);
-router.post('/providers', authorize('admin', 'doctor'), ctrl.createProvider);
-router.put('/providers/:id', authorize('admin', 'doctor'), ctrl.updateProvider);
-router.post('/providers/:id/claim', authorize('admin', 'doctor'), ctrl.claimProvider);
+router.get('/providers', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.listMyProviders);
+router.post('/providers', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.createProvider);
+router.put('/providers/:id', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.updateProvider);
+router.post('/providers/:id/claim', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.claimProvider);
 
-router.get('/providers/:id/doctors', authorize('admin', 'doctor'), ctrl.listDoctors);
-router.post('/providers/:id/doctors', authorize('admin', 'doctor'), ctrl.createDoctor);
-router.put('/providers/:id/doctors/:doctorId', authorize('admin', 'doctor'), ctrl.updateDoctor);
-router.delete('/providers/:id/doctors/:doctorId', authorize('admin', 'doctor'), ctrl.deleteDoctor);
+router.get('/providers/:id/doctors', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.listDoctors);
+router.post('/providers/:id/doctors', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.createDoctor);
+router.put('/providers/:id/doctors/:doctorId', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.updateDoctor);
+router.delete('/providers/:id/doctors/:doctorId', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.deleteDoctor);
 
-router.get('/providers/:id/services', authorize('admin', 'doctor'), ctrl.listServices);
-router.post('/providers/:id/services', authorize('admin', 'doctor'), ctrl.createService);
-router.put('/providers/:id/services/:serviceId', authorize('admin', 'doctor'), ctrl.updateService);
-router.delete('/providers/:id/services/:serviceId', authorize('admin', 'doctor'), ctrl.deleteService);
+router.get('/providers/:id/services', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.listServices);
+router.post('/providers/:id/services', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.createService);
+router.put('/providers/:id/services/:serviceId', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.updateService);
+router.delete('/providers/:id/services/:serviceId', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.deleteService);
 
-router.get('/providers/:id/schedules', authorize('admin', 'doctor'), ctrl.listSchedules);
-router.put('/providers/:id/schedules/:doctorId', authorize('admin', 'doctor'), ctrl.putSchedule);
+router.get('/providers/:id/schedules', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.listSchedules);
+router.put('/providers/:id/schedules/:doctorId', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.putSchedule);
 
-router.get('/providers/:id/exceptions', authorize('admin', 'doctor'), ctrl.listExceptions);
-router.post('/providers/:id/exceptions', authorize('admin', 'doctor'), ctrl.createException);
-router.delete('/providers/:id/exceptions/:exceptionId', authorize('admin', 'doctor'), ctrl.deleteException);
+router.get('/providers/:id/exceptions', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.listExceptions);
+router.post('/providers/:id/exceptions', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.createException);
+router.delete('/providers/:id/exceptions/:exceptionId', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.deleteException);
 
-router.get('/providers/:id/dashboard', authorize('admin', 'doctor'), ctrl.getProviderDashboard);
+router.get('/providers/:id/dashboard', permitAny('ADMIN.MANAGE_PROVIDERS', 'DOCTOR.VIEW_PATIENTS'), ctrl.getProviderDashboard);
 
 /* ── Admin only ── */
-router.patch('/providers/:id/verify', authorize('admin'), ctrl.verifyProvider);
-router.get('/admin/providers', authorize('admin'), ctrl.listAdminProviders);
-router.post('/admin/providers/merge', authorize('admin'), ctrl.mergeProviders);
+router.patch('/providers/:id/verify', permit('ADMIN.MANAGE_PROVIDERS'), ctrl.verifyProvider);
+router.get('/admin/providers', permit('ADMIN.MANAGE_PROVIDERS'), ctrl.listAdminProviders);
+router.post('/admin/providers/merge', permit('ADMIN.MANAGE_PROVIDERS'), ctrl.mergeProviders);
 
 /* ── Admin only — provider import pipeline (item 2) ──
  * Upload -> Parse & Normalize -> Validate -> Duplicate Detection ->
  * Review/Approval -> Import. Nothing here touches the live Provider
  * collection until POST .../commit, and only for rows a human approved. */
-router.post('/admin/import/upload', authorize('admin'), upload.single('file'), importCtrl.uploadBatch);
-router.get('/admin/import/batches', authorize('admin'), importCtrl.listBatches);
-router.get('/admin/import/batches/:id', authorize('admin'), importCtrl.getBatch);
-router.get('/admin/import/batches/:id/rows', authorize('admin'), importCtrl.listRows);
-router.patch('/admin/import/batches/:id/rows/:rowId', authorize('admin'), importCtrl.decideRow);
-router.post('/admin/import/batches/:id/bulk-decide', authorize('admin'), importCtrl.bulkDecide);
-router.post('/admin/import/batches/:id/commit', authorize('admin'), importCtrl.commitBatch);
+router.post('/admin/import/upload', permit('ADMIN.MANAGE_PROVIDERS'), upload.single('file'), importCtrl.uploadBatch);
+router.get('/admin/import/batches', permit('ADMIN.MANAGE_PROVIDERS'), importCtrl.listBatches);
+router.get('/admin/import/batches/:id', permit('ADMIN.MANAGE_PROVIDERS'), importCtrl.getBatch);
+router.get('/admin/import/batches/:id/rows', permit('ADMIN.MANAGE_PROVIDERS'), importCtrl.listRows);
+router.patch('/admin/import/batches/:id/rows/:rowId', permit('ADMIN.MANAGE_PROVIDERS'), importCtrl.decideRow);
+router.post('/admin/import/batches/:id/bulk-decide', permit('ADMIN.MANAGE_PROVIDERS'), importCtrl.bulkDecide);
+router.post('/admin/import/batches/:id/commit', permit('ADMIN.MANAGE_PROVIDERS'), importCtrl.commitBatch);
 
 module.exports = router;

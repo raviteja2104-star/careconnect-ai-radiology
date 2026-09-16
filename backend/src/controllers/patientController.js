@@ -26,17 +26,21 @@ exports.listPatients = async (req, res) => {
 
         const filter = { role: 'patient' };
         if (search) {
+            const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             filter.$or = [
-                { firstName: { $regex: search, $options: 'i' } },
-                { lastName: { $regex: search, $options: 'i' } },
-                { phone: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } },
+                { firstName: { $regex: safe, $options: 'i' } },
+                { lastName: { $regex: safe, $options: 'i' } },
+                { phone: { $regex: safe, $options: 'i' } },
+                { email: { $regex: safe, $options: 'i' } },
             ];
         }
+        // Add tenantId to the filter so staff only see their org's patients
+        if (req.user.tenantId) filter.tenantId = req.user.tenantId;
+        else if (req.user.organizationId) filter.organizationId = req.user.organizationId;
 
         const [users, total] = await Promise.all([
             User.find(filter)
-                .select('-password')
+                .select('firstName lastName email phone dateOfBirth gender bloodGroup isActive createdAt tenantId organizationId')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(Number(limit))
@@ -253,7 +257,7 @@ exports.getPatientWallet = async (req, res) => {
         today.setHours(0, 0, 0, 0);
 
         // 1. Fetch Patient Profile
-        const profile = await User.findById(patientId).select('-password');
+        const profile = await User.findById(patientId).select('firstName lastName email phone dateOfBirth gender bloodGroup isActive createdAt tenantId organizationId');
         if (!profile) return res.status(404).json({ success: false, error: 'Patient not found' });
 
         // 2. Fetch Active/Upcoming Appointments

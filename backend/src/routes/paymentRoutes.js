@@ -6,7 +6,8 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit } = require('../middleware/permit');
 const { sendEmail, templates } = require('../services/EmailNotificationService');
 
 let Razorpay;
@@ -90,8 +91,21 @@ router.post('/verify', protect, async (req, res, next) => {
         const body = razorpay_order_id + '|' + razorpay_payment_id;
         const expectedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(body).digest('hex');
 
-        if (expectedSig !== razorpay_signature) {
+        if (!crypto.timingSafeEqual(
+            Buffer.from(expectedSig, 'hex'),
+            Buffer.from(razorpay_signature || '', 'hex')
+        )) {
             return res.status(400).json({ success: false, message: 'Payment verification failed. Invalid signature.' });
+        }
+
+        // TODO: Fetch amount from Razorpay order API: const order = await rz.orders.fetch(razorpay_order_id);
+        // Validate amount from client — must be a positive number within allowed range.
+        // In production, replace this with the authoritative amount from the Razorpay order record.
+        if (!amount || typeof amount !== 'number') {
+            return res.status(400).json({ success: false, message: 'Invalid payment amount.' });
+        }
+        if (amount <= 0 || amount > 10000000) { // max 1 lakh rupees (in paise)
+            return res.status(400).json({ success: false, message: 'Payment amount out of valid range.' });
         }
 
         // Credit wallet
@@ -128,7 +142,7 @@ router.post('/verify', protect, async (req, res, next) => {
 // ── Refund ─────────────────────────────────────────────────────────────────────
 // Admin-only: refunds are irreversible financial operations; ownership of the
 // underlying payment is verified by admin staff before calling this endpoint.
-router.post('/refund', protect, authorize('admin'), async (req, res, next) => {
+router.post('/refund', protect, permit('BILLING.REFUND'), async (req, res, next) => {
     try {
         const { paymentId, amount } = req.body;
         if (!isLive()) {

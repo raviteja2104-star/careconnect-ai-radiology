@@ -2,24 +2,42 @@ const express = require('express');
 const router = express.Router();
 const { listPatients, createPatient, getPatient, updatePatient } = require('../controllers/patientController');
 const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
+const { requirePatientAccess, requireSameTenant } = require('../middleware/resourceAuth');
 const audit = require('../middleware/audit');
 
-const CLINICAL_ROLES = ['doctor', 'admin', 'nurse', 'lab_tech', 'pharmacist', 'radiologist', 'reception', 'emergency'];
-
-function requireClinical(req, res, next) {
-    if (!req.user || !CLINICAL_ROLES.includes(req.user.role)) {
-        return res.status(403).json({ success: false, message: 'Clinical staff access required.' });
-    }
-    next();
-}
-
 router.use(protect);
-router.use(requireClinical);
+router.use(requireSameTenant());
 router.use(audit('PatientManagement'));
 
-router.get('/', listPatients);
-router.post('/', createPatient);
-router.get('/:id', getPatient);
-router.put('/:id', updatePatient);
+// List: any staff role that can see all patients
+router.get(
+    '/',
+    permit('PATIENTS.VIEW_ALL'),
+    listPatients
+);
+
+// Register new patient
+router.post(
+    '/',
+    permit('PATIENTS.CREATE'),
+    createPatient
+);
+
+// Get individual patient — enforces resource-level ownership check
+router.get(
+    '/:id',
+    permitAny('PATIENTS.VIEW_ALL', 'DOCTOR.VIEW_PATIENTS', 'PATIENT.VIEW_PROFILE'),
+    requirePatientAccess('id'),
+    getPatient
+);
+
+// Update patient demographics
+router.put(
+    '/:id',
+    permitAny('PATIENTS.UPDATE', 'PATIENT.EDIT_PROFILE'),
+    requirePatientAccess('id'),
+    updatePatient
+);
 
 module.exports = router;

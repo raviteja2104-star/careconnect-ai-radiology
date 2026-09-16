@@ -1,23 +1,49 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getDashboardStats,
-  getDoctorsStatus,
-  getAppointments,
-  checkinAppointment,
-  registerWalkIn
+    getDashboardStats,
+    getDoctorsStatus,
+    getAppointments,
+    checkinAppointment,
+    registerWalkIn,
 } = require('../controllers/receptionController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permit, permitAny } = require('../middleware/permit');
+const audit = require('../middleware/audit');
 
-// All reception endpoints require an authenticated session.
 router.use(protect);
+router.use(audit('Reception'));
 
-// Dashboard/appointments expose aggregated patient data — restrict to clinical staff.
-// Write operations additionally require an elevated role.
-router.route('/dashboard').get(authorize('admin', 'doctor', 'nurse', 'reception'), getDashboardStats);
-router.route('/doctors-status').get(authorize('admin', 'doctor', 'nurse', 'reception'), getDoctorsStatus);
-router.route('/appointments').get(authorize('admin', 'doctor', 'nurse', 'reception'), getAppointments);
-router.route('/checkin').post(authorize('admin', 'doctor', 'nurse', 'reception'), checkinAppointment);
-router.route('/walkin').post(authorize('admin', 'doctor', 'nurse', 'reception'), registerWalkIn);
+// Read-only: any staff who can view appointments (doctors, nurses, reception, admin)
+router.get(
+    '/dashboard',
+    permitAny('STAFF.RECEPTION', 'STAFF.VIEW_APPOINTMENTS', 'ADMIN.VIEW_DASHBOARD'),
+    getDashboardStats
+);
+
+router.get(
+    '/doctors-status',
+    permitAny('STAFF.RECEPTION', 'STAFF.VIEW_APPOINTMENTS', 'ADMIN.VIEW_DASHBOARD'),
+    getDoctorsStatus
+);
+
+router.get(
+    '/appointments',
+    permitAny('STAFF.RECEPTION', 'STAFF.VIEW_APPOINTMENTS'),
+    getAppointments
+);
+
+// Mutations: require explicit check-in permission
+router.post(
+    '/checkin',
+    permitAny('STAFF.CHECKIN_PATIENTS', 'OPD.CHECKIN'),
+    checkinAppointment
+);
+
+router.post(
+    '/walkin',
+    permitAny('STAFF.CREATE_APPOINTMENTS', 'PATIENTS.CREATE'),
+    registerWalkIn
+);
 
 module.exports = router;

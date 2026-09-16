@@ -27,6 +27,20 @@ jest.mock('../../middleware/auth', () => ({
     authorize: jest.fn((...roles) => mockAuthorizeImpl(...roles)),
 }));
 
+jest.mock('../../services/PermissionService', () => {
+    const DENIED_USERS = ['patient-1', 'nurse-1'];
+    const ALL_PERMS = ['DOCTOR.VIEW_PATIENTS', 'RADIOLOGY.CREATE_REPORT', 'ADMIN.VIEW_DASHBOARD', 'RADIOLOGY.VIEW_WORKLIST'];
+    return {
+        userHasPermissions: jest.fn((userId) =>
+            Promise.resolve(!DENIED_USERS.includes(String(userId)))
+        ),
+        getEffectivePermissions: jest.fn((userId) =>
+            Promise.resolve({ permissions: DENIED_USERS.includes(String(userId)) ? [] : ALL_PERMS })
+        ),
+        ensureUserHasRole: jest.fn().mockResolvedValue(undefined),
+    };
+});
+
 // Mongoose model — not needed in unit tests; stub it out.
 jest.mock('../../models/RadiologyScan', () => ({
     create: jest.fn().mockResolvedValue({ scanId: 'CC-TEST', _id: 'scan-1' }),
@@ -35,6 +49,9 @@ jest.mock('../../models/RadiologyScan', () => ({
 jest.mock('../../models/User', () => ({
     find: jest.fn().mockResolvedValue([]),
 }));
+
+// Mongoose connection — report as connected so isDB() returns true.
+jest.mock('mongoose', () => ({ connection: { readyState: 1 } }));
 
 const express = require('express');
 const request = require('supertest');
@@ -68,19 +85,18 @@ describe('H-01 — teleradiologyRoutes POST /submit requires clinical role (sour
         path.resolve(__dirname, '../../routes/teleradiologyRoutes.js'), 'utf8'
     );
 
-    it('[source] /submit route includes authorize with doctor, admin, radiologist', () => {
-        // Must find authorize call with at least one of the allowed roles next to the protect middleware.
-        expect(src).toMatch(/router\.post\(['"]\/submit['"].*authorize\([^)]*'doctor'/s);
+    it('[source] /submit route uses permitAny with doctor, admin, radiologist permissions', () => {
+        expect(src).toMatch(/router\.post\(['"]\/submit['"].*permitAny\([^)]*'DOCTOR\.VIEW_PATIENTS'/s);
     });
 
     it('[source] /submit route does not expose a bare protect-only path', () => {
-        // The only router.post('/submit'...) line must contain authorize, not just protect.
+        // The only router.post('/submit'...) line must contain a permission gate.
         const submitLines = src
             .split('\n')
             .filter(l => l.includes("router.post('/submit'") || l.includes('router.post("/submit"'));
         expect(submitLines.length).toBeGreaterThan(0);
         submitLines.forEach(line => {
-            expect(line).toMatch(/authorize/);
+            expect(line).toMatch(/permit/);
         });
     });
 });

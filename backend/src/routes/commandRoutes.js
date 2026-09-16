@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   getLiveStats,
   getPatientFlow,
   getEventsLog
 } = require('../controllers/commandController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { permitAny } = require('../middleware/permit');
 
 // Command-centre dashboards expose hospital-wide operational data.
 // Restricted to clinical/admin staff — patients must not see aggregate PHI.
 router.use(protect);
-router.use(authorize('admin', 'doctor', 'nurse', 'radiologist', 'reception'));
+router.use(permitAny('ADMIN.VIEW_DASHBOARD', 'PATIENTS.VIEW_ALL', 'PATIENTS.SEARCH'));
 
 router.route('/live').get(getLiveStats);
 router.route('/patient-flow').get(getPatientFlow);

@@ -265,6 +265,7 @@ exports.listEncounters = async (req, res) => {
             return res.json([{ _id: 'mock-enc-1', patientId: req.query.patientId || req.user._id, doctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, type: 'Consultation', status: 'completed', specialty: 'General', createdAt: new Date() }]);
         }
         const filter = {};
+        if (req.user.tenantId) filter.tenantId = req.user.tenantId;
         if (req.query.patientId) filter.patientId = req.query.patientId;
         if (req.user.role === 'patient') filter.patientId = req.user._id;
         if (req.query.status) filter.status = req.query.status;
@@ -315,7 +316,11 @@ exports.getEncounter = async (req, res) => {
 exports.addVitals = async (req, res) => {
     try {
         const encounter = await Encounter.findById(req.params.id);
-        if (!encounter) return res.status(404).json({ message: 'Encounter not found' });
+        if (!encounter) return res.status(404).json({ success: false, message: 'Encounter not found.' });
+        // Tenant isolation check
+        if (req.user.tenantId && encounter.tenantId && String(encounter.tenantId) !== String(req.user.tenantId)) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
         encounter.vitals.push({ ...req.body, recordedBy: req.user._id });
         await encounter.save();
         res.status(201).json(encounter.vitals[encounter.vitals.length - 1]);
@@ -328,7 +333,11 @@ exports.addVitals = async (req, res) => {
 exports.addDiagnosis = async (req, res) => {
     try {
         const encounter = await Encounter.findById(req.params.id);
-        if (!encounter) return res.status(404).json({ message: 'Encounter not found' });
+        if (!encounter) return res.status(404).json({ success: false, message: 'Encounter not found.' });
+        // Tenant isolation check
+        if (req.user.tenantId && encounter.tenantId && String(encounter.tenantId) !== String(req.user.tenantId)) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
         encounter.diagnoses.push({ ...req.body, notedBy: req.user._id });
         await encounter.save();
         res.status(201).json(encounter.diagnoses[encounter.diagnoses.length - 1]);
@@ -344,7 +353,11 @@ exports.saveNote = async (req, res) => {
     try {
         const traceId = traceOf(req);
         const encounter = await Encounter.findById(req.params.id);
-        if (!encounter) return res.status(404).json({ message: 'Encounter not found' });
+        if (!encounter) return res.status(404).json({ success: false, message: 'Encounter not found.' });
+        // Tenant isolation check
+        if (req.user.tenantId && encounter.tenantId && String(encounter.tenantId) !== String(req.user.tenantId)) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
 
         let note = await ClinicalNote.findOne({ encounterId: encounter._id, status: 'draft' }).sort({ version: -1 });
         if (note) {
@@ -553,6 +566,7 @@ exports.listOrders = async (req, res) => {
             ]);
         }
         const filter = {};
+        if (req.user.tenantId) filter.tenantId = req.user.tenantId;
         if (req.query.patientId) filter.patientId = req.query.patientId;
         if (req.user.role === 'patient') filter.patientId = req.user._id;
         if (req.query.category) filter.category = req.query.category;
@@ -580,7 +594,10 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: `status must be one of ${allowed.join(', ')}` });
         }
         const order = await ClinicalOrder.findById(req.params.orderId);
-        if (!order) return res.status(404).json({ message: 'Order not found' });
+        if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+        if (req.user.tenantId && order.tenantId && String(order.tenantId) !== String(req.user.tenantId)) {
+            return res.status(403).json({ success: false, message: 'Access denied.' });
+        }
         if (['completed', 'cancelled'].includes(order.status)) {
             return res.status(409).json({ message: `Order already ${order.status}.` });
         }

@@ -12,7 +12,8 @@ const getOrders = async (req, res, next) => {
         if (req.user.role === 'patient') {
             query.patientId = req.user._id;
         }
-        
+        if (req.user.tenantId) query.tenantId = req.user.tenantId;
+
         if (status && status !== 'all') {
             query.status = status;
         }
@@ -23,11 +24,12 @@ const getOrders = async (req, res, next) => {
             .skip((page - 1) * limit);
 
         const total = await PharmacyOrder.countDocuments(query);
-        
+
         // Calculate stats for pharmacist
         let stats = null;
         if (req.user.role !== 'patient') {
-            const allOrders = await PharmacyOrder.find({});
+            const statsFilter = req.user.tenantId ? { tenantId: req.user.tenantId } : {};
+            const allOrders = await PharmacyOrder.find(statsFilter);
             stats = {
                 new: allOrders.filter(o => o.status === 'new').length,
                 packing: allOrders.filter(o => o.status === 'packing').length,

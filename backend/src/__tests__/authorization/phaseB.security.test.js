@@ -331,11 +331,8 @@ describe('H-11 — POST /api/notifications/send is admin-only', () => {
         mockProtect.mockImplementationOnce((req, res, next) => {
             req.user = makeUser('patient'); return next();
         });
-        mockAuthorize.mockImplementationOnce((...roles) => (req, res, next) => {
-            if (!roles.includes(req.user.role))
-                return res.status(403).json({ success: false });
-            return next();
-        });
+        // Patient has no ADMIN.MANAGE_SYSTEM_SETTINGS permission
+        require('../../services/PermissionService').userHasPermissions.mockResolvedValueOnce(false);
         const res = await request(app).post('/api/notifications/send').send({});
         expect(res.status).toBe(403);
     });
@@ -350,8 +347,8 @@ describe('H-12 — POST /api/payment/refund is admin-only', () => {
         path.resolve(__dirname, '../../routes/paymentRoutes.js'), 'utf8'
     );
 
-    it('[source] refund route uses authorize(admin)', () => {
-        expect(src).toMatch(/router\.post\(['"]\/refund['"].*authorize\(['"]admin['"]\)/s);
+    it('[source] refund route uses permit(BILLING.REFUND)', () => {
+        expect(src).toMatch(/router\.post\(['"]\/refund['"].*permit\(['"]BILLING\.REFUND['"]\)/s);
     });
 });
 
@@ -378,8 +375,8 @@ describe('H-06 — GET /api/dashboard/activity is staff-only', () => {
         path.resolve(__dirname, '../../routes/dashboardRoutes.js'), 'utf8'
     );
 
-    it('[source] /activity route uses authorize with admin/clinical-staff roles', () => {
-        expect(src).toMatch(/\/activity.*authorize\([^)]*'admin'/s);
+    it('[source] /activity route uses permitAny with admin permissions', () => {
+        expect(src).toMatch(/\/activity.*permitAny\([^)]*'ADMIN\.VIEW_AUDIT_LOG'/s);
     });
 });
 
