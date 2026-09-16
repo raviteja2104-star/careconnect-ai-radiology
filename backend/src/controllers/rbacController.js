@@ -4,7 +4,25 @@ const UserPermissionOverride = require('../models/UserPermissionOverride');
 const User                  = require('../models/User');
 const AuditLog              = require('../models/AuditLog');
 const { getEffectivePermissions, userHasPermissions } = require('../services/PermissionService');
-const { PERMISSIONS, WORKSPACES } = require('../constants/permissions');
+const { PERMISSIONS, WORKSPACES, LEGACY_ROLE_MAP } = require('../constants/permissions');
+
+// Reverse map: RBAC Role.name → User.role legacy string.
+// For duplicates (pharmacist/pharmacy both map to PHARMACY_STAFF) prefer the
+// User model's enum value, not the alias.
+const RBAC_TO_LEGACY_ROLE = {
+    PATIENT:            'patient',
+    DOCTOR:             'doctor',
+    RADIOLOGIST:        'radiologist',
+    HOSPITAL_ADMIN:     'admin',
+    SUPER_ADMIN:        'admin',
+    RECEPTIONIST:       'reception',
+    LAB_TECHNICIAN:     'lab_tech',
+    PHARMACY_STAFF:     'pharmacist',
+    NURSE:              'nurse',
+    EMERGENCY_STAFF:    'emergency',
+    CLINIC_ADMIN:       'admin',
+    ORGANIZATION_ADMIN: 'admin',
+};
 
 // Permissions that are considered "elevated" — cannot be granted by someone
 // who does not themselves hold the permission.
@@ -164,6 +182,12 @@ const assignRole = async (req, res, next) => {
             { $set: { isActive: true, grantedBy: req.user._id, grantedAt: new Date(), expiresAt: expiresAt || null } },
             { upsert: true, new: true }
         );
+
+        // Sync legacy User.role so the frontend portal-routing matches.
+        const legacyRole = RBAC_TO_LEGACY_ROLE[role.name];
+        if (legacyRole) {
+            await User.findByIdAndUpdate(userId, { role: legacyRole });
+        }
 
         await AuditLog.append({
             actorId: req.user._id, action: 'ASSIGN_ROLE', resource: 'USER_ROLE',
