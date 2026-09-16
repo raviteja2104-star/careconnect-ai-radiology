@@ -23,6 +23,8 @@ interface RegState {
     specialties: string[];
     description: string;
     services: string[];
+    // Login credential
+    password: string;
     // Step 4 (review & submit)
 }
 
@@ -70,7 +72,7 @@ function RegisterForm() {
     const [form, setForm]       = useState<RegState>({
         providerType: presetType, name: '', contactName: '', email: '', phone: '',
         city: '', state: '', pincode: '', website: '', specialties: [],
-        description: '', services: [],
+        description: '', services: [], password: '',
     });
 
     // Sync if URL param changes (e.g. browser back/forward)
@@ -86,6 +88,7 @@ function RegisterForm() {
     const [loading, setLoading] = useState(false);
     const [error, setError]     = useState('');
     const [submitted, setSubmitted] = useState(false);
+    const [loginPortal, setLoginPortal] = useState('doctor');
 
     const set = (k: keyof RegState, v: RegState[keyof RegState]) =>
         setForm(f => ({ ...f, [k]: v }));
@@ -111,6 +114,9 @@ function RegisterForm() {
     const handleStep2 = async () => {
         if (!form.name || !form.contactName || !form.email || !form.phone) {
             setError('Name, contact name, email and phone are required.'); return;
+        }
+        if (!form.password || form.password.length < 6) {
+            setError('Password must be at least 6 characters.'); return;
         }
         setError(''); setLoading(true);
         try {
@@ -163,16 +169,17 @@ function RegisterForm() {
         try {
             const res = await fetch(`${API}/api/provider/register/${regId}/submit`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
+                body: JSON.stringify({ token, password: form.password }),
             });
             const j = await res.json();
             if (!j.success) throw new Error(j.message);
+            if (j.data?.loginPortal) setLoginPortal(j.data.loginPortal);
             setSubmitted(true);
         } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to submit. Please try again.'); }
         finally { setLoading(false); }
     };
 
-    if (submitted) return <SuccessScreen email={form.email} providerType={form.providerType as ProviderType} name={form.name} />;
+    if (submitted) return <SuccessScreen email={form.email} providerType={form.providerType as ProviderType} name={form.name} loginPortal={loginPortal} />;
 
     return (
         <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'DM Sans',system-ui,sans-serif" }}>
@@ -271,6 +278,11 @@ function RegisterForm() {
                                     <Field label="Pincode" placeholder="400001" value={form.pincode} onChange={v => set('pincode', v)} />
                                 </Row>
                                 <Field label="Website (optional)" placeholder="https://yourwebsite.com" value={form.website} onChange={v => set('website', v)} />
+                                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '16px 18px' }}>
+                                    <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1D4ED8' }}>🔑 Create your CareConnect login password</p>
+                                    <p style={{ margin: '0 0 12px', fontSize: 12, color: '#4B72A8' }}>You'll use this password to sign in to your workspace after registration is approved.</p>
+                                    <Field label="Password *" type="password" placeholder="Min. 6 characters" value={form.password} onChange={v => set('password', v)} />
+                                </div>
                             </div>
                             <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
                                 <button onClick={() => setStep(1)} style={{ padding: '12px 24px', borderRadius: 10, border: '1.5px solid #DDE6F5', background: '#fff', color: '#3D5475', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>← Back</button>
@@ -425,23 +437,29 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
     );
 }
 
-function SuccessScreen({ email, name, providerType }: { email: string; name: string; providerType: ProviderType }) {
+function SuccessScreen({ email, name, providerType, loginPortal }: { email: string; name: string; providerType: ProviderType; loginPortal: string }) {
     const type = PROVIDER_TYPES.find(p => p.value === providerType);
     return (
         <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'DM Sans',system-ui,sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <div style={{ background: '#fff', border: '1px solid #DDE6F5', borderRadius: 20, padding: '56px 48px', maxWidth: 520, width: '100%', textAlign: 'center', boxShadow: '0 8px 40px rgba(10,31,68,.09)' }}>
+            <div style={{ background: '#fff', border: '1px solid #DDE6F5', borderRadius: 20, padding: '48px 40px', maxWidth: 540, width: '100%', textAlign: 'center', boxShadow: '0 8px 40px rgba(10,31,68,.09)' }}>
                 <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#16a34a,#0B96A0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, margin: '0 auto 24px' }}>✓</div>
                 <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0A1F44', margin: '0 0 12px' }}>Registration Submitted!</h1>
                 <p style={{ fontSize: 15, color: '#3D5475', margin: '0 0 8px' }}>
                     <strong>{name}</strong> {type ? `(${type.label})` : ''} is now under review.
                 </p>
-                <p style={{ fontSize: 14, color: '#7A95B8', margin: '0 0 32px' }}>
+                <p style={{ fontSize: 14, color: '#7A95B8', margin: '0 0 24px' }}>
                     A confirmation email has been sent to <strong>{email}</strong>.<br />
                     Our verification team will contact you within 1–2 business days.
                 </p>
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '16px 20px', marginBottom: 28, textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#15803D', marginBottom: 6 }}>Your account is ready</div>
+                    <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.6 }}>
+                        You can sign in to your workspace now using <strong>{email}</strong> and the password you set during registration.
+                    </div>
+                </div>
                 <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Link href="/home" style={{ padding: '12px 24px', borderRadius: 10, background: 'linear-gradient(135deg,#1A54A8,#0B96A0)', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Go to Home</Link>
-                    <Link href="/business" style={{ padding: '12px 24px', borderRadius: 10, border: '1.5px solid #DDE6F5', color: '#3D5475', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>← Provider Hub</Link>
+                    <Link href={`/login/${loginPortal}`} style={{ padding: '13px 28px', borderRadius: 10, background: 'linear-gradient(135deg,#1A54A8,#0B96A0)', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Sign In to Workspace →</Link>
+                    <Link href="/home" style={{ padding: '13px 24px', borderRadius: 10, border: '1.5px solid #DDE6F5', color: '#3D5475', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>Go to Home</Link>
                 </div>
             </div>
         </div>

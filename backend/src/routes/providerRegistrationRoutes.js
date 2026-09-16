@@ -152,7 +152,7 @@ router.get('/register/:id', async (req, res) => {
 // ── POST /api/provider/register/:id/submit — submit for review ───────────────
 router.post('/register/:id/submit', async (req, res) => {
     try {
-        const { token } = req.body;
+        const { token, password } = req.body;
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
 
         const Model = getModel();
@@ -198,7 +198,39 @@ router.post('/register/:id/submit', async (req, res) => {
 </table>`,
         });
 
-        return res.json({ success: true, data: { id: String(reg._id), status: 'SUBMITTED' } });
+        // Create User account so provider can sign in immediately
+        const ROLE_MAP   = { DOCTOR: 'doctor', CLINIC: 'doctor', HOSPITAL: 'doctor', LAB: 'lab_tech', PHARMACY: 'pharmacist', ORGANISATION: 'doctor' };
+        const PORTAL_MAP = { DOCTOR: 'doctor', CLINIC: 'doctor', HOSPITAL: 'doctor', LAB: 'staff',    PHARMACY: 'staff',       ORGANISATION: 'doctor' };
+        const loginPortal = PORTAL_MAP[reg.providerType] || 'doctor';
+        let userCreated = false;
+
+        if (password && password.length >= 6) {
+            try {
+                const bcrypt = require('bcryptjs');
+                const User   = require('../models/User');
+                const existing = await User.findOne({ email: reg.email });
+                if (!existing) {
+                    const nameParts = (reg.contactName || '').trim().split(/\s+/);
+                    const firstName = nameParts[0] || reg.name;
+                    const lastName  = nameParts.slice(1).join(' ') || nameParts[0] || 'User';
+                    const hash = await bcrypt.hash(password, 10);
+                    await User.create({
+                        firstName, lastName,
+                        email: reg.email,
+                        phone: reg.phone,
+                        password: hash,
+                        role: ROLE_MAP[reg.providerType] || 'doctor',
+                        isActive: true,
+                        isVerified: false,
+                    });
+                    userCreated = true;
+                }
+            } catch (userErr) {
+                console.error('[ProviderRegistration] user account creation error:', userErr.message);
+            }
+        }
+
+        return res.json({ success: true, data: { id: String(reg._id), status: 'SUBMITTED', loginPortal, userCreated } });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
