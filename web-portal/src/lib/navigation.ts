@@ -144,7 +144,11 @@ export function allNavItems(role: AuthUserSession['role']): NavItem[] {
 }
 
 /** Routes that render full-bleed without the sidebar/header chrome. */
-export const CHROMELESS_ROUTES = ['/', '/display', '/kiosk', '/login', '/home', '/business'];
+export const CHROMELESS_ROUTES = [
+    '/', '/display', '/kiosk', '/login', '/home', '/business',
+    '/patients', '/doctors', '/clinics', '/hospitals', '/labs', '/pharmacies',
+    '/about', '/contact', '/join', '/provider',
+];
 
 export function isChromeless(pathname: string): boolean {
     return CHROMELESS_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'));

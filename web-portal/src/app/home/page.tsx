@@ -143,7 +143,8 @@ const stagger = {
 export default function HomePage() {
     const router = useRouter();
     const { isAuthenticated } = useSession();
-    const ctaHref = isAuthenticated ? '/nearby' : '/login/patient';
+    const ctaHref  = isAuthenticated ? '/nearby' : '/login';
+    const joinHref = isAuthenticated ? '/nearby' : '/join';
     const [activeTab, setActiveTab]       = useState<SearchCategory>('doctor');
     const [searchQuery, setSearchQuery]   = useState('');
     const [location, setLocation]         = useState('');
@@ -179,9 +180,9 @@ export default function HomePage() {
 
                         {/* Desktop nav */}
                         <nav className="hidden lg:flex items-center gap-7">
-                            <a href="#services"      className="text-sm text-gray-600 hover:text-blue-600 transition-colors">Services</a>
-                            <a href="#how-it-works"  className="text-sm text-gray-600 hover:text-blue-600 transition-colors">How It Works</a>
+                            <Link href="/patients"   className="text-sm text-gray-600 hover:text-blue-600 transition-colors">For Patients</Link>
                             <a href="#for-providers" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">For Providers</a>
+                            <Link href="/about"      className="text-sm text-gray-600 hover:text-blue-600 transition-colors">About</Link>
                         </nav>
 
                         {/* Actions */}
@@ -190,7 +191,7 @@ export default function HomePage() {
                                 className="hidden sm:inline-flex text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-50">
                                 {isAuthenticated ? 'My Health' : 'Sign In'}
                             </Link>
-                            <Link href={ctaHref}
+                            <Link href={joinHref}
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-all">
                                 Get Started <ArrowRight className="h-3.5 w-3.5" />
                             </Link>
@@ -209,17 +210,26 @@ export default function HomePage() {
                             exit={{ opacity: 0, height: 0 }}
                             className="lg:hidden overflow-hidden border-t border-gray-100 bg-white px-4 py-4">
                             <nav className="flex flex-col gap-1 mb-4">
-                                {['#services', '#how-it-works', '#for-providers'].map((href, i) => (
-                                    <a key={href} href={href}
-                                        className="text-sm text-gray-700 px-3 py-2.5 rounded-lg hover:bg-gray-50"
+                                {[
+                                    ['/patients', 'For Patients'],
+                                    ['#for-providers', 'For Providers'],
+                                    ['/doctors', 'Doctors'],
+                                    ['/clinics', 'Clinics'],
+                                    ['/hospitals', 'Hospitals'],
+                                    ['/labs', 'Labs'],
+                                    ['/pharmacies', 'Pharmacies'],
+                                    ['/about', 'About'],
+                                ].map(([href, label]) => (
+                                    <Link key={href} href={href}
+                                        className="text-sm text-gray-700 px-3 py-2.5 rounded-lg hover:bg-gray-50 block"
                                         onClick={() => setMobileMenuOpen(false)}>
-                                        {['Services', 'How It Works', 'For Providers'][i]}
-                                    </a>
+                                        {label}
+                                    </Link>
                                 ))}
                             </nav>
                             <div className="flex gap-2 pt-3 border-t border-gray-100">
                                 <Link href={ctaHref} className="flex-1 text-center rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">{isAuthenticated ? 'My Health' : 'Sign In'}</Link>
-                                <Link href={ctaHref} className="flex-1 text-center rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Get Started</Link>
+                                <Link href={joinHref} className="flex-1 text-center rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Get Started</Link>
                             </div>
                         </motion.div>
                     )}

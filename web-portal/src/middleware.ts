@@ -22,7 +22,11 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 
 // Routes accessible without a session
-const PUBLIC_PATHS = new Set(['/', '/login', '/home', '/business', '/display', '/kiosk']);
+const PUBLIC_PATHS = new Set([
+    '/', '/login', '/home', '/business', '/display', '/kiosk',
+    '/patients', '/doctors', '/clinics', '/hospitals', '/labs', '/pharmacies',
+    '/about', '/contact', '/join',
+]);
 
 // Prefixes that are always allowed through.
 const PUBLIC_PREFIXES = ['/api/', '/_next/', '/favicon', '/.well-known/', '/login/'];

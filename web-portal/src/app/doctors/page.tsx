@@ -1,213 +1,206 @@
-﻿'use client';
-import { useState, useEffect, useCallback } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PublicNav } from '@/components/public/PublicNav';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+export const metadata: Metadata = {
+    title: 'CareConnect for Doctors — Grow Your Practice',
+    description: 'Join CareConnect as an individual doctor. Manage patients, run video consultations, access EMR tools, and grow your practice — no clinic or hospital required.',
+};
 
-interface Provider {
-    _id: string;
-    name: string;
-    type: string;
-    subtype?: string;
-    specialties: string[];
-    locality?: string;
-    city?: string;
-    address?: string;
-    rating?: number;
-    reviewCount?: number;
-    consultationFeeRange?: { min: number; max: number };
-    careconnectVerified: boolean;
-    openNow?: boolean;
-    photo?: string;
-    profileImage?: string;
-    resultType?: string;
-}
+const FEATURES = [
+    {
+        icon: '👤',
+        title: 'Practice Independently',
+        desc: 'No clinic or hospital tie-in required. Register as a solo practitioner and start seeing patients on your own terms.',
+        color: '#EFF6FF', accent: '#2563EB',
+    },
+    {
+        icon: '📋',
+        title: 'Full EMR Workspace',
+        desc: 'Clinical encounter notes, SOAP documentation, smart prescriptions, lab orders — all in one streamlined workspace.',
+        color: '#F0FDF4', accent: '#16A34A',
+    },
+    {
+        icon: '🎥',
+        title: 'Video Consultations',
+        desc: 'Built-in WebRTC telemedicine. Start video calls directly from your dashboard — no third-party apps needed.',
+        color: '#F5F3FF', accent: '#7C3AED',
+    },
+    {
+        icon: '📊',
+        title: 'Patient Analytics',
+        desc: 'Track OPD volumes, follow-up rates, and patient satisfaction. Know exactly how your practice is growing.',
+        color: '#FFF7ED', accent: '#EA580C',
+    },
+    {
+        icon: '🔬',
+        title: 'Lab & Pharmacy Integration',
+        desc: 'Send digital lab orders. Prescriptions route directly to partner pharmacies for patient convenience.',
+        color: '#ECFEFF', accent: '#0891B2',
+    },
+    {
+        icon: '📱',
+        title: 'Patient Discovery',
+        desc: 'Get listed in the CareConnect directory. Patients in your area find you by specialty, availability, and reviews.',
+        color: '#FFF1F2', accent: '#BE123C',
+    },
+];
 
-const SPECIALTIES = [
-    'All', 'General Physician', 'Cardiologist', 'Dermatologist', 'Gynaecologist',
-    'Orthopaedic', 'Paediatrician', 'Psychiatrist', 'Neurologist', 'Ophthalmologist',
-    'ENT', 'Dentist', 'Urologist', 'Gastroenterologist', 'Radiologist',
+const ONBOARDING_STEPS = [
+    { n: '01', title: 'Create Your Profile', desc: 'Personal info, photo, and contact details. Takes 3 minutes.' },
+    { n: '02', title: 'Add Your Credentials', desc: 'Medical license, registration number, qualifications, specialties.' },
+    { n: '03', title: 'Set Your Availability', desc: 'Define your schedule, consultation fee, and preferred consultation type.' },
+    { n: '04', title: 'Submit for Verification', desc: 'Our team verifies your credentials and activates your profile within 1–2 days.' },
+    { n: '05', title: 'Start Seeing Patients', desc: 'Your dashboard goes live. Patients can book, and you can consult.' },
+];
+
+const BENEFITS = [
+    { icon: '✅', text: 'No hospital or clinic affiliation required' },
+    { icon: '✅', text: 'Free to join — no setup or monthly fees during beta' },
+    { icon: '✅', text: 'Full EMR: encounter notes, prescriptions, lab orders' },
+    { icon: '✅', text: 'Built-in video consultation (WebRTC)' },
+    { icon: '✅', text: 'AI clinical assistant with human oversight' },
+    { icon: '✅', text: 'Patient directory and discovery listing' },
 ];
 
 export default function DoctorsPage() {
-    const [query, setQuery]           = useState('');
-    const [specialty, setSpecialty]   = useState('All');
-    const [city, setCity]             = useState('');
-    const [results, setResults]       = useState<Provider[]>([]);
-    const [loading, setLoading]       = useState(false);
-    const [searched, setSearched]     = useState(false);
-
-    const search = useCallback(async () => {
-        setLoading(true);
-        setSearched(true);
-        try {
-            const params = new URLSearchParams({ type: 'doctor', limit: '24' });
-            if (query.trim())              params.set('q', query.trim());
-            if (specialty !== 'All')       params.set('specialty', specialty);
-            if (city.trim())               params.set('city', city.trim());
-            const res  = await fetch(`${API}/api/search?${params}`);
-            const json = await res.json();
-            setResults((json.data?.results ?? []).filter((r: Provider) => r.type === 'DOCTOR' || r.resultType === 'provider'));
-        } catch {
-            setResults([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [query, specialty, city]);
-
-    // Initial load — top doctors
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => { search(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); search(); };
-
     return (
-        <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'DM Sans',system-ui,sans-serif" }}>
+        <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <PublicNav />
 
-            {/* Header */}
-            <div style={{ background: 'linear-gradient(135deg,#1A54A8,#0B96A0)', padding: '48px 32px 36px' }}>
-                <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-                    <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 13, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>CareConnect</p>
-                    <h1 style={{ color: '#fff', fontSize: 'clamp(26px,4vw,40px)', fontWeight: 700, letterSpacing: '-.02em', margin: '0 0 32px' }}>
-                        Find a Doctor
+            {/* Hero */}
+            <section style={{ background: 'linear-gradient(140deg,#0A1F44 0%,#1A54A8 50%,#0B6BA0 100%)', padding: 'clamp(60px,10vw,120px) 24px' }}>
+                <div style={{ maxWidth: 760, margin: '0 auto', textAlign: 'center' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 999, padding: '6px 16px', marginBottom: 28, fontSize: 13, color: 'rgba(255,255,255,.9)', fontWeight: 600 }}>
+                        🩺 Individual doctors welcome — no hospital required
+                    </div>
+                    <h1 style={{ color: '#fff', fontSize: 'clamp(34px,6vw,60px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.02em', margin: '0 0 20px' }}>
+                        Grow your practice.<br />
+                        <span style={{ color: '#5EEAD4' }}>Reach more patients.</span>
                     </h1>
-
-                    {/* Search bar */}
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <input
-                            type="text"
-                            placeholder="Search by name, specialty or condition…"
-                            value={query}
-                            onChange={e => setQuery(e.target.value)}
-                            style={{ flex: '2 1 260px', padding: '12px 18px', borderRadius: 999, border: 'none', fontSize: 15, outline: 'none', boxShadow: '0 2px 12px rgba(0,0,0,.12)' }}
-                        />
-                        <input
-                            type="text"
-                            placeholder="City"
-                            value={city}
-                            onChange={e => setCity(e.target.value)}
-                            style={{ flex: '1 1 120px', padding: '12px 18px', borderRadius: 999, border: 'none', fontSize: 15, outline: 'none', boxShadow: '0 2px 12px rgba(0,0,0,.12)' }}
-                        />
-                        <button type="submit" style={{ padding: '12px 28px', borderRadius: 999, background: '#fff', color: '#1A54A8', border: 'none', fontWeight: 700, fontSize: 15, cursor: 'pointer', flexShrink: 0 }}>
-                            Search
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px' }}>
-
-                {/* Specialty filter chips */}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 28 }}>
-                    {SPECIALTIES.map(s => (
-                        <button
-                            key={s}
-                            onClick={() => { setSpecialty(s); search(); }}
-                            style={{
-                                padding: '7px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none',
-                                background: specialty === s ? '#1A54A8' : '#fff',
-                                color: specialty === s ? '#fff' : '#3D5475',
-                                boxShadow: '0 1px 4px rgba(10,31,68,.08)',
-                            }}
-                        >
-                            {s}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Results */}
-                {loading && (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#7A95B8' }}>
-                        <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-                        <p>Searching…</p>
+                    <p style={{ color: 'rgba(255,255,255,.8)', fontSize: 'clamp(16px,2vw,18px)', lineHeight: 1.65, margin: '0 0 40px', maxWidth: 580, marginLeft: 'auto', marginRight: 'auto' }}>
+                        Join CareConnect as an independent practitioner. Get a full clinical workspace, patient discovery, and telemedicine — without needing a clinic or hospital behind you.
+                    </p>
+                    <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <Link href="/provider/register?type=DOCTOR" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1A54A8', padding: '14px 32px', borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.2)' }}>
+                            Register as a Doctor →
+                        </Link>
+                        <Link href="/login/doctor" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.15)', color: '#fff', padding: '14px 28px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.3)' }}>
+                            Sign In
+                        </Link>
                     </div>
-                )}
+                </div>
+            </section>
 
-                {!loading && searched && results.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#7A95B8' }}>
-                        <div style={{ fontSize: 40, marginBottom: 12 }}>🩺</div>
-                        <p style={{ fontSize: 16, fontWeight: 600, color: '#3D5475' }}>No doctors found</p>
-                        <p style={{ fontSize: 14 }}>Try a different name, specialty or city.</p>
+            {/* Benefits checklist */}
+            <section style={{ background: '#F0F7FF', padding: 'clamp(40px,5vw,60px) 24px' }}>
+                <div style={{ maxWidth: 800, margin: '0 auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 14 }}>
+                        {BENEFITS.map(b => (
+                            <div key={b.text} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, background: '#fff', padding: '14px 18px', borderRadius: 12, border: '1px solid #DBEAFE', fontSize: 14, color: '#1E3A8A', fontWeight: 600 }}>
+                                <span style={{ color: '#16A34A', fontSize: 16, flexShrink: 0 }}>{b.icon}</span>
+                                {b.text}
+                            </div>
+                        ))}
                     </div>
-                )}
+                </div>
+            </section>
 
-                {!loading && results.length > 0 && (
-                    <>
-                        <p style={{ fontSize: 14, color: '#7A95B8', marginBottom: 20 }}>
-                            {results.length} doctor{results.length !== 1 ? 's' : ''} found
+            {/* Features grid */}
+            <section style={{ background: '#F8FAFF', padding: 'clamp(60px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+                    <div style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,4vw,40px)', fontWeight: 900, color: '#111827', margin: '0 0 16px', letterSpacing: '-0.02em' }}>
+                            A complete clinical toolkit
+                        </h2>
+                        <p style={{ fontSize: 17, color: '#6B7280', maxWidth: 540, margin: '0 auto', lineHeight: 1.65 }}>
+                            Everything a modern independent doctor needs — from patient management to AI-assisted documentation.
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 20 }}>
-                            {results.map(doc => (
-                                <DoctorCard key={doc._id} doc={doc} />
-                            ))}
-                        </div>
-                    </>
-                )}
-            </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px,1fr))', gap: 20 }}>
+                        {FEATURES.map(f => (
+                            <div key={f.title} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 16, padding: '28px 24px' }}>
+                                <div style={{ width: 52, height: 52, borderRadius: 14, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 18 }}>
+                                    {f.icon}
+                                </div>
+                                <h3 style={{ fontSize: 16, fontWeight: 800, color: '#111827', margin: '0 0 10px' }}>{f.title}</h3>
+                                <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.65, margin: 0 }}>{f.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Onboarding steps */}
+            <section style={{ background: '#fff', padding: 'clamp(60px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 800, margin: '0 auto' }}>
+                    <div style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,4vw,40px)', fontWeight: 900, color: '#111827', margin: '0 0 12px', letterSpacing: '-0.02em' }}>
+                            From signup to live in days
+                        </h2>
+                        <p style={{ fontSize: 17, color: '#6B7280' }}>A simple 5-step process to get your practice on CareConnect.</p>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                        {ONBOARDING_STEPS.map((s, i) => (
+                            <div key={s.n} style={{ display: 'flex', gap: 20, marginBottom: i < ONBOARDING_STEPS.length - 1 ? 32 : 0, position: 'relative' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#1A54A8,#0B96A0)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 14 }}>{s.n}</div>
+                                    {i < ONBOARDING_STEPS.length - 1 && <div style={{ width: 2, height: 32, background: '#E5E7EB', marginTop: 8 }} />}
+                                </div>
+                                <div style={{ paddingTop: 10 }}>
+                                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#111827', margin: '0 0 6px' }}>{s.title}</h3>
+                                    <p style={{ fontSize: 14, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>{s.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* CTA */}
+            <section style={{ background: 'linear-gradient(135deg,#0A1F44,#1A54A8)', padding: 'clamp(60px,8vw,100px) 24px', textAlign: 'center' }}>
+                <h2 style={{ fontSize: 'clamp(28px,4vw,44px)', fontWeight: 900, color: '#fff', margin: '0 0 16px', letterSpacing: '-0.02em' }}>
+                    Ready to modernise your practice?
+                </h2>
+                <p style={{ fontSize: 18, color: 'rgba(255,255,255,.75)', margin: '0 0 36px' }}>
+                    Register today. Verification takes 1–2 business days.
+                </p>
+                <Link href="/provider/register?type=DOCTOR" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1A54A8', padding: '16px 40px', borderRadius: 14, fontWeight: 800, fontSize: 16, textDecoration: 'none', boxShadow: '0 4px 24px rgba(0,0,0,.25)' }}>
+                    Register as a Doctor →
+                </Link>
+            </section>
+
+            <PublicFooter />
         </div>
     );
 }
 
-function DoctorCard({ doc }: { doc: Provider }) {
-    const fee = doc.consultationFeeRange;
-    const feeStr = fee ? (fee.min === fee.max ? `₹${fee.min}` : `₹${fee.min}–₹${fee.max}`) : null;
-
+function PublicFooter() {
     return (
-        <div style={{ background: '#fff', border: '1px solid #DDE6F5', borderRadius: 16, padding: 20, boxShadow: '0 1px 4px rgba(10,31,68,.06)', transition: 'all .2s', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                {/* Avatar */}
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg,#1A54A8,#0B96A0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, color: '#fff', fontWeight: 700 }}>
-                    {doc.name.charAt(0)}
+        <footer style={{ background: '#0A1F44', color: 'rgba(255,255,255,.6)', padding: '48px 24px 32px', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, marginBottom: 40 }}>
+                    <div style={{ flex: '1 1 220px' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 12 }}>Care<span style={{ color: '#0D9488' }}>Connect</span></div>
+                        <p style={{ fontSize: 13, lineHeight: 1.7, maxWidth: 260 }}>India's connected healthcare platform. Find, book, and manage care with confidence.</p>
+                    </div>
+                    <div style={{ flex: '1 1 140px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>For Providers</div>
+                        {[['Doctors', '/doctors'], ['Clinics', '/clinics'], ['Hospitals', '/hospitals'], ['Labs', '/labs'], ['Pharmacies', '/pharmacies']].map(([l, h]) => (
+                            <div key={l} style={{ marginBottom: 10 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', textDecoration: 'none' }}>{l}</Link></div>
+                        ))}
+                    </div>
+                    <div style={{ flex: '1 1 140px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Company</div>
+                        {[['About', '/about'], ['Contact', '/contact'], ['Privacy Policy', '/privacy'], ['Terms', '/terms']].map(([l, h]) => (
+                            <div key={l} style={{ marginBottom: 10 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', textDecoration: 'none' }}>{l}</Link></div>
+                        ))}
+                    </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0A1F44', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {doc.name}
-                        </h3>
-                        {doc.careconnectVerified && (
-                            <span style={{ background: '#E6F7F8', color: '#0B96A0', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>✓ Verified</span>
-                        )}
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: '#3D5475' }}>{doc.specialties.slice(0, 2).join(' · ') || doc.subtype || 'General Practice'}</p>
-                    {(doc.locality || doc.city) && (
-                        <p style={{ margin: '3px 0 0', fontSize: 12, color: '#7A95B8' }}>📍 {[doc.locality, doc.city].filter(Boolean).join(', ')}</p>
-                    )}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 24, fontSize: 12, color: 'rgba(255,255,255,.3)' }}>
+                    © 2026 CareConnect. All rights reserved.
                 </div>
             </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {doc.rating != null && (
-                    <div style={{ background: '#F6F9FF', border: '1px solid #DDE6F5', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#0A1F44', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        ⭐ <strong>{doc.rating.toFixed(1)}</strong>
-                        {doc.reviewCount ? <span style={{ color: '#7A95B8' }}>({doc.reviewCount})</span> : null}
-                    </div>
-                )}
-                {feeStr && (
-                    <div style={{ background: '#F6F9FF', border: '1px solid #DDE6F5', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#0A1F44' }}>
-                        💊 {feeStr}
-                    </div>
-                )}
-                {doc.openNow && (
-                    <div style={{ background: '#DCFCE7', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
-                        Open now
-                    </div>
-                )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 'auto' }}>
-                <Link
-                    href={`/doctors/${doc._id}`}
-                    style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, border: '1.5px solid #1A54A8', color: '#1A54A8', fontSize: 13, fontWeight: 600, textDecoration: 'none', transition: 'all .15s' }}
-                >
-                    View Profile
-                </Link>
-                <Link
-                    href={`/nearby/book/${doc._id}`}
-                    style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: 'linear-gradient(135deg,#1A54A8,#0B96A0)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
-                >
-                    Book Now
-                </Link>
-            </div>
-        </div>
+        </footer>
     );
 }

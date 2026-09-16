@@ -1,5 +1,6 @@
 ﻿'use client';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
@@ -52,12 +53,34 @@ const INDIA_STATES = [
 ];
 
 export default function ProviderRegisterPage() {
-    const [step, setStep]       = useState(1);
+    return (
+        <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F6F9FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans, system-ui, sans-serif', color: '#7A95B8', fontSize: 15 }}>Loading…</div>}>
+            <RegisterForm />
+        </Suspense>
+    );
+}
+
+function RegisterForm() {
+    const searchParams = useSearchParams();
+    const typeParam    = (searchParams.get('type') ?? '').toUpperCase() as ProviderType | '';
+    const validTypes   = PROVIDER_TYPES.map(p => p.value);
+    const presetType   = validTypes.includes(typeParam as ProviderType) ? typeParam as ProviderType : '';
+
+    const [step, setStep]       = useState(presetType ? 2 : 1);
     const [form, setForm]       = useState<RegState>({
-        providerType: '', name: '', contactName: '', email: '', phone: '',
+        providerType: presetType, name: '', contactName: '', email: '', phone: '',
         city: '', state: '', pincode: '', website: '', specialties: [],
         description: '', services: [],
     });
+
+    // Sync if URL param changes (e.g. browser back/forward)
+    useEffect(() => {
+        if (presetType && form.providerType !== presetType) {
+            setForm(f => ({ ...f, providerType: presetType }));
+            setStep(2);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [presetType]);
     const [regId, setRegId]     = useState('');
     const [token, setToken]     = useState('');
     const [loading, setLoading] = useState(false);
