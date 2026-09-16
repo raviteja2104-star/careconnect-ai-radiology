@@ -21,7 +21,7 @@ exports.getHealth = async (req, res) => {
         // Real probe: 'connected' only when the shared client is ready.
         // Redis is optional — its absence degrades caching/rate-limiting,
         // not overall health, so it doesn't affect the status code.
-        redis: RedisClient.isReady() ? 'connected' : 'unavailable',
+        redis: (RedisClient.getClient(), RedisClient.isReady()) ? 'connected' : 'unavailable',
         eventBus: 'in_process'
       }
     }

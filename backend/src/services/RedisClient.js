@@ -20,7 +20,7 @@ function getClient() {
     if (!client) {
         client = new Redis(REDIS_URL, {
             enableOfflineQueue: false,      // fail fast when disconnected
-            connectTimeout: 2000,            // short connect timeout
+            connectTimeout: 10000,           // allow for TLS handshake on cold start
             maxRetriesPerRequest: 1,
             retryStrategy(times) {
                 // Back off up to 30s between reconnect attempts, retry forever.

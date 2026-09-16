@@ -81,6 +81,9 @@ const wardRoutes = require('./routes/wardRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const emergencyAccessRoutes = require('./routes/emergencyAccessRoutes');
 
+// Eagerly initialize Redis so the connection is established before health checks run
+require('./services/RedisClient').getClient();
+
 // Initialize Event-Driven Architecture (Orchestrators)
 require('./services/EventBus');
 require('./services/AIDecisionEngine');
