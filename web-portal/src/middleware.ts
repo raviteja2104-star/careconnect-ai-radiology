@@ -25,7 +25,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const PUBLIC_PATHS = new Set([
     '/', '/login', '/home', '/business', '/display', '/kiosk',
     '/patients', '/doctors', '/clinics', '/hospitals', '/labs', '/pharmacies',
-    '/about', '/contact', '/join',
+    '/about', '/contact', '/join', '/provider/register',
 ]);
 
 // Prefixes that are always allowed through.
