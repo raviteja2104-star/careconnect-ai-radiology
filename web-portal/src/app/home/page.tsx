@@ -168,13 +168,15 @@ export default function HomePage() {
                     <div className="flex h-16 items-center justify-between gap-4">
 
                         {/* Logo */}
-                        <Link href="/home" className="flex items-center gap-2.5 shrink-0">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-xl"
-                                style={{ background: 'linear-gradient(135deg, #2563EB, #0D9488)' }}>
-                                <HeartPulse className="h-4 w-4 text-white" />
+                        <Link href="/home" className="flex items-center gap-2.5 shrink-0" style={{ textDecoration: 'none' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(135deg,#1D4ED8 0%,#0D9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(37,99,235,.3)', flexShrink: 0 }}>
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                                    <polyline points="1,12 5,12 7,7 9,17 11,12 13,12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                    <path d="M13,12 C14,9.5 18,8 19.5,10 C21,12 20,15 17,17.5 L14,20" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                                </svg>
                             </div>
-                            <span className="text-[17px] font-extrabold tracking-tight text-gray-900">
-                                Care<span className="text-blue-600">Connect</span>
+                            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.025em', color: '#0A1F44' }}>
+                                Care<span style={{ background: 'linear-gradient(90deg,#1D4ED8,#0D9488)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Connect</span>
                             </span>
                         </Link>
 
@@ -275,8 +277,8 @@ export default function HomePage() {
                                     <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 28px', borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.2)' }}>
                                         Get Started Free →
                                     </Link>
-                                    <Link href="/nearby/search" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.14)', color: '#fff', padding: '14px 24px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.28)' }}>
-                                        Find Doctors Near Me
+                                    <Link href="/join" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.14)', color: '#fff', padding: '14px 24px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.28)' }}>
+                                        For Healthcare Providers
                                     </Link>
                                 </div>
                             </motion.div>
@@ -360,69 +362,6 @@ export default function HomePage() {
                         </div>
                     </div>
 
-                    {/* ── Search card (centered below) ── */}
-                    <motion.div initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.65, delay: 0.2 }}>
-                        <div className="rounded-2xl p-5 shadow-2xl" style={{
-                            background: 'rgba(255,255,255,0.11)',
-                            border: '1px solid rgba(255,255,255,0.22)',
-                            backdropFilter: 'blur(16px)',
-                        }}>
-                            {/* Category tabs */}
-                            <div className="flex flex-wrap gap-2 mb-5">
-                                {SEARCH_TABS.map(tab => (
-                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                            activeTab === tab.id
-                                                ? 'bg-white text-blue-700 shadow-md'
-                                                : 'text-white/75 hover:text-white hover:bg-white/15'
-                                        }`}>
-                                        <tab.icon className="h-3.5 w-3.5" />
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Inputs */}
-                            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
-                                <div className="relative flex-1">
-                                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="text" value={searchQuery}
-                                        onChange={e => setSearchQuery(e.target.value)}
-                                        placeholder={SEARCH_PLACEHOLDERS[activeTab]}
-                                        className="h-12 w-full rounded-xl bg-white pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                    />
-                                </div>
-                                <div className="relative sm:w-52">
-                                    <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="text" value={location}
-                                        onChange={e => setLocation(e.target.value)}
-                                        placeholder="City, area or pincode"
-                                        className="h-12 w-full rounded-xl bg-white pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                    />
-                                </div>
-                                <button type="submit"
-                                    className="h-12 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white hover:bg-blue-500 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-2 shrink-0">
-                                    <Search className="h-4 w-4" /> Search
-                                </button>
-                            </form>
-
-                            {/* Quick pills */}
-                            <div className="mt-3.5 flex flex-wrap gap-2 items-center">
-                                <span className="text-xs text-white/50 font-medium">Popular:</span>
-                                {POPULAR_SEARCHES.map(q => (
-                                    <button key={q} onClick={() => {
-                                        setSearchQuery(q);
-                                        router.push(`/nearby/search?q=${encodeURIComponent(q)}&type=${activeTab}`);
-                                    }} className="rounded-full border border-white/20 bg-white/12 px-3 py-1 text-xs text-white/80 hover:bg-white/22 hover:text-white transition-all">
-                                        {q}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </motion.div>
                 </div>
             </section>
 
@@ -485,248 +424,9 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* ═══════════════════════ DOCTOR DISCOVERY ════════════════════════════ */}
-            <section className="py-24" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #F0FDFA 100%)' }}>
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col gap-14 lg:flex-row lg:items-center">
-                        {/* Copy */}
-                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                            className="lg:w-[42%] shrink-0">
-                            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                                <Stethoscope className="h-3.5 w-3.5" /> Doctor Discovery
-                            </div>
-                            <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                                Find the right specialist for you
-                            </h2>
-                            <p className="mt-4 text-base leading-relaxed text-gray-500">
-                                Search across 3,500+ verified doctors by specialty, location, consultation type and availability. Read patient reviews and book instantly.
-                            </p>
-                            <ul className="mt-6 space-y-3">
-                                {[
-                                    'Search by specialty, name or condition',
-                                    'Compare doctors by experience and reviews',
-                                    'Book in-clinic or online consultations',
-                                    'View real-time availability and fees',
-                                ].map(f => (
-                                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                                        <CheckCircle className="h-5 w-5 shrink-0 text-teal-500" /> {f}
-                                    </li>
-                                ))}
-                            </ul>
-                            <Link href="/nearby/search?type=doctor"
-                                className="mt-8 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm">
-                                Find a Doctor <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </motion.div>
 
-                        {/* Specialty grid */}
-                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }}
-                            variants={stagger} className="flex-1 grid grid-cols-3 sm:grid-cols-4 gap-3">
-                            {SPECIALTIES.map(sp => (
-                                <motion.div key={sp.name} variants={fadeUp}>
-                                    <Link href={`/nearby/search?type=doctor&specialty=${encodeURIComponent(sp.name)}`}
-                                        className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                                        <sp.icon className={`h-6 w-6 ${sp.color}`} />
-                                        <span className="text-xs font-semibold leading-tight text-gray-700">{sp.name}</span>
-                                    </Link>
-                                </motion.div>
-                            ))}
-                        </motion.div>
-                    </div>
-                </div>
-            </section>
 
-            {/* ═══════════════════════ LAB BOOKING ═════════════════════════════════ */}
-            <section className="bg-white py-24">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col gap-14 lg:flex-row-reverse lg:items-center">
-                        {/* Copy */}
-                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                            className="lg:w-[42%] shrink-0">
-                            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
-                                <FlaskConical className="h-3.5 w-3.5" /> Lab Tests & Diagnostics
-                            </div>
-                            <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                                Book lab tests from the comfort of home
-                            </h2>
-                            <p className="mt-4 text-base leading-relaxed text-gray-500">
-                                Browse 2,000+ tests across 300+ diagnostic centres. Compare prices, choose home collection or centre visit, and track your reports in real time.
-                            </p>
-                            <ul className="mt-6 space-y-3">
-                                {[
-                                    'Home blood sample collection available',
-                                    'Compare labs by price and patient ratings',
-                                    'Track report status in real time',
-                                    'Digital reports saved to your health vault',
-                                ].map(f => (
-                                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                                        <CheckCircle className="h-5 w-5 shrink-0 text-violet-500" /> {f}
-                                    </li>
-                                ))}
-                            </ul>
-                            <Link href="/nearby/search?type=lab"
-                                className="mt-8 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-violet-700 transition-colors shadow-sm">
-                                Browse Lab Tests <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </motion.div>
 
-                        {/* Category grid */}
-                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }}
-                            variants={stagger} className="flex-1 grid grid-cols-2 gap-3">
-                            {LAB_CATEGORIES.map(cat => (
-                                <motion.div key={cat} variants={fadeUp}>
-                                    <Link href={`/nearby/search?type=lab&q=${encodeURIComponent(cat)}`}
-                                        className="group flex items-center gap-3 rounded-xl border border-violet-100 bg-violet-50 p-4 transition-all hover:bg-violet-100 hover:border-violet-200">
-                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm group-hover:shadow">
-                                            <FlaskConical className="h-4 w-4 text-violet-600" />
-                                        </div>
-                                        <span className="text-sm font-semibold text-gray-800">{cat}</span>
-                                    </Link>
-                                </motion.div>
-                            ))}
-                        </motion.div>
-                    </div>
-                </div>
-            </section>
-
-            {/* ═══════════════════════ HEALTH RECORDS ══════════════════════════════ */}
-            <section className="py-24" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)' }}>
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mx-auto mb-14 max-w-2xl text-center">
-                        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                            <FileText className="h-3.5 w-3.5" /> Health Records
-                        </div>
-                        <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                            Your health records, organized and secure
-                        </h2>
-                        <p className="mt-4 text-base leading-relaxed text-gray-500">
-                            Store prescriptions, lab reports, discharge summaries and medical documents in one secure health vault. Access them anytime, share them with your care team.
-                        </p>
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }}
-                        variants={stagger} className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                        {[
-                            {
-                                icon: Sparkles, bg: 'bg-blue-100', color: 'text-blue-600',
-                                badgeText: 'AI + Human Verified', badgeBg: 'bg-blue-50 text-blue-600',
-                                title: 'AI-Assisted Capture',
-                                desc: 'Scan or photograph paper prescriptions and reports. Our AI extracts key information — always subject to human review before being treated as verified.',
-                            },
-                            {
-                                icon: ShieldCheck, bg: 'bg-teal-100', color: 'text-teal-600',
-                                badgeText: 'End-to-End Encrypted', badgeBg: 'bg-teal-50 text-teal-600',
-                                title: 'Secure & Private',
-                                desc: 'Your health records are encrypted, access-controlled and shared only with your explicit consent. You decide who sees what, and for how long.',
-                            },
-                            {
-                                icon: Users, bg: 'bg-violet-100', color: 'text-violet-600',
-                                badgeText: 'Consent-Controlled', badgeBg: 'bg-violet-50 text-violet-600',
-                                title: 'Share with Providers',
-                                desc: 'Grant temporary, revocable access to doctors and clinicians. Every access is logged in a full audit trail — complete transparency, always.',
-                            },
-                        ].map(card => (
-                            <motion.div key={card.title} variants={fadeUp}>
-                                <div className="flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                                    <div className={`mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl ${card.bg}`}>
-                                        <card.icon className={`h-5 w-5 ${card.color}`} />
-                                    </div>
-                                    <span className={`mb-3 inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${card.badgeBg}`}>
-                                        {card.badgeText}
-                                    </span>
-                                    <h3 className="mb-2 font-bold text-gray-900">{card.title}</h3>
-                                    <p className="text-sm leading-relaxed text-gray-500">{card.desc}</p>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-
-                    {/* Important info callout */}
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
-                        <div className="flex items-start gap-3">
-                            <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                            <div>
-                                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-amber-700">Important</p>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                    CareConnect clearly distinguishes between <strong>user-uploaded</strong>, <strong>AI-extracted</strong>, and <strong>clinician-verified</strong> information. AI-extracted data is never presented as medically verified until reviewed by a qualified healthcare professional.
-                                </p>
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* ═══════════════════════ FAMILY HEALTH ═══════════════════════════════ */}
-            <section className="bg-white py-24">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col gap-14 lg:flex-row lg:items-center">
-                        {/* Copy */}
-                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                            className="lg:w-[45%] shrink-0">
-                            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                                <Users className="h-3.5 w-3.5" /> Family Health
-                            </div>
-                            <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                                Manage healthcare for your entire family
-                            </h2>
-                            <p className="mt-4 text-base leading-relaxed text-gray-500">
-                                Add family members and manage their healthcare journeys from your account. Book appointments, track health records, and coordinate care for everyone you love.
-                            </p>
-                            <div className="mt-7 grid grid-cols-2 gap-3">
-                                {['Myself', 'Parents', 'Children', 'Spouse', 'Siblings', 'Other Members'].map(m => (
-                                    <div key={m}
-                                        className="flex items-center gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-200">
-                                            <Users className="h-3.5 w-3.5 text-emerald-700" />
-                                        </div>
-                                        <span className="text-sm font-semibold text-gray-800">{m}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <Link href="/family"
-                                className="mt-8 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-emerald-700 transition-colors shadow-sm">
-                                Manage Family Health <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </motion.div>
-
-                        {/* Family dashboard preview */}
-                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                            className="flex-1">
-                            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 shadow-sm">
-                                <div className="mb-5 flex items-center gap-3">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-xl"
-                                        style={{ background: 'linear-gradient(135deg, #2563EB, #0D9488)' }}>
-                                        <HeartPulse className="h-4.5 w-4.5 text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-900">Family Dashboard</p>
-                                        <p className="text-xs text-gray-400">4 members · 3 upcoming</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-2.5">
-                                    {FAMILY_MEMBERS.map(m => (
-                                        <div key={m.name}
-                                            className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3.5 shadow-sm">
-                                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${m.color}`}>
-                                                <span className="text-sm font-black text-white">{m.name[0]}</span>
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-bold text-gray-900">{m.name}</p>
-                                                <p className="truncate text-xs text-gray-400">{m.apt}</p>
-                                            </div>
-                                            <span className="shrink-0 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-400">
-                                                {m.relation}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                </div>
-            </section>
 
             {/* ══════════════════════ PROVIDER ECOSYSTEM ═══════════════════════════ */}
             <section id="for-providers" className="py-24"
