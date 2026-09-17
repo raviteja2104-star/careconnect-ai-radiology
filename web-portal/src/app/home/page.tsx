@@ -1,175 +1,135 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/components/providers/SessionProvider';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-    HeartPulse, Search, MapPin, Stethoscope, FlaskConical, Building2,
-    Pill, Activity, Microscope, Ambulance, Video, Shield, ArrowRight,
-    ChevronRight, CheckCircle, Users, FileText, Calendar, Sparkles,
-    Star, Heart, Brain, Eye, Baby, Bone, Zap, Menu, X, Globe,
-    ShieldCheck, Clock, BadgeCheck, BarChart3, Home as HomeIcon,
+    Stethoscope, FlaskConical, Building2, Pill, Activity, Microscope,
+    Video, Shield, ArrowRight, Calendar, FileText, Users,
+    ShieldCheck, Clock, BadgeCheck, BarChart3, Globe, Menu, X,
+    Heart, ChevronDown, CheckCircle, Zap, Lock, Database,
 } from 'lucide-react';
 
-/* ─── types ──────────────────────────────────────────────────────────── */
-type SearchCategory = 'doctor' | 'lab' | 'hospital' | 'checkup' | 'pharmacy' | 'diagnostics';
-
-/* ─── data ───────────────────────────────────────────────────────────── */
-const SEARCH_TABS: { id: SearchCategory; label: string; icon: React.ElementType }[] = [
-    { id: 'doctor',      label: 'Find a Doctor',    icon: Stethoscope  },
-    { id: 'lab',         label: 'Lab Tests',         icon: FlaskConical },
-    { id: 'hospital',    label: 'Hospitals',         icon: Building2    },
-    { id: 'checkup',     label: 'Health Checkup',    icon: Activity     },
-    { id: 'pharmacy',    label: 'Pharmacy',          icon: Pill         },
-    { id: 'diagnostics', label: 'Diagnostics',       icon: Microscope   },
-];
-
-const SEARCH_PLACEHOLDERS: Record<SearchCategory, string> = {
-    doctor:      'Search by doctor name, specialty or condition',
-    lab:         'Search by test name, package or health concern',
-    hospital:    'Search by hospital name, specialty or location',
-    checkup:     'Search by package name or health concern',
-    pharmacy:    'Search by pharmacy name or medication',
-    diagnostics: 'Search by investigation name or centre',
-};
-
-const POPULAR_SEARCHES = ['Cardiologist', 'Full body checkup', 'CBC test', 'Dentist', 'Diabetologist'];
-
-const SERVICES = [
-    {
-        icon: Stethoscope, title: 'Doctors',
-        desc: 'Find specialists by specialty, location, experience, availability and consultation type.',
-        color: 'bg-blue-50 text-blue-600', badge: '3,500+ Doctors',
-        href: '/nearby/search?type=doctor',
-    },
-    {
-        icon: FlaskConical, title: 'Lab Tests',
-        desc: 'Search and book diagnostic tests, health packages and preventive checkups.',
-        color: 'bg-violet-50 text-violet-600', badge: '2,000+ Tests',
-        href: '/nearby/search?type=lab',
-    },
-    {
-        icon: Building2, title: 'Hospitals',
-        desc: 'Discover hospitals, specialties, departments and available services near you.',
-        color: 'bg-teal-50 text-teal-600', badge: '500+ Hospitals',
-        href: '/nearby/search?type=hospital',
-    },
-    {
-        icon: Pill, title: 'Pharmacies',
-        desc: 'Find pharmacies and healthcare products and services in your area.',
-        color: 'bg-emerald-50 text-emerald-600', badge: '1,200+ Listed',
-        href: '/nearby/search?type=pharmacy',
-    },
-    {
-        icon: Activity, title: 'Health Checkups',
-        desc: 'Discover preventive health packages and wellness checkups tailored to your needs.',
-        color: 'bg-amber-50 text-amber-600', badge: '150+ Packages',
-        href: '/nearby/search?type=lab&category=checkup',
-    },
-    {
-        icon: Microscope, title: 'Diagnostics',
-        desc: 'Find diagnostic centres and available investigations near you.',
-        color: 'bg-rose-50 text-rose-600', badge: '300+ Centres',
-        href: '/nearby/search?type=diagnostic',
-    },
-    {
-        icon: Ambulance, title: 'Emergency Care',
-        desc: 'Pathways to urgent and emergency healthcare services when you need them most.',
-        color: 'bg-red-50 text-red-600', badge: '24/7 Available',
-        href: '/emergency',
-    },
-    {
-        icon: Video, title: 'Online Consultation',
-        desc: 'Connect with healthcare professionals for virtual consultations from anywhere.',
-        color: 'bg-indigo-50 text-indigo-600', badge: 'Consult Now',
-        href: '/telemedicine',
-    },
-];
-
-const SPECIALTIES = [
-    { name: 'Cardiology',       icon: Heart,       color: 'text-rose-500'    },
-    { name: 'Neurology',        icon: Brain,       color: 'text-violet-500'  },
-    { name: 'Orthopedics',      icon: Bone,        color: 'text-amber-500'   },
-    { name: 'Pediatrics',       icon: Baby,        color: 'text-blue-500'    },
-    { name: 'Ophthalmology',    icon: Eye,         color: 'text-teal-500'    },
-    { name: 'Dermatology',      icon: Sparkles,    color: 'text-pink-500'    },
-    { name: 'ENT',              icon: Activity,    color: 'text-orange-500'  },
-    { name: 'Gynecology',       icon: Heart,       color: 'text-rose-400'    },
-    { name: 'General Medicine', icon: Stethoscope, color: 'text-blue-600'    },
-    { name: 'Dentistry',        icon: ShieldCheck, color: 'text-cyan-500'    },
-    { name: 'Psychiatry',       icon: Brain,       color: 'text-purple-500'  },
-    { name: 'Oncology',         icon: Zap,         color: 'text-emerald-600' },
-];
-
-const LAB_CATEGORIES = [
-    'Blood Tests', 'Diabetes Panel', 'Thyroid Function', 'Liver Function',
-    'Kidney Function', 'Vitamins & Minerals', 'Hormonal Tests', 'Cardiac Risk',
-    'Infectious Disease', 'Full Body Checkup',
-];
-
-const HOW_IT_WORKS = [
-    { step: '01', icon: Search,   title: 'Search',  desc: 'Find the healthcare service you need — doctor, lab test, hospital, or pharmacy.' },
-    { step: '02', icon: Star,     title: 'Compare', desc: 'Compare providers by rating, location, price, availability and patient reviews.' },
-    { step: '03', icon: Calendar, title: 'Book',    desc: 'Select your date, time and preferred location. Confirm instantly.' },
-    { step: '04', icon: FileText, title: 'Manage',  desc: 'Track appointments, results and health records — all in one place.' },
-];
-
-const STATS = [
-    { value: '3,500+', label: 'Verified Doctors'   },
-    { value: '500+',   label: 'Hospitals & Clinics' },
-    { value: '2,000+', label: 'Lab Tests'           },
-    { value: '50,000+',label: 'Patients Served'     },
-];
-
-const FAMILY_MEMBERS = [
-    { name: 'You',           relation: 'Myself',  apt: 'Cardiology · Upcoming appointment',        color: 'bg-blue-500'   },
-    { name: 'Spouse',        relation: 'Spouse',  apt: 'CBC Lab Test · Home Collection',            color: 'bg-violet-500' },
-    { name: 'Father',        relation: 'Father',  apt: 'Diabetes Follow-up · This Week',           color: 'bg-teal-500'   },
-    { name: 'Mother',        relation: 'Mother',  apt: 'Ophthalmology Consult · Next Week',        color: 'bg-rose-500'   },
-];
-
-/* ─── animation helpers ──────────────────────────────────────────────── */
+/* ── animation helpers ──────────────────────────────────────────────────── */
 const fadeUp = {
     hidden:  { opacity: 0, y: 24 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.52, ease: [0.22, 1, 0.36, 1] } },
 };
-const stagger = {
-    visible: { transition: { staggerChildren: 0.07 } },
-};
+const stagger = { visible: { transition: { staggerChildren: 0.07 } } };
 
-/* ─── component ──────────────────────────────────────────────────────── */
+/* ── nav data ────────────────────────────────────────────────────────────── */
+type DropdownId = 'platform' | 'healthcare' | 'patients' | 'resources' | null;
+
+const NAV_PLATFORM = [
+    { label: 'EMR',                  icon: FileText,   href: '/doctors',   desc: 'Electronic medical records for modern practice' },
+    { label: 'Clinic Management',    icon: Building2,  href: '/clinics',   desc: 'End-to-end clinic operations platform' },
+    { label: 'Hospital Management',  icon: Building2,  href: '/hospitals', desc: 'Enterprise hospital workflow suite' },
+    { label: 'Patient Care',         icon: Heart,      href: '/patients',  desc: 'Connected patient experience platform' },
+    { label: 'Laboratory',           icon: FlaskConical, href: '/labs',    desc: 'LIS for diagnostic labs and pathology' },
+    { label: 'Pharmacy',             icon: Pill,       href: '/pharmacies', desc: 'Prescription-to-dispensing management' },
+    { label: 'Telemedicine',         icon: Video,      href: '/doctors',   desc: 'Secure video consultation platform' },
+    { label: 'Analytics',            icon: BarChart3,  href: '/join',      desc: 'Real-time healthcare intelligence' },
+];
+
+const NAV_HEALTHCARE = [
+    { label: 'Doctors',     icon: '🩺', href: '/doctors',    desc: 'EMR, appointments, prescription tools' },
+    { label: 'Clinics',     icon: '🏥', href: '/clinics',    desc: 'Multi-doctor clinic management' },
+    { label: 'Hospitals',   icon: '🏨', href: '/hospitals',  desc: 'Enterprise hospital operations' },
+    { label: 'Labs',        icon: '🔬', href: '/labs',       desc: 'Diagnostic lab workflow & LIS' },
+    { label: 'Pharmacies',  icon: '💊', href: '/pharmacies', desc: 'Dispensing and inventory management' },
+];
+
+const NAV_PATIENTS = [
+    { label: 'Find Doctors',       icon: '🩺', href: '/patients',   desc: 'Search and book appointments' },
+    { label: 'Book Appointments',  icon: '📅', href: '/patients',   desc: 'Schedule with verified providers' },
+    { label: 'Health Records',     icon: '📁', href: '/patients',   desc: 'Your complete medical history' },
+    { label: 'Lab Reports',        icon: '🔬', href: '/patients',   desc: 'View and download digital reports' },
+];
+
+const NAV_RESOURCES = [
+    { label: 'Blog',         href: '/about',   icon: '✍️' },
+    { label: 'Help Center',  href: '/contact', icon: '❓' },
+    { label: 'FAQs',         href: '/contact', icon: '💬' },
+    { label: 'Contact',      href: '/contact', icon: '📞' },
+];
+
+/* ── audience shortcuts ─────────────────────────────────────────────────── */
+const PROVIDER_SHORTCUTS = [
+    { label: 'Doctor',    href: '/provider/register?type=DOCTOR',  icon: '🩺' },
+    { label: 'Clinic',    href: '/provider/register?type=CLINIC',  icon: '🏥' },
+    { label: 'Hospital',  href: '/provider/register?type=HOSPITAL', icon: '🏨' },
+    { label: 'Lab',       href: '/provider/register?type=LAB',     icon: '🔬' },
+    { label: 'Pharmacy',  href: '/provider/register?type=PHARMACY', icon: '💊' },
+];
+
+/* ── journey steps ──────────────────────────────────────────────────────── */
+const JOURNEY = [
+    { label: 'Appointment',   icon: '📅', color: '#2563EB' },
+    { label: 'Consultation',  icon: '🩺', color: '#0F766E' },
+    { label: 'Prescription',  icon: '📋', color: '#7C3AED' },
+    { label: 'Lab Test',      icon: '🔬', color: '#0369A1' },
+    { label: 'Lab Report',    icon: '📊', color: '#059669' },
+    { label: 'Radiology',     icon: '🫁', color: '#B45309' },
+    { label: 'Medication',    icon: '💊', color: '#DC2626' },
+    { label: 'Follow-up',     icon: '🔄', color: '#2563EB' },
+];
+
+/* ── component ───────────────────────────────────────────────────────────── */
 export default function HomePage() {
-    const router = useRouter();
     const { isAuthenticated } = useSession();
-    const ctaHref  = isAuthenticated ? '/nearby' : '/login';
     const joinHref = isAuthenticated ? '/nearby' : '/join';
-    const [activeTab, setActiveTab]       = useState<SearchCategory>('doctor');
-    const [searchQuery, setSearchQuery]   = useState('');
-    const [location, setLocation]         = useState('');
+    const ctaHref  = isAuthenticated ? '/nearby' : '/login';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [openDropdown, setOpenDropdown] = useState<DropdownId>(null);
+    const navRef = useRef<HTMLDivElement>(null);
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        const p = new URLSearchParams();
-        if (searchQuery) p.set('q', searchQuery);
-        if (location)    p.set('location', location);
-        p.set('type', activeTab);
-        router.push(`/nearby/search?${p.toString()}`);
-    };
+    useEffect(() => {
+        function handler(e: MouseEvent) {
+            if (navRef.current && !navRef.current.contains(e.target as Node)) {
+                setOpenDropdown(null);
+            }
+        }
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const toggleDropdown = (id: DropdownId) =>
+        setOpenDropdown(prev => (prev === id ? null : id));
 
     return (
-        <div className="min-h-screen bg-white antialiased">
+        <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
 
-            {/* ══════════════════════════════ NAVBAR ══════════════════════════════ */}
-            <header className="sticky top-0 z-50 bg-white/96 backdrop-blur-md border-b border-gray-100 shadow-sm">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 items-center justify-between gap-4">
+            {/* ══════════ KEYFRAMES ══════════ */}
+            <style>{`
+                @keyframes cc-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+                @keyframes cc-float2{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+                @keyframes cc-ecg{from{stroke-dashoffset:700}to{stroke-dashoffset:0}}
+                @keyframes cc-blink{0%,100%{opacity:1}50%{opacity:.2}}
+                @keyframes cc-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,234,212,.45)}65%{box-shadow:0 0 0 12px rgba(94,234,212,0)}}
+                @keyframes cc-spin-slow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+                @keyframes cc-dash{0%{stroke-dashoffset:300}100%{stroke-dashoffset:0}}
+                @keyframes cc-nav-pulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.35)}60%{box-shadow:0 0 0 8px rgba(37,99,235,0)}}
+                @media(max-width:1023px){.cc-hero-vis{display:none!important}}
+                @media(max-width:768px){.cc-hide-mobile{display:none!important}}
+                .cc-nav-link{font-size:13px;font-weight:600;color:#374151;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;background:none;border:none;transition:color .15s,background .15s;}
+                .cc-nav-link:hover{color:#1D4ED8;background:#EFF6FF;}
+                .cc-provider-card:hover{background:#F0F9FF!important;border-color:#BFDBFE!important;}
+            `}</style>
+
+            {/* ══════════ NAVBAR ══════════ */}
+            <header style={{
+                position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255,255,255,0.97)',
+                backdropFilter: 'blur(12px)', borderBottom: '1px solid #E8EEF8',
+                boxShadow: '0 1px 4px rgba(10,31,68,.05)',
+            }}>
+                <div ref={navRef} style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', height: 64, gap: 8 }}>
 
                         {/* Logo */}
-                        <Link href="/home" className="flex items-center gap-2.5 shrink-0" style={{ textDecoration: 'none' }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(135deg,#1D4ED8 0%,#0D9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(37,99,235,.3)', flexShrink: 0 }}>
+                        <Link href="/home" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0, marginRight: 16 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(135deg,#1D4ED8 0%,#0D9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(37,99,235,.3)', animation: 'cc-nav-pulse 2.8s ease-out infinite', flexShrink: 0 }}>
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
                                     <polyline points="1,12 5,12 7,7 9,17 11,12 13,12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                     <path d="M13,12 C14,9.5 18,8 19.5,10 C21,12 20,15 17,17.5 L14,20" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
@@ -181,436 +141,1053 @@ export default function HomePage() {
                         </Link>
 
                         {/* Desktop nav */}
-                        <nav className="hidden lg:flex items-center gap-7">
-                            <Link href="/patients"   className="text-sm text-gray-600 hover:text-blue-600 transition-colors">For Patients</Link>
-                            <a href="#for-providers" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">For Providers</a>
-                            <Link href="/about"      className="text-sm text-gray-600 hover:text-blue-600 transition-colors">About</Link>
+                        <nav className="cc-hide-mobile" style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 2 }}>
+
+                            {/* Platform */}
+                            <div style={{ position: 'relative' }}>
+                                <button className="cc-nav-link" onClick={() => toggleDropdown('platform')}>
+                                    Platform <ChevronDown style={{ width: 14, height: 14, transition: 'transform .2s', transform: openDropdown === 'platform' ? 'rotate(180deg)' : 'none' }} />
+                                </button>
+                                {openDropdown === 'platform' && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 10px)', left: 0, background: '#fff', border: '1px solid #E8EEF8', borderRadius: 16, boxShadow: '0 12px 48px rgba(10,31,68,.14)', padding: 8, width: 320, zIndex: 200 }}>
+                                        {NAV_PLATFORM.map(item => (
+                                            <Link key={item.href + item.label} href={item.href}
+                                                onClick={() => setOpenDropdown(null)}
+                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background .15s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#F0F4FF')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <item.icon style={{ width: 14, height: 14, color: '#1D4ED8' }} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{item.label}</div>
+                                                    <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{item.desc}</div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* For Healthcare */}
+                            <div style={{ position: 'relative' }}>
+                                <button className="cc-nav-link" onClick={() => toggleDropdown('healthcare')}>
+                                    For Healthcare <ChevronDown style={{ width: 14, height: 14, transition: 'transform .2s', transform: openDropdown === 'healthcare' ? 'rotate(180deg)' : 'none' }} />
+                                </button>
+                                {openDropdown === 'healthcare' && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 10px)', left: 0, background: '#fff', border: '1px solid #E8EEF8', borderRadius: 16, boxShadow: '0 12px 48px rgba(10,31,68,.14)', padding: 8, width: 270, zIndex: 200 }}>
+                                        {NAV_HEALTHCARE.map(item => (
+                                            <Link key={item.href + item.label} href={item.href}
+                                                onClick={() => setOpenDropdown(null)}
+                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background .15s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#F0F4FF')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1.2 }}>{item.icon}</span>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{item.label}</div>
+                                                    <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{item.desc}</div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* For Patients */}
+                            <div style={{ position: 'relative' }}>
+                                <button className="cc-nav-link" onClick={() => toggleDropdown('patients')}>
+                                    For Patients <ChevronDown style={{ width: 14, height: 14, transition: 'transform .2s', transform: openDropdown === 'patients' ? 'rotate(180deg)' : 'none' }} />
+                                </button>
+                                {openDropdown === 'patients' && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 10px)', left: 0, background: '#fff', border: '1px solid #E8EEF8', borderRadius: 16, boxShadow: '0 12px 48px rgba(10,31,68,.14)', padding: 8, width: 260, zIndex: 200 }}>
+                                        {NAV_PATIENTS.map(item => (
+                                            <Link key={item.href + item.label} href={item.href}
+                                                onClick={() => setOpenDropdown(null)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background .15s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#F0F4FF')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{item.label}</div>
+                                                    <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{item.desc}</div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Resources */}
+                            <div style={{ position: 'relative' }}>
+                                <button className="cc-nav-link" onClick={() => toggleDropdown('resources')}>
+                                    Resources <ChevronDown style={{ width: 14, height: 14, transition: 'transform .2s', transform: openDropdown === 'resources' ? 'rotate(180deg)' : 'none' }} />
+                                </button>
+                                {openDropdown === 'resources' && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 10px)', left: 0, background: '#fff', border: '1px solid #E8EEF8', borderRadius: 16, boxShadow: '0 12px 48px rgba(10,31,68,.14)', padding: 8, width: 200, zIndex: 200 }}>
+                                        {NAV_RESOURCES.map(item => (
+                                            <Link key={item.href + item.label} href={item.href}
+                                                onClick={() => setOpenDropdown(null)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background .15s' }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#F0F4FF')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{item.label}</span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <Link href="/about" className="cc-nav-link" style={{ textDecoration: 'none', fontSize: 13, fontWeight: 600, color: '#374151', padding: '8px 12px', borderRadius: 8 }}>About</Link>
                         </nav>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-3">
-                            <Link href={ctaHref}
-                                className="hidden sm:inline-flex text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-50">
-                                {isAuthenticated ? 'My Health' : 'Sign In'}
+                        {/* Right CTAs */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
+                            <Link href="/login" className="cc-hide-mobile" style={{ fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 14px', borderRadius: 8 }}>
+                                {isAuthenticated ? 'Dashboard' : 'Sign In'}
                             </Link>
-                            <Link href={joinHref}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-all">
-                                Get Started <ArrowRight className="h-3.5 w-3.5" />
+                            <Link href={joinHref} style={{ fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', boxShadow: '0 2px 8px rgba(37,99,235,.35)' }}>
+                                Get Started
                             </Link>
-                            <button className="lg:hidden p-1.5 text-gray-500 rounded-lg hover:bg-gray-100"
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle menu">
-                                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                style={{ background: 'none', border: 'none', padding: 6, cursor: 'pointer', borderRadius: 8, color: '#374151', display: 'none' }}
+                                className="cc-mobile-hamburger" aria-label="Menu">
+                                {mobileMenuOpen ? <X style={{ width: 20, height: 20 }} /> : <Menu style={{ width: 20, height: 20 }} />}
                             </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Mobile menu */}
-                <AnimatePresence>
+                    {/* Mobile menu */}
                     {mobileMenuOpen && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="lg:hidden overflow-hidden border-t border-gray-100 bg-white px-4 py-4">
-                            <nav className="flex flex-col gap-1 mb-4">
+                        <div style={{ borderTop: '1px solid #E8EEF8', padding: '12px 0 20px', background: '#fff' }}>
+                            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
                                 {[
-                                    ['/patients', 'For Patients'],
-                                    ['#for-providers', 'For Providers'],
-                                    ['/doctors', 'Doctors'],
-                                    ['/clinics', 'Clinics'],
-                                    ['/hospitals', 'Hospitals'],
-                                    ['/labs', 'Labs'],
-                                    ['/pharmacies', 'Pharmacies'],
-                                    ['/about', 'About'],
-                                ].map(([href, label]) => (
-                                    <Link key={href} href={href}
-                                        className="text-sm text-gray-700 px-3 py-2.5 rounded-lg hover:bg-gray-50 block"
-                                        onClick={() => setMobileMenuOpen(false)}>
-                                        {label}
+                                    { href: '/patients',   label: 'For Patients' },
+                                    { href: '/doctors',    label: 'For Doctors' },
+                                    { href: '/clinics',    label: 'For Clinics' },
+                                    { href: '/hospitals',  label: 'For Hospitals' },
+                                    { href: '/labs',       label: 'For Labs' },
+                                    { href: '/pharmacies', label: 'For Pharmacies' },
+                                    { href: '/about',      label: 'About' },
+                                    { href: '/contact',    label: 'Contact' },
+                                ].map(l => (
+                                    <Link key={l.href} href={l.href} onClick={() => setMobileMenuOpen(false)}
+                                        style={{ fontSize: 14, color: '#374151', fontWeight: 600, padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid #F3F4F6', display: 'block' }}>
+                                        {l.label}
                                     </Link>
                                 ))}
                             </nav>
-                            <div className="flex gap-2 pt-3 border-t border-gray-100">
-                                <Link href={ctaHref} className="flex-1 text-center rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">{isAuthenticated ? 'My Health' : 'Sign In'}</Link>
-                                <Link href={joinHref} className="flex-1 text-center rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Get Started</Link>
+                            <div style={{ display: 'flex', gap: 10 }}>
+                                <Link href="/login" style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 10, border: '1.5px solid #E5E7EB', color: '#374151', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>Sign In</Link>
+                                <Link href={joinHref} style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Get Started</Link>
                             </div>
-                        </motion.div>
+                        </div>
                     )}
-                </AnimatePresence>
+                </div>
+                <style>{`
+                    @media(max-width:768px){.cc-mobile-hamburger{display:flex!important}}
+                `}</style>
             </header>
 
-            {/* ══════════════════════════════ HERO ════════════════════════════════ */}
-            <style>{`
-                @keyframes cc-hp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
-                @keyframes cc-hp-float2{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-                @keyframes cc-hp-ecg{from{stroke-dashoffset:700}to{stroke-dashoffset:0}}
-                @keyframes cc-hp-blink{0%,100%{opacity:1}50%{opacity:.2}}
-                @keyframes cc-hp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,234,212,.45)}65%{box-shadow:0 0 0 12px rgba(94,234,212,0)}}
-                @media(max-width:1023px){.cc-hp-vis{display:none!important}}
-            `}</style>
-            <section className="relative overflow-hidden" style={{
-                background: 'linear-gradient(140deg, #1E3A8A 0%, #1D4ED8 35%, #0F766E 75%, #0D9488 100%)',
+            {/* ══════════ HERO ══════════ */}
+            <section style={{
+                background: 'linear-gradient(140deg,#0A1F44 0%,#1E3A8A 40%,#1D4ED8 70%,#0F766E 100%)',
+                padding: 'clamp(72px,10vw,100px) 0 0',
+                overflow: 'hidden', position: 'relative',
             }}>
-                <div className="relative mx-auto max-w-7xl px-4 pt-16 pb-10 sm:px-6 lg:px-8">
+                {/* subtle grid overlay */}
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0)', backgroundSize: '40px 40px', pointerEvents: 'none' }} />
 
-                    {/* ── 2-column top ── */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 48, marginBottom: 48, flexWrap: 'wrap' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px', position: 'relative' }}>
 
-                        {/* Left: text + CTAs */}
-                        <div style={{ flex: '1 1 400px' }}>
-                            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5 }}>
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm mb-7">
-                                    <Sparkles className="h-3.5 w-3.5 text-yellow-300" />
-                                    Your connected healthcare companion
-                                </div>
-                            </motion.div>
-                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.6, delay: 0.08 }}>
-                                <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl leading-[1.05] mb-5">
-                                    Your Healthcare,<br />
-                                    <span style={{ color: '#5EEAD4' }}>Connected.</span>
-                                </h1>
-                                <p className="text-lg text-blue-100/85 leading-relaxed mb-8 max-w-lg">
-                                    Find doctors, book lab tests, manage health records, and consult virtually — one platform for your entire healthcare journey.
-                                </p>
-                                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                    <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 28px', borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.2)' }}>
-                                        Get Started Free →
-                                    </Link>
-                                    <Link href="/join" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.14)', color: '#fff', padding: '14px 24px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.28)' }}>
-                                        For Healthcare Providers
-                                    </Link>
-                                </div>
-                            </motion.div>
+                    {/* top badge */}
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} style={{ textAlign: 'center', marginBottom: 28 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 999, padding: '6px 16px', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            ✦ The Connected Healthcare Platform
+                        </span>
+                    </motion.div>
+
+                    {/* headline */}
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.08 }} style={{ textAlign: 'center', marginBottom: 20 }}>
+                        <h1 style={{ fontSize: 'clamp(40px,7vw,80px)', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05, margin: 0 }}>
+                            Healthcare, Connected.<br />
+                            <span style={{ background: 'linear-gradient(90deg,#5EEAD4,#A5F3FC)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Care, Simplified.</span>
+                        </h1>
+                    </motion.div>
+
+                    <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.16 }}
+                        style={{ textAlign: 'center', fontSize: 'clamp(16px,2.2vw,20px)', color: 'rgba(255,255,255,.75)', maxWidth: 640, margin: '0 auto 36px', lineHeight: 1.6 }}>
+                        One platform connecting patients, doctors, clinics, hospitals, labs and pharmacies.
+                    </motion.p>
+
+                    {/* CTAs */}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.22 }}
+                        style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+                        <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 32px', borderRadius: 14, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 24px rgba(0,0,0,.25)' }}>
+                            Get Started <ArrowRight style={{ width: 16, height: 16 }} />
+                        </Link>
+                        <a href="#ecosystem" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.12)', color: '#fff', padding: '14px 28px', borderRadius: 14, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.25)', cursor: 'pointer' }}>
+                            Explore CareConnect
+                        </a>
+                    </motion.div>
+
+                    {/* Trust line */}
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+                        style={{ textAlign: 'center', marginBottom: 48, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                        {['Verified Providers', 'Secure & Private', 'Connected Records'].map((t, i) => (
+                            <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>
+                                <CheckCircle style={{ width: 13, height: 13, color: '#4ADE80' }} /> {t}
+                                {i < 2 && <span style={{ color: 'rgba(255,255,255,.25)', marginLeft: 4 }}>·</span>}
+                            </span>
+                        ))}
+                    </motion.div>
+
+                    {/* Provider shortcuts */}
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                        style={{ textAlign: 'center', marginBottom: 16 }}>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginBottom: 10, fontWeight: 600 }}>Healthcare professional? Start here:</p>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            {PROVIDER_SHORTCUTS.map(s => (
+                                <Link key={s.label} href={s.href} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 10, padding: '8px 14px', textDecoration: 'none', color: '#fff', fontSize: 13, fontWeight: 700, transition: 'background .15s' }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.18)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.1)')}>
+                                    <span>{s.icon}</span> {s.label}
+                                </Link>
+                            ))}
                         </div>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,.45)', marginTop: 12 }}>
+                            Looking for healthcare?{' '}
+                            <Link href="/patients" style={{ color: '#5EEAD4', fontWeight: 700, textDecoration: 'none' }}>Find a Doctor →</Link>
+                        </p>
+                    </motion.div>
 
-                        {/* Right: animated healthcare card */}
-                        <div className="cc-hp-vis" style={{ flex: '0 0 420px', position: 'relative', height: 380 }}>
+                    {/* Hero visual — ecosystem hub */}
+                    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.3 }}
+                        className="cc-hero-vis" style={{ position: 'relative', height: 280, marginTop: 20, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <HeroEcosystem />
+                    </motion.div>
+                </div>
+            </section>
 
-                            {/* Appointment confirmation card */}
-                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(255,255,255,.11)', backdropFilter: 'blur(24px)', borderRadius: 24, padding: '22px 22px 18px', border: '1px solid rgba(255,255,255,.22)', boxShadow: '0 20px 60px rgba(0,0,0,.28)', animation: 'cc-hp-float 5s ease-in-out infinite' }}>
+            {/* ══════════ TRUST STRIP ══════════ */}
+            <section style={{ background: '#F8FAFF', borderBottom: '1px solid #E8EEF8', padding: '20px 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <p style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+                        Built for modern healthcare teams
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(16px,3vw,40px)', flexWrap: 'wrap' }}>
+                        {[
+                            { icon: '🔐', label: 'Secure healthcare workflows' },
+                            { icon: '👥', label: 'Role-based access' },
+                            { icon: '📋', label: 'Connected patient records' },
+                            { icon: '💻', label: 'Digital clinical workflows' },
+                            { icon: '⚡', label: 'Scalable provider infrastructure' },
+                        ].map(t => (
+                            <div key={t.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#4B5563' }}>
+                                <span style={{ fontSize: 16 }}>{t.icon}</span> {t.label}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
 
-                                {/* Header */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#4ADE80,#0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, animation: 'cc-hp-pulse 2.8s ease-out infinite' }}>✓</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ color: '#4ADE80', fontWeight: 700, fontSize: 13 }}>Booking Confirmed</div>
-                                        <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 11 }}>CareConnect · Ref #CC-20847</div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ADE80', animation: 'cc-hp-blink 1.6s ease-in-out infinite' }} />
-                                        <span style={{ fontSize: 10, color: '#4ADE80', fontWeight: 700 }}>LIVE</span>
-                                    </div>
+            {/* ══════════ ECOSYSTEM ══════════ */}
+            <section id="ecosystem" style={{ background: '#fff', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 64 }}>
+                        <h2 style={{ fontSize: 'clamp(28px,4vw,44px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px' }}>
+                            Healthcare works better when<br />everything is connected.
+                        </h2>
+                        <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>
+                            CareConnect is the connection layer between every healthcare stakeholder — one platform, every workflow.
+                        </p>
+                    </motion.div>
+
+                    {/* Connection diagram */}
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+                        <EcosystemDiagram />
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* ══════════ DOCTOR SECTION ══════════ */}
+            <section style={{ background: '#F8FAFF', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 64, flexWrap: 'wrap' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ flex: '1 1 380px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#EFF6FF', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 20 }}>
+                            🩺 For Doctors
+                        </div>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,40px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px', lineHeight: 1.15 }}>
+                            Everything a doctor needs to deliver better care.
+                        </h2>
+                        <p style={{ fontSize: 15, color: '#6B7280', lineHeight: 1.7, marginBottom: 28 }}>
+                            From patient intake to consultation, prescription, diagnostics and follow-up — CareConnect brings the clinical workflow into one workspace.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
+                            {[
+                                { icon: '📋', title: 'Digital EMR',              desc: 'Longitudinal patient records and clinical history' },
+                                { icon: '🖊️', title: 'Consultation Workspace',   desc: 'Structured notes, diagnosis and treatment plans' },
+                                { icon: '💊', title: 'Smart Prescription',       desc: 'Create and manage digital prescriptions' },
+                                { icon: '📅', title: 'Appointment Management',   desc: 'Manage availability, queues and schedules' },
+                                { icon: '🔬', title: 'Diagnostics',              desc: 'Order and access lab and radiology results' },
+                                { icon: '📈', title: 'Patient Timeline',         desc: 'Full healthcare journey in one view' },
+                            ].map(f => (
+                                <div key={f.title} style={{ background: '#fff', border: '1px solid #E8EEF8', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(10,31,68,.04)' }}>
+                                    <div style={{ fontSize: 18, marginBottom: 6 }}>{f.icon}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{f.title}</div>
+                                    <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.5 }}>{f.desc}</div>
                                 </div>
+                            ))}
+                        </div>
+                        <Link href="/doctors" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#2563EB,#1D4ED8)', color: '#fff', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: '0 3px 12px rgba(37,99,235,.35)' }}>
+                            Explore CareConnect for Doctors <ArrowRight style={{ width: 15, height: 15 }} />
+                        </Link>
+                    </motion.div>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ flex: '0 0 440px' }}>
+                        <DoctorDashboardMockup />
+                    </motion.div>
+                </div>
+            </section>
 
-                                {/* Doctor card */}
-                                <div style={{ background: 'rgba(255,255,255,.1)', borderRadius: 14, padding: '14px 16px', marginBottom: 14 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#1D4ED8,#5EEAD4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🩺</div>
-                                        <div>
-                                            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Dr. Anand Kumar</div>
-                                            <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 12 }}>Cardiologist · AIIMS</div>
-                                        </div>
-                                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                                            <div style={{ color: '#5EEAD4', fontWeight: 700, fontSize: 13 }}>Tomorrow</div>
-                                            <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 11 }}>11:30 AM</div>
-                                        </div>
-                                    </div>
+            {/* ══════════ CLINIC SECTION ══════════ */}
+            <section style={{ background: '#fff', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 64, flexWrap: 'wrap-reverse' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ flex: '0 0 440px' }}>
+                        <ClinicWorkflowMockup />
+                    </motion.div>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ flex: '1 1 380px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#F0FDF4', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#15803D', marginBottom: 20 }}>
+                            🏥 For Clinics
+                        </div>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,40px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px', lineHeight: 1.15 }}>
+                            Run your clinic from one connected workspace.
+                        </h2>
+                        <p style={{ fontSize: 15, color: '#6B7280', lineHeight: 1.7, marginBottom: 28 }}>
+                            From patient registration through consultation, prescription and follow-up — manage every step of your clinic workflow in one place.
+                        </p>
+                        <div style={{ marginBottom: 28 }}>
+                            {[
+                                'Patient registration and reception',
+                                'Appointment scheduling and queue management',
+                                'Multi-doctor schedules and EMR',
+                                'Digital prescriptions and diagnostics',
+                                'Staff management and reports',
+                                'Analytics and performance insights',
+                            ].map(item => (
+                                <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                                    <CheckCircle style={{ width: 16, height: 16, color: '#16A34A', flexShrink: 0 }} />
+                                    <span style={{ fontSize: 14, color: '#374151', fontWeight: 500 }}>{item}</span>
                                 </div>
+                            ))}
+                        </div>
+                        <Link href="/provider/register?type=CLINIC" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#16A34A,#15803D)', color: '#fff', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: '0 3px 12px rgba(21,128,61,.3)' }}>
+                            Register Your Clinic <ArrowRight style={{ width: 15, height: 15 }} />
+                        </Link>
+                    </motion.div>
+                </div>
+            </section>
 
-                                {/* Mini ECG */}
-                                <div style={{ background: 'rgba(0,0,0,.22)', borderRadius: 12, padding: '8px 12px', marginBottom: 14 }}>
-                                    <svg viewBox="0 0 340 36" width="100%" height="36">
-                                        <polyline
-                                            points="0,18 25,18 32,5 38,31 44,8 50,18 75,18 82,5 88,31 94,8 100,18 125,18 132,5 138,31 144,8 150,18 175,18 182,5 188,31 194,8 200,18 225,18 232,5 238,31 244,8 250,18 340,18"
-                                            stroke="#5EEAD4" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"
-                                            strokeDasharray="700"
-                                            style={{ animation: 'cc-hp-ecg 2.2s linear infinite' }}
-                                        />
+            {/* ══════════ HOSPITAL SECTION ══════════ */}
+            <section style={{ background: '#F5F3FF', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#EDE9FE', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#6D28D9', marginBottom: 20 }}>
+                            🏨 For Hospitals
+                        </div>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,44px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px' }}>
+                            Connect every department.<br />Coordinate every step of care.
+                        </h2>
+                        <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>
+                            From OPD to ICU, radiology to pharmacy — CareConnect connects your entire hospital in one coordinated platform.
+                        </p>
+                    </motion.div>
+
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger}
+                        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 16, marginBottom: 48 }}>
+                        {[
+                            { icon: '🏥', label: 'OPD Management',    desc: 'Outpatient department workflows' },
+                            { icon: '🛏️', label: 'IPD & Bed Management', desc: 'Inpatient admissions and wards' },
+                            { icon: '🚨', label: 'Emergency Care',    desc: 'Emergency triage and rapid response' },
+                            { icon: '👩‍⚕️', label: 'Nursing Module',   desc: 'Nursing notes and care plans' },
+                            { icon: '🔬', label: 'Diagnostics',       desc: 'Lab and radiology integration' },
+                            { icon: '💊', label: 'Pharmacy',          desc: 'Hospital pharmacy management' },
+                            { icon: '📊', label: 'Analytics',         desc: 'Hospital performance dashboards' },
+                            { icon: '📋', label: 'Discharge & ADT',   desc: 'Admission, discharge, transfer' },
+                        ].map(item => (
+                            <motion.div key={item.label} variants={fadeUp}
+                                style={{ background: '#fff', border: '1.5px solid #DDD6FE', borderRadius: 16, padding: '20px 18px', boxShadow: '0 2px 8px rgba(109,40,217,.07)' }}>
+                                <div style={{ fontSize: 28, marginBottom: 10 }}>{item.icon}</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 4 }}>{item.label}</div>
+                                <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5 }}>{item.desc}</div>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+
+                    <div style={{ textAlign: 'center' }}>
+                        <Link href="/provider/register?type=HOSPITAL" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#7C3AED,#6D28D9)', color: '#fff', padding: '13px 28px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', boxShadow: '0 3px 12px rgba(109,40,217,.3)' }}>
+                            Register Your Hospital <ArrowRight style={{ width: 15, height: 15 }} />
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
+            {/* ══════════ PATIENT SECTION ══════════ */}
+            <section style={{ background: '#fff', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 64, flexWrap: 'wrap' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ flex: '1 1 380px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#EFF6FF', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#0369A1', marginBottom: 20 }}>
+                            🙋 For Patients
+                        </div>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,40px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px', lineHeight: 1.15 }}>
+                            Your healthcare journey, in one place.
+                        </h2>
+                        <p style={{ fontSize: 15, color: '#6B7280', lineHeight: 1.7, marginBottom: 28 }}>
+                            Find doctors, book appointments, view prescriptions and lab reports — your complete health record is always with you.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 28 }}>
+                            {[
+                                '🔍 Find doctors by specialty',
+                                '📅 Book appointments online',
+                                '📋 Digital prescriptions',
+                                '🔬 View lab reports',
+                                '📁 Manage health records',
+                                '📞 Online consultation',
+                                '🏥 Discover hospitals & clinics',
+                                '🔄 Follow-up care reminders',
+                            ].map(f => (
+                                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151', fontWeight: 500 }}>
+                                    {f}
+                                </div>
+                            ))}
+                        </div>
+                        <Link href="/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#0284C7,#0369A1)', color: '#fff', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: '0 3px 12px rgba(3,105,161,.3)' }}>
+                            Find Healthcare <ArrowRight style={{ width: 15, height: 15 }} />
+                        </Link>
+                    </motion.div>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ flex: '0 0 400px' }}>
+                        <PatientAppMockup />
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* ══════════ LAB + PHARMACY ══════════ */}
+            <section style={{ background: '#F8FAFF', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,44px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px' }}>
+                            Connecting labs and pharmacies<br />to the care workflow.
+                        </h2>
+                    </motion.div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(480px,1fr))', gap: 24 }}>
+
+                        {/* Lab */}
+                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
+                            style={{ background: '#fff', border: '1.5px solid #FED7AA', borderRadius: 24, padding: 32, boxShadow: '0 4px 20px rgba(234,88,12,.06)' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#FFF7ED', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#C2410C', marginBottom: 20 }}>
+                                🔬 For Laboratories
+                            </div>
+                            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#0A1F44', margin: '0 0 12px', lineHeight: 1.2 }}>
+                                From diagnostic order to verified report.
+                            </h3>
+                            <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.7, marginBottom: 24 }}>
+                                Manage your entire lab workflow — from doctor-ordered tests through sample collection, processing, verification and digital report delivery.
+                            </p>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+                                {['Test catalog', 'Worklist', 'Sample tracking', 'Results entry', 'Verification', 'Digital reports', 'Doctor access', 'Patient access'].map(t => (
+                                    <span key={t} style={{ background: '#FFF7ED', color: '#C2410C', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{t}</span>
+                                ))}
+                            </div>
+                            <Link href="/provider/register?type=LAB" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#EA580C,#C2410C)', color: '#fff', padding: '11px 22px', borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+                                Register Your Lab <ArrowRight style={{ width: 14, height: 14 }} />
+                            </Link>
+                        </motion.div>
+
+                        {/* Pharmacy */}
+                        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
+                            style={{ background: '#fff', border: '1.5px solid #A7F3D0', borderRadius: 24, padding: 32, boxShadow: '0 4px 20px rgba(5,150,105,.06)' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#F0FDF4', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#065F46', marginBottom: 20 }}>
+                                💊 For Pharmacies
+                            </div>
+                            <h3 style={{ fontSize: 24, fontWeight: 800, color: '#0A1F44', margin: '0 0 12px', lineHeight: 1.2 }}>
+                                Connect prescriptions to medication.
+                            </h3>
+                            <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.7, marginBottom: 24 }}>
+                                Accept digital prescriptions, manage inventory, track dispensing and connect to clinic and hospital workflows seamlessly.
+                            </p>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+                                {['Digital Rx', 'Medicine catalog', 'Inventory', 'Dispensing', 'Stock alerts', 'Medication history'].map(t => (
+                                    <span key={t} style={{ background: '#F0FDF4', color: '#065F46', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{t}</span>
+                                ))}
+                            </div>
+                            <Link href="/provider/register?type=PHARMACY" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#059669,#065F46)', color: '#fff', padding: '11px 22px', borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+                                Register Your Pharmacy <ArrowRight style={{ width: 14, height: 14 }} />
+                            </Link>
+                        </motion.div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ══════════ PATIENT JOURNEY ══════════ */}
+            <section style={{ background: 'linear-gradient(140deg,#0A1F44 0%,#1E3A8A 60%,#1D4ED8 100%)', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,44px)', fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', margin: '0 0 16px' }}>
+                            One patient. One connected<br />healthcare journey.
+                        </h2>
+                        <p style={{ fontSize: 16, color: 'rgba(255,255,255,.65)', maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>
+                            The same patient record flows through every authorized step — seamlessly connecting every part of care.
+                        </p>
+                    </motion.div>
+
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+                        <JourneyTimeline />
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* ══════════ HOW IT WORKS ══════════ */}
+            <section style={{ background: '#fff', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,40px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 12px' }}>
+                            How CareConnect works
+                        </h2>
+                        <p style={{ fontSize: 15, color: '#6B7280', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>Three steps to get started on CareConnect.</p>
+                    </motion.div>
+
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger}
+                        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 32, maxWidth: 900, margin: '0 auto 48px' }}>
+                        {[
+                            { step: '01', icon: '👤', title: 'Choose your healthcare role', desc: 'Doctor, clinic, hospital, lab, pharmacy or patient — select the right experience for you.' },
+                            { step: '02', icon: '⚙️', title: 'Set up your workspace', desc: 'Create your account, complete your profile or organisation setup, and configure your workflows.' },
+                            { step: '03', icon: '🔗', title: 'Start connected care', desc: 'Manage your healthcare workflows through CareConnect and connect with every stakeholder in one platform.' },
+                        ].map(item => (
+                            <motion.div key={item.step} variants={fadeUp} style={{ textAlign: 'center', padding: '32px 24px', background: '#F8FAFF', border: '1px solid #E8EEF8', borderRadius: 20 }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', letterSpacing: '0.12em', marginBottom: 14, textTransform: 'uppercase' }}>{item.step}</div>
+                                <div style={{ fontSize: 40, marginBottom: 16 }}>{item.icon}</div>
+                                <h3 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: '0 0 10px' }}>{item.title}</h3>
+                                <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.65, margin: 0 }}>{item.desc}</p>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+
+                    <div style={{ textAlign: 'center' }}>
+                        <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', padding: '13px 32px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', boxShadow: '0 3px 16px rgba(37,99,235,.35)' }}>
+                            Get Started <ArrowRight style={{ width: 16, height: 16 }} />
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
+            {/* ══════════ SECURITY ══════════ */}
+            <section style={{ background: '#F8FAFF', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,44px)', fontWeight: 900, color: '#0A1F44', letterSpacing: '-0.025em', margin: '0 0 16px' }}>
+                            Healthcare data deserves<br />serious protection.
+                        </h2>
+                        <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 520, margin: '0 auto', lineHeight: 1.7 }}>
+                            CareConnect is built with security and privacy as a first principle — not an afterthought.
+                        </p>
+                    </motion.div>
+
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger}
+                        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16, marginBottom: 48 }}>
+                        {[
+                            { icon: Users,      color: '#1D4ED8', bg: '#EFF6FF', title: 'Role-Based Access',        desc: 'Every user role has carefully scoped permissions. Doctors see their patients; staff see their clinic; nothing bleeds across.' },
+                            { icon: ShieldCheck, color: '#0369A1', bg: '#F0F9FF', title: 'Authentication',           desc: 'Secure authentication with session management and access controls at every API endpoint.' },
+                            { icon: Lock,       color: '#7C3AED', bg: '#F5F3FF', title: 'Organisation Isolation',   desc: 'Each clinic, hospital and lab is completely isolated — one organisation cannot access another\'s data.' },
+                            { icon: FileText,   color: '#0F766E', bg: '#F0FDFA', title: 'Controlled File Access',   desc: 'Medical documents and health records are access-controlled and never publicly accessible.' },
+                            { icon: Database,   color: '#B45309', bg: '#FFFBEB', title: 'Audit Logging',            desc: 'Every sensitive action is logged with a traceable audit trail for accountability and compliance review.' },
+                            { icon: Shield,     color: '#DC2626', bg: '#FEF2F2', title: 'Encrypted Connections',    desc: 'All data in transit is encrypted. No patient data travels unprotected.' },
+                            { icon: Globe,      color: '#059669', bg: '#F0FDF4', title: 'Privacy-First Design',     desc: 'Your health data is yours. Access is always consent-driven and transparently controlled.' },
+                            { icon: Zap,        color: '#6D28D9', bg: '#F5F3FF', title: 'Secure API Architecture',  desc: 'APIs are authenticated, rate-limited and scoped — no endpoint is publicly exploitable.' },
+                        ].map(item => (
+                            <motion.div key={item.title} variants={fadeUp}
+                                style={{ background: '#fff', border: '1px solid #E8EEF8', borderRadius: 16, padding: '22px 20px', boxShadow: '0 2px 8px rgba(10,31,68,.04)' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                                    <item.icon style={{ width: 18, height: 18, color: item.color }} />
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 6 }}>{item.title}</div>
+                                <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.6 }}>{item.desc}</div>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+
+                    <div style={{ textAlign: 'center' }}>
+                        <Link href="/about" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1.5px solid #1D4ED8', color: '#1D4ED8', padding: '11px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', background: 'transparent', transition: 'all .15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                            Learn About Our Security <ArrowRight style={{ width: 14, height: 14 }} />
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
+            {/* ══════════ AUDIENCE CTA ══════════ */}
+            <section style={{ background: '#0A1F44', padding: 'clamp(64px,8vw,100px) 24px' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} style={{ textAlign: 'center', marginBottom: 56 }}>
+                        <h2 style={{ fontSize: 'clamp(26px,3.5vw,44px)', fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', margin: '0 0 16px' }}>
+                            Ready to connect your<br />healthcare workflow?
+                        </h2>
+                        <p style={{ fontSize: 16, color: 'rgba(255,255,255,.6)', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
+                            Choose the experience that's right for you. Get started in minutes.
+                        </p>
+                    </motion.div>
+
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger}
+                        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
+                        {[
+                            { icon: '🩺', title: "I'm a Doctor",          desc: 'Create your professional profile and start managing patients digitally.', cta: 'Join as Doctor',       href: '/provider/register?type=DOCTOR',  color: '#2563EB', bg: 'rgba(37,99,235,.12)', border: 'rgba(37,99,235,.25)' },
+                            { icon: '🏥', title: 'I run a Clinic',         desc: 'Manage your clinic from one connected platform.', cta: 'Register Clinic',      href: '/provider/register?type=CLINIC',  color: '#16A34A', bg: 'rgba(22,163,74,.12)',  border: 'rgba(22,163,74,.25)' },
+                            { icon: '🏨', title: 'I represent a Hospital', desc: 'Connect your hospital operations end-to-end.', cta: 'Register Hospital',    href: '/provider/register?type=HOSPITAL', color: '#7C3AED', bg: 'rgba(124,58,237,.12)', border: 'rgba(124,58,237,.25)' },
+                            { icon: '🔬', title: 'I run a Lab',            desc: 'Digitize your diagnostic workflow and reports.', cta: 'Register Lab',         href: '/provider/register?type=LAB',     color: '#EA580C', bg: 'rgba(234,88,12,.12)',  border: 'rgba(234,88,12,.25)' },
+                            { icon: '💊', title: 'I run a Pharmacy',       desc: 'Connect prescriptions and dispensing to the care workflow.', cta: 'Register Pharmacy',    href: '/provider/register?type=PHARMACY', color: '#059669', bg: 'rgba(5,150,105,.12)',  border: 'rgba(5,150,105,.25)' },
+                            { icon: '🙋', title: "I'm a Patient",          desc: 'Find doctors, book appointments and manage your healthcare.', cta: 'Find Healthcare',      href: '/patients',                        color: '#0284C7', bg: 'rgba(2,132,199,.12)',  border: 'rgba(2,132,199,.25)' },
+                        ].map(card => (
+                            <motion.div key={card.title} variants={fadeUp}
+                                style={{ background: card.bg, border: `1.5px solid ${card.border}`, borderRadius: 20, padding: '24px 20px', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ fontSize: 32, marginBottom: 12 }}>{card.icon}</div>
+                                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginBottom: 6 }}>{card.title}</div>
+                                <div style={{ fontSize: 13, color: 'rgba(255,255,255,.55)', lineHeight: 1.6, marginBottom: 20, flex: 1 }}>{card.desc}</div>
+                                <Link href={card.href} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: card.color, color: '#fff', padding: '10px 16px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                                    {card.cta} →
+                                </Link>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* ══════════ FOOTER ══════════ */}
+            <footer style={{ background: '#060D1F', color: 'rgba(255,255,255,.5)', padding: '56px 24px 32px', fontFamily: 'Inter, system-ui, sans-serif' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, marginBottom: 48 }}>
+                        {/* Brand */}
+                        <div style={{ flex: '1 1 240px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#1D4ED8,#0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                                        <polyline points="1,12 5,12 7,7 9,17 11,12 13,12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                        <path d="M13,12 C14,9.5 18,8 19.5,10 C21,12 20,15 17,17.5 L14,20" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
                                     </svg>
                                 </div>
-
-                                {/* Quick stats */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                                    {[
-                                        { lbl: 'Heart Rate', val: '72 bpm', e: '❤️' },
-                                        { lbl: 'SpO₂', val: '98%', e: '💨' },
-                                        { lbl: 'BP', val: '120/80', e: '🩸' },
-                                    ].map(v => (
-                                        <div key={v.lbl} style={{ background: 'rgba(255,255,255,.07)', borderRadius: 10, padding: '8px 10px' }}>
-                                            <div style={{ fontSize: 14, marginBottom: 3 }}>{v.e}</div>
-                                            <div style={{ color: '#fff', fontWeight: 700, fontSize: 12 }}>{v.val}</div>
-                                            <div style={{ color: 'rgba(255,255,255,.38)', fontSize: 9 }}>{v.lbl}</div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+                                    Care<span style={{ color: '#0D9488' }}>Connect</span>
+                                </span>
                             </div>
-
-                            {/* Lab results floating card */}
-                            <div style={{ position: 'absolute', bottom: 60, left: -14, background: 'rgba(74,222,128,.14)', backdropFilter: 'blur(16px)', borderRadius: 14, padding: '12px 16px', border: '1px solid rgba(74,222,128,.3)', boxShadow: '0 8px 32px rgba(0,0,0,.2)', animation: 'cc-hp-float2 3.8s ease-in-out .8s infinite' }}>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Lab Results</div>
-                                <div style={{ color: '#4ADE80', fontWeight: 800, fontSize: 14 }}>✓ All Normal</div>
-                                <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginTop: 2 }}>CBC · Lipid · HbA1c</div>
-                            </div>
-
-                            {/* Records floating chip */}
-                            <div style={{ position: 'absolute', bottom: 8, right: -10, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(16px)', borderRadius: 14, padding: '12px 16px', border: '1px solid rgba(255,255,255,.22)', boxShadow: '0 8px 32px rgba(0,0,0,.2)', animation: 'cc-hp-float 4.2s ease-in-out .4s infinite' }}>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Health Records</div>
-                                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📁 12 Documents</div>
-                                <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginTop: 2 }}>Encrypted & Secure</div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </section>
-
-            {/* ══════════════════════════════ STATS ════════════════════════════════ */}
-            <section className="bg-white border-b border-gray-100">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:divide-x lg:divide-gray-100 lg:gap-0">
-                        {STATS.map((s, i) => (
-                            <motion.div key={s.label}
-                                initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.07 }}
-                                className="text-center lg:px-8">
-                                <div className="text-2xl font-black text-blue-600 sm:text-3xl">{s.value}</div>
-                                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-gray-400">{s.label}</div>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-
-            {/* ══════════════════════════ HOW IT WORKS ═════════════════════════════ */}
-            <section id="how-it-works" className="bg-white py-24">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mx-auto mb-16 max-w-xl text-center">
-                        <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                            Book healthcare in 4 simple steps
-                        </h2>
-                        <p className="mt-4 text-base text-gray-500">From search to confirmation — get the care you need, faster.</p>
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}
-                        variants={stagger}
-                        className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
-                        {HOW_IT_WORKS.map((step, i) => (
-                            <motion.div key={step.step} variants={fadeUp} className="text-center">
-                                <div className="relative mx-auto mb-6 inline-flex">
-                                    <div className="h-20 w-20 rounded-2xl flex items-center justify-center shadow-lg"
-                                        style={{ background: 'linear-gradient(135deg, #2563EB, #0D9488)' }}>
-                                        <step.icon className="h-8 w-8 text-white" />
-                                    </div>
-                                    <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-white border-2 border-blue-600 text-[11px] font-black text-blue-600 shadow-sm">
-                                        {i + 1}
-                                    </span>
-                                </div>
-                                <h3 className="mb-2 text-lg font-bold text-gray-900">{step.title}</h3>
-                                <p className="text-sm leading-relaxed text-gray-500">{step.desc}</p>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mt-14 text-center">
-                        <Link href={ctaHref}
-                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm">
-                            Start Your Healthcare Journey <ArrowRight className="h-4 w-4" />
-                        </Link>
-                    </motion.div>
-                </div>
-            </section>
-
-
-
-
-
-            {/* ══════════════════════ PROVIDER ECOSYSTEM ═══════════════════════════ */}
-            <section id="for-providers" className="py-24"
-                style={{ background: 'linear-gradient(140deg, #0F172A 0%, #1E293B 100%)' }}>
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mx-auto mb-14 max-w-3xl text-center">
-                        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-bold text-teal-300">
-                            <Globe className="h-3.5 w-3.5" /> Powered by a Connected Healthcare Ecosystem
-                        </div>
-                        <h2 className="text-3xl font-black text-white sm:text-4xl">
-                            Healthcare providers powering the platform
-                        </h2>
-                        <p className="mt-4 text-base leading-relaxed text-gray-400">
-                            CareConnect connects consumers with a verified network of healthcare providers. Join the ecosystem to reach more patients and grow your practice.
-                        </p>
-                    </motion.div>
-
-                    {/* Provider type icons */}
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }}
-                        variants={stagger}
-                        className="mb-12 grid grid-cols-3 gap-4 sm:grid-cols-6">
-                        {[
-                            { label: 'Doctors',     icon: Stethoscope },
-                            { label: 'Hospitals',   icon: Building2   },
-                            { label: 'Clinics',     icon: HomeIcon    },
-                            { label: 'Labs',        icon: FlaskConical },
-                            { label: 'Diagnostics', icon: Microscope  },
-                            { label: 'Pharmacies',  icon: Pill        },
-                        ].map(p => (
-                            <motion.div key={p.label} variants={fadeUp}>
-                                <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/6 p-5 text-center hover:bg-white/10 transition-colors">
-                                    <p.icon className="h-7 w-7 text-teal-400" />
-                                    <span className="text-sm font-semibold text-gray-300">{p.label}</span>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-
-                    {/* Provider feature cards */}
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-12">
-                        {[
-                            { icon: Calendar,   title: 'Appointment Management',   desc: 'Smart scheduling, real-time availability management and intelligent patient queue.' },
-                            { icon: BarChart3,  title: 'Analytics & Insights',     desc: 'Track performance, patient satisfaction and growth metrics in one dashboard.' },
-                            { icon: Sparkles,   title: 'AI-Powered Tools',         desc: 'Intelligent documentation, billing assistance and clinical decision support.' },
-                        ].map(f => (
-                            <motion.div key={f.title}
-                                initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-                                <div className="h-full rounded-2xl border border-white/10 bg-white/6 p-6">
-                                    <f.icon className="mb-4 h-6 w-6 text-teal-400" />
-                                    <h3 className="mb-2 font-bold text-white">{f.title}</h3>
-                                    <p className="text-sm leading-relaxed text-gray-400">{f.desc}</p>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="text-center">
-                        <Link href="/login/doctor"
-                            className="inline-flex items-center gap-2 rounded-xl bg-teal-500 px-7 py-3.5 text-sm font-bold text-white hover:bg-teal-400 active:scale-[0.98] transition-all shadow-sm">
-                            Join as a Provider <ArrowRight className="h-4 w-4" />
-                        </Link>
-                        <p className="mt-3 text-xs text-gray-600">
-                            For hospitals and diagnostic centres, contact our partnerships team
-                        </p>
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* ══════════════════════════ TRUST ════════════════════════════════════ */}
-            <section className="bg-white py-24">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mx-auto mb-14 max-w-2xl text-center">
-                        <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                            Healthcare decisions deserve trusted information
-                        </h2>
-                        <p className="mt-4 text-base text-gray-500">
-                            We believe in transparency, human oversight and responsible AI.
-                        </p>
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }}
-                        variants={stagger}
-                        className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                        {[
-                            { icon: BadgeCheck, bg: 'bg-blue-50',   color: 'text-blue-600',   title: 'Verified Providers',    desc: 'Every healthcare provider on CareConnect is verified before listing.' },
-                            { icon: ShieldCheck, bg: 'bg-teal-50',  color: 'text-teal-600',   title: 'Human Oversight',       desc: 'AI assists — humans verify. No AI output is treated as medical fact without expert review.' },
-                            { icon: Shield,      bg: 'bg-violet-50', color: 'text-violet-600', title: 'Privacy-First Design',  desc: 'Your health data is yours. Encrypted, access-controlled and always consent-driven.' },
-                            { icon: Clock,       bg: 'bg-amber-50',  color: 'text-amber-600',  title: 'Transparent Sources',   desc: 'We show you the source and verification status of every piece of information we display.' },
-                        ].map(item => (
-                            <motion.div key={item.title} variants={fadeUp}>
-                                <div className="flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                                    <div className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl ${item.bg}`}>
-                                        <item.icon className={`h-5 w-5 ${item.color}`} />
-                                    </div>
-                                    <h3 className="mb-2 font-bold text-gray-900">{item.title}</h3>
-                                    <p className="text-sm leading-relaxed text-gray-500">{item.desc}</p>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* ══════════════════════════ FINAL CTA ════════════════════════════════ */}
-            <section className="py-28" style={{ background: 'linear-gradient(140deg, #1D4ED8 0%, #0F766E 60%, #0D9488 100%)' }}>
-                <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-                        <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-                            Start your healthcare journey today
-                        </h2>
-                        <p className="mt-5 text-lg leading-relaxed text-blue-100/90 max-w-xl mx-auto">
-                            Join thousands of patients who find, book and manage their complete healthcare journey on CareConnect.
-                        </p>
-                        <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                            <Link href={ctaHref}
-                                className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-black text-blue-700 shadow-xl hover:bg-blue-50 active:scale-[0.98] transition-all">
-                                {isAuthenticated ? 'Find Healthcare' : 'Create Free Account'} <ArrowRight className="h-5 w-5" />
-                            </Link>
-                            <Link href="/nearby"
-                                className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/12 px-8 py-4 text-base font-bold text-white backdrop-blur-sm hover:bg-white/22 transition-all">
-                                <Search className="h-5 w-5" /> Search Healthcare
-                            </Link>
-                        </div>
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* ══════════════════════════ FOOTER ═══════════════════════════════════ */}
-            <footer className="bg-gray-950 py-16 text-gray-400">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="mb-12 grid grid-cols-2 gap-8 sm:grid-cols-4 lg:grid-cols-5">
-                        {/* Brand */}
-                        <div className="col-span-2 sm:col-span-4 lg:col-span-1">
-                            <div className="mb-3 flex items-center gap-2">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-xl"
-                                    style={{ background: 'linear-gradient(135deg, #3B82F6, #14B8A6)' }}>
-                                    <HeartPulse className="h-4 w-4 text-white" />
-                                </div>
-                                <span className="text-[15px] font-extrabold text-white">CareConnect</span>
-                            </div>
-                            <p className="text-sm leading-relaxed text-gray-500">
-                                Your connected healthcare companion. Find, book and manage your entire healthcare journey in one place.
+                            <p style={{ fontSize: 13, lineHeight: 1.7, color: 'rgba(255,255,255,.4)', maxWidth: 260 }}>
+                                The connected healthcare platform — linking patients, doctors, clinics, hospitals, labs and pharmacies.
                             </p>
                         </div>
 
-                        <div>
-                            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">For Patients</p>
-                            <ul className="space-y-2.5 text-sm">
-                                {['Find a Doctor', 'Book Lab Tests', 'Hospitals', 'Health Checkups', 'Online Consultation', 'Emergency Care'].map(l => (
-                                    <li key={l}><Link href="/nearby" className="hover:text-white transition-colors">{l}</Link></li>
-                                ))}
-                            </ul>
+                        {/* Platform */}
+                        <div style={{ flex: '1 1 140px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Platform</div>
+                            {[['EMR', '/doctors'], ['Clinic Management', '/clinics'], ['Hospital Management', '/hospitals'], ['Laboratory', '/labs'], ['Pharmacy', '/pharmacies'], ['Patient Care', '/patients']].map(([l, h]) => (
+                                <div key={l} style={{ marginBottom: 9 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', textDecoration: 'none', transition: 'color .15s' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.5)')}>{l}</Link></div>
+                            ))}
                         </div>
 
-                        <div>
-                            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">For Providers</p>
-                            <ul className="space-y-2.5 text-sm">
-                                {['Doctor Sign In', 'Hospital Portal', 'Lab Portal', 'Provider Dashboard', 'Analytics'].map(l => (
-                                    <li key={l}><Link href="/login" className="hover:text-white transition-colors">{l}</Link></li>
-                                ))}
-                            </ul>
+                        {/* Healthcare Professionals */}
+                        <div style={{ flex: '1 1 140px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Healthcare Professionals</div>
+                            {[['Doctors', '/doctors'], ['Clinics', '/clinics'], ['Hospitals', '/hospitals'], ['Labs', '/labs'], ['Pharmacies', '/pharmacies']].map(([l, h]) => (
+                                <div key={l} style={{ marginBottom: 9 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', textDecoration: 'none', transition: 'color .15s' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.5)')}>{l}</Link></div>
+                            ))}
                         </div>
 
-                        <div>
-                            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">Resources</p>
-                            <ul className="space-y-2.5 text-sm">
-                                {['Help Centre', 'Patient Guide', 'Provider Guide', 'Contact Us'].map(l => (
-                                    <li key={l}><Link href="/support" className="hover:text-white transition-colors">{l}</Link></li>
-                                ))}
-                            </ul>
+                        {/* Resources */}
+                        <div style={{ flex: '1 1 140px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Resources</div>
+                            {[['Help Center', '/contact'], ['FAQs', '/contact'], ['Contact Us', '/contact']].map(([l, h]) => (
+                                <div key={l} style={{ marginBottom: 9 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', textDecoration: 'none' }}>{l}</Link></div>
+                            ))}
+                        </div>
+
+                        {/* Company */}
+                        <div style={{ flex: '1 1 140px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Company</div>
+                            {[['About', '/about'], ['Contact', '/contact'], ['Privacy', '/privacy'], ['Terms', '/terms']].map(([l, h]) => (
+                                <div key={l} style={{ marginBottom: 9 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', textDecoration: 'none' }}>{l}</Link></div>
+                            ))}
+                            <div style={{ marginTop: 20 }}>
+                                <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', padding: '9px 16px', borderRadius: 9, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
+                                    Get Started →
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-4 border-t border-gray-800 pt-8 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-gray-600">© {new Date().getFullYear()} CareConnect. All rights reserved.</p>
-                        <p className="max-w-md text-xs leading-relaxed text-gray-700 sm:text-right">
-                            CareConnect is a healthcare discovery and management platform. Information on this platform does not constitute medical advice. Always consult a qualified healthcare professional.
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,.06)', paddingTop: 24, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.25)' }}>© 2026 CareConnect. All rights reserved.</p>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)', maxWidth: 520, lineHeight: 1.6 }}>
+                            CareConnect is a healthcare platform. Information on this platform does not constitute medical advice. Always consult a qualified healthcare professional.
                         </p>
                     </div>
                 </div>
             </footer>
+        </div>
+    );
+}
+
+/* ══════════════════════════════════════════════════════════
+   SUB-COMPONENTS
+══════════════════════════════════════════════════════════ */
+
+function HeroEcosystem() {
+    const nodes = [
+        { label: 'Patients',   icon: '🙋', x: '50%',  y: '0',   color: '#3B82F6' },
+        { label: 'Doctors',    icon: '🩺', x: '90%',  y: '25%', color: '#0D9488' },
+        { label: 'Clinics',    icon: '🏥', x: '88%',  y: '72%', color: '#16A34A' },
+        { label: 'Hospitals',  icon: '🏨', x: '50%',  y: '95%', color: '#7C3AED' },
+        { label: 'Labs',       icon: '🔬', x: '12%',  y: '72%', color: '#EA580C' },
+        { label: 'Pharmacies', icon: '💊', x: '10%',  y: '25%', color: '#059669' },
+    ];
+
+    return (
+        <div style={{ width: '100%', maxWidth: 680, margin: '0 auto', position: 'relative', height: 260 }}>
+            {/* Connection lines SVG */}
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }} viewBox="0 0 680 260">
+                {nodes.map((n, i) => {
+                    const cx = parseFloat(n.x) / 100 * 680;
+                    const cy = parseFloat(n.y) / 100 * 260;
+                    return (
+                        <line key={i} x1={340} y1={130} x2={cx} y2={cy}
+                            stroke={`${n.color}55`} strokeWidth="1.5"
+                            strokeDasharray="6 4"
+                            style={{ animation: `cc-dash 1.${i}s ease-out forwards` }}
+                        />
+                    );
+                })}
+                {/* Center hub */}
+                <circle cx={340} cy={130} r={48} fill="url(#hubGrad)" opacity={0.95} />
+                <defs>
+                    <radialGradient id="hubGrad" cx="50%" cy="50%">
+                        <stop offset="0%" stopColor="#1D4ED8" />
+                        <stop offset="100%" stopColor="#0D9488" />
+                    </radialGradient>
+                </defs>
+            </svg>
+
+            {/* Center label */}
+            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', zIndex: 2 }}>
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" style={{ margin: '0 auto 4px', display: 'block' }}>
+                    <polyline points="1,12 5,12 7,7 9,17 11,12 13,12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    <path d="M13,12 C14,9.5 18,8 19.5,10 C21,12 20,15 17,17.5 L14,20" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                </svg>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>CareConnect</span>
+            </div>
+
+            {/* Satellite nodes */}
+            {nodes.map((n) => (
+                <div key={n.label} style={{
+                    position: 'absolute',
+                    left: n.x, top: n.y,
+                    transform: 'translate(-50%,-50%)',
+                    textAlign: 'center', zIndex: 3,
+                }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${n.color}22`, border: `1.5px solid ${n.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, margin: '0 auto 4px', backdropFilter: 'blur(8px)' }}>
+                        {n.icon}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.8)' }}>{n.label}</div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function EcosystemDiagram() {
+    const nodes = [
+        { label: 'Patients',   icon: '🙋', x: 50,  y: 0,   color: '#2563EB', desc: 'Find care, book appointments, manage records' },
+        { label: 'Doctors',    icon: '🩺', x: 90,  y: 28,  color: '#0D9488', desc: 'EMR, consultations, prescriptions' },
+        { label: 'Clinics',    icon: '🏥', x: 88,  y: 74,  color: '#16A34A', desc: 'Full clinic operations platform' },
+        { label: 'Hospitals',  icon: '🏨', x: 50,  y: 95,  color: '#7C3AED', desc: 'Enterprise hospital management' },
+        { label: 'Labs',       icon: '🔬', x: 12,  y: 74,  color: '#EA580C', desc: 'Diagnostic workflow and reports' },
+        { label: 'Pharmacies', icon: '💊', x: 10,  y: 28,  color: '#059669', desc: 'Prescription and dispensing' },
+    ];
+
+    return (
+        <div style={{ position: 'relative', width: '100%', maxWidth: 700, margin: '0 auto', height: 500 }}>
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }} viewBox="0 0 700 500">
+                <defs>
+                    <radialGradient id="centerGrad" cx="50%" cy="50%">
+                        <stop offset="0%" stopColor="#2563EB" />
+                        <stop offset="100%" stopColor="#0D9488" />
+                    </radialGradient>
+                    <filter id="shadow">
+                        <feDropShadow dx="0" dy="4" stdDeviation="8" floodOpacity="0.15" />
+                    </filter>
+                </defs>
+                {nodes.map((n, i) => {
+                    const cx = n.x / 100 * 700;
+                    const cy = n.y / 100 * 500;
+                    return (
+                        <line key={i} x1={350} y1={250} x2={cx} y2={cy}
+                            stroke={n.color} strokeWidth="1.5" strokeOpacity="0.3"
+                            strokeDasharray="8 5" />
+                    );
+                })}
+                <circle cx={350} cy={250} r={64} fill="url(#centerGrad)" filter="url(#shadow)" />
+            </svg>
+
+            {/* Center hub */}
+            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', zIndex: 4 }}>
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" style={{ margin: '0 auto 6px', display: 'block' }}>
+                    <polyline points="1,12 5,12 7,7 9,17 11,12 13,12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    <path d="M13,12 C14,9.5 18,8 19.5,10 C21,12 20,15 17,17.5 L14,20" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                </svg>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block' }}>CareConnect</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', fontWeight: 600 }}>Connected Platform</span>
+            </div>
+
+            {/* Satellite nodes */}
+            {nodes.map(n => (
+                <div key={n.label} style={{
+                    position: 'absolute',
+                    left: `${n.x}%`, top: `${n.y}%`,
+                    transform: 'translate(-50%,-50%)',
+                    textAlign: 'center', zIndex: 5,
+                }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 18, background: '#fff', border: `2px solid ${n.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 8px', boxShadow: `0 4px 20px ${n.color}20` }}>
+                        {n.icon}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', marginBottom: 2 }}>{n.label}</div>
+                    <div style={{ fontSize: 11, color: '#6B7280', maxWidth: 120, lineHeight: 1.4 }}>{n.desc}</div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function DoctorDashboardMockup() {
+    return (
+        <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(10,31,68,.12)', border: '1px solid #E8EEF8', overflow: 'hidden' }}>
+            {/* Browser chrome */}
+            <div style={{ background: '#F8FAFF', borderBottom: '1px solid #E8EEF8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FC5F57' }} />
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FEBC2E' }} />
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2DC840' }} />
+                <div style={{ flex: 1, background: '#E8EEF8', borderRadius: 6, height: 22, marginLeft: 8, display: 'flex', alignItems: 'center', paddingLeft: 10 }}>
+                    <span style={{ fontSize: 10, color: '#9CA3AF' }}>careconnect.care/doctor/workspace</span>
+                </div>
+            </div>
+
+            {/* App layout */}
+            <div style={{ display: 'flex', height: 340 }}>
+                {/* Sidebar */}
+                <div style={{ width: 52, background: '#0A1F44', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 14 }}>
+                    {['🏠', '📋', '📅', '🔬', '💊', '📊'].map((icon, i) => (
+                        <div key={i} style={{ width: 34, height: 34, borderRadius: 9, background: i === 1 ? 'rgba(37,99,235,.6)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                            {icon}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Patient list */}
+                <div style={{ width: 150, borderRight: '1px solid #E8EEF8', padding: '12px 0', overflow: 'hidden' }}>
+                    <div style={{ padding: '0 10px 8px', fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Today's Queue</div>
+                    {[
+                        { name: 'Rajan M.', time: '9:00', type: 'Follow-up', active: false },
+                        { name: 'Priya S.', time: '10:00', type: 'New', active: true },
+                        { name: 'Anwar K.', time: '11:00', type: 'Consult', active: false },
+                        { name: 'Meena R.', time: '2:30', type: 'Review', active: false },
+                    ].map((p, i) => (
+                        <div key={i} style={{ padding: '8px 10px', background: p.active ? '#EFF6FF' : 'transparent', borderLeft: p.active ? '3px solid #2563EB' : '3px solid transparent' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{p.name}</div>
+                            <div style={{ fontSize: 10, color: '#9CA3AF' }}>{p.time} · {p.type}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Main content */}
+                <div style={{ flex: 1, padding: '14px 16px', overflow: 'hidden' }}>
+                    {/* Patient header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #F3F4F6' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#2563EB,#0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>P</div>
+                        <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Priya Sharma</div>
+                            <div style={{ fontSize: 10, color: '#6B7280' }}>32F · Hypertension · Last visit: 3 months ago</div>
+                        </div>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                            <div style={{ background: '#EFF6FF', color: '#2563EB', padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>History</div>
+                            <div style={{ background: '#F0FDF4', color: '#16A34A', padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>Vitals</div>
+                        </div>
+                    </div>
+
+                    {/* Consultation notes */}
+                    <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Chief Complaint</div>
+                        <div style={{ fontSize: 12, color: '#374151', background: '#F8FAFF', borderRadius: 8, padding: '8px 10px', lineHeight: 1.6 }}>
+                            Persistent headache for 3 days, mild fatigue, no fever.
+                        </div>
+                    </div>
+
+                    {/* Vitals grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+                        {[
+                            { l: 'BP', v: '138/88', u: 'mmHg', c: '#DC2626' },
+                            { l: 'HR', v: '76', u: 'bpm', c: '#2563EB' },
+                            { l: 'SpO₂', v: '98%', u: '', c: '#059669' },
+                            { l: 'Temp', v: '98.4', u: '°F', c: '#B45309' },
+                        ].map(v => (
+                            <div key={v.l} style={{ background: '#F8FAFF', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: 9, color: '#9CA3AF', marginBottom: 2 }}>{v.l}</div>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: v.c }}>{v.v}</div>
+                                <div style={{ fontSize: 8, color: '#9CA3AF' }}>{v.u}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ClinicWorkflowMockup() {
+    const steps = [
+        { label: 'Registration', done: true },
+        { label: 'Appointment', done: true },
+        { label: 'Reception', done: true },
+        { label: 'Queue', active: true },
+        { label: 'Consultation', done: false },
+        { label: 'Prescription', done: false },
+        { label: 'Follow-up', done: false },
+    ];
+
+    return (
+        <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(10,31,68,.10)', border: '1px solid #E8EEF8', padding: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', marginBottom: 20 }}>Clinic Workflow — Today</div>
+
+            {/* Progress */}
+            <div style={{ marginBottom: 24 }}>
+                {steps.map((s, i) => (
+                    <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <div style={{
+                            width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                            background: s.done ? '#16A34A' : (s.active ? '#2563EB' : '#F3F4F6'),
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, color: s.done || s.active ? '#fff' : '#9CA3AF', fontWeight: 700,
+                        }}>{s.done ? '✓' : i + 1}</div>
+                        {i < steps.length - 1 && (
+                            <div style={{ position: 'absolute', left: 12, marginTop: 24, width: 2, height: 10, background: s.done ? '#16A34A' : '#F3F4F6' }} />
+                        )}
+                        <span style={{ fontSize: 13, fontWeight: s.active ? 700 : 500, color: s.done ? '#374151' : (s.active ? '#2563EB' : '#9CA3AF') }}>
+                            {s.label}
+                        </span>
+                        {s.active && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: '#fff', background: '#2563EB', padding: '2px 8px', borderRadius: 6 }}>Active</span>}
+                    </div>
+                ))}
+            </div>
+
+            {/* Queue stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {[
+                    { n: '12', l: 'Booked',    c: '#EFF6FF', t: '#2563EB' },
+                    { n: '4',  l: 'Waiting',   c: '#FFF7ED', t: '#C2410C' },
+                    { n: '7',  l: 'Completed', c: '#F0FDF4', t: '#16A34A' },
+                ].map(s => (
+                    <div key={s.l} style={{ background: s.c, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: s.t }}>{s.n}</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: '#6B7280', marginTop: 2 }}>{s.l}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function PatientAppMockup() {
+    return (
+        <div style={{ width: 260, margin: '0 auto', background: '#111827', borderRadius: 36, padding: '12px 8px', boxShadow: '0 32px 80px rgba(0,0,0,.3)' }}>
+            <div style={{ background: '#fff', borderRadius: 28, overflow: 'hidden', height: 520 }}>
+                {/* Status bar */}
+                <div style={{ background: '#0A1F44', height: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+                    <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>9:41</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                        <span style={{ fontSize: 10, color: '#fff' }}>●●● WiFi</span>
+                    </div>
+                </div>
+
+                {/* App header */}
+                <div style={{ background: 'linear-gradient(135deg,#1D4ED8,#0D9488)', padding: '16px 16px 24px' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', marginBottom: 4 }}>Good morning</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 12 }}>Ravi Kumar</div>
+                    <div style={{ background: 'rgba(255,255,255,.15)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13 }}>🔍</span>
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,.6)' }}>Find doctors, labs, hospitals...</span>
+                    </div>
+                </div>
+
+                {/* Upcoming */}
+                <div style={{ padding: '14px 14px 0', marginTop: -10 }}>
+                    <div style={{ background: '#fff', borderRadius: 14, padding: '12px', boxShadow: '0 4px 20px rgba(10,31,68,.12)', marginBottom: 14 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Upcoming Appointment</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🩺</div>
+                            <div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>Dr. Anand Kumar</div>
+                                <div style={{ fontSize: 10, color: '#6B7280' }}>Cardiologist · Tomorrow 11:30 AM</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick actions */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                        {[
+                            { icon: '📋', label: 'My Records',   bg: '#EFF6FF' },
+                            { icon: '🔬', label: 'Lab Reports',  bg: '#F0FDF4' },
+                            { icon: '💊', label: 'Prescriptions', bg: '#FFF7ED' },
+                            { icon: '📅', label: 'Appointments', bg: '#F5F3FF' },
+                        ].map(a => (
+                            <div key={a.label} style={{ background: a.bg, borderRadius: 12, padding: '12px 10px', display: 'flex', alignItems: 'center', gap: 7 }}>
+                                <span style={{ fontSize: 16 }}>{a.icon}</span>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{a.label}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Lab result */}
+                    <div style={{ background: '#F0FDF4', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 18 }}>✅</span>
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>CBC Report Ready</div>
+                            <div style={{ fontSize: 10, color: '#6B7280' }}>All values within normal range</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function JourneyTimeline() {
+    return (
+        <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, minWidth: 720, padding: '8px 0' }}>
+                {JOURNEY.map((step, i) => (
+                    <React.Fragment key={step.label}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto', minWidth: 80 }}>
+                            <div style={{ width: 52, height: 52, borderRadius: '50%', background: `${step.color}22`, border: `2px solid ${step.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 10 }}>
+                                {step.icon}
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'center' }}>{step.label}</div>
+                        </div>
+                        {i < JOURNEY.length - 1 && (
+                            <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg,${step.color}50,${JOURNEY[i + 1].color}50)`, minWidth: 20, marginBottom: 22 }} />
+                        )}
+                    </React.Fragment>
+                ))}
+            </div>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,.4)', marginTop: 16, fontStyle: 'italic' }}>
+                One record. Every step. Authorized access across the entire care journey.
+            </p>
         </div>
     );
 }
