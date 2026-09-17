@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useSession } from '@/components/providers/SessionProvider';
 import { motion } from 'framer-motion';
 import {
@@ -79,8 +78,9 @@ const JOURNEY = [
 /* ── component ───────────────────────────────────────────────────────────── */
 export default function HomePage() {
     const { isAuthenticated } = useSession();
-    const joinHref = isAuthenticated ? '/nearby' : '/join';
-    const ctaHref  = isAuthenticated ? '/nearby' : '/login';
+    // Marketing page — all CTAs route to public pages regardless of auth state.
+    // Protected-route redirects (/nearby) must never appear here.
+    const dashboardHref = isAuthenticated ? '/dashboard' : '/login';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState<DropdownId>(null);
     const navRef = useRef<HTMLDivElement>(null);
@@ -243,10 +243,10 @@ export default function HomePage() {
 
                         {/* Right CTAs */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
-                            <Link href="/login" className="cc-hide-mobile" style={{ fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 14px', borderRadius: 8 }}>
+                            <Link href={dashboardHref} className="cc-hide-mobile" style={{ fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 14px', borderRadius: 8 }}>
                                 {isAuthenticated ? 'Dashboard' : 'Sign In'}
                             </Link>
-                            <Link href={joinHref} style={{ fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', boxShadow: '0 2px 8px rgba(37,99,235,.35)' }}>
+                            <Link href="/join" style={{ fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', boxShadow: '0 2px 8px rgba(37,99,235,.35)' }}>
                                 Get Started
                             </Link>
                             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -278,8 +278,8 @@ export default function HomePage() {
                                 ))}
                             </nav>
                             <div style={{ display: 'flex', gap: 10 }}>
-                                <Link href="/login" style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 10, border: '1.5px solid #E5E7EB', color: '#374151', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>Sign In</Link>
-                                <Link href={joinHref} style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Get Started</Link>
+                                <Link href={dashboardHref} style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 10, border: '1.5px solid #E5E7EB', color: '#374151', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>{isAuthenticated ? 'Dashboard' : 'Sign In'}</Link>
+                                <Link href="/join" style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>Get Started</Link>
                             </div>
                         </div>
                     )}
@@ -323,7 +323,7 @@ export default function HomePage() {
                     {/* CTAs */}
                     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.22 }}
                         style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-                        <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 32px', borderRadius: 14, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 24px rgba(0,0,0,.25)' }}>
+                        <Link href="/join" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 32px', borderRadius: 14, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 24px rgba(0,0,0,.25)' }}>
                             Get Started <ArrowRight style={{ width: 16, height: 16 }} />
                         </Link>
                         <a href="#ecosystem" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.12)', color: '#fff', padding: '14px 28px', borderRadius: 14, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.25)', cursor: 'pointer' }}>
@@ -673,7 +673,7 @@ export default function HomePage() {
                     </motion.div>
 
                     <div style={{ textAlign: 'center' }}>
-                        <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', padding: '13px 32px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', boxShadow: '0 3px 16px rgba(37,99,235,.35)' }}>
+                        <Link href="/join" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', padding: '13px 32px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', boxShadow: '0 3px 16px rgba(37,99,235,.35)' }}>
                             Get Started <ArrowRight style={{ width: 16, height: 16 }} />
                         </Link>
                     </div>
@@ -818,7 +818,7 @@ export default function HomePage() {
                                 <div key={l} style={{ marginBottom: 9 }}><Link href={h} style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', textDecoration: 'none' }}>{l}</Link></div>
                             ))}
                             <div style={{ marginTop: 20 }}>
-                                <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', padding: '9px 16px', borderRadius: 9, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
+                                <Link href="/join" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg,#2563EB,#0D9488)', color: '#fff', padding: '9px 16px', borderRadius: 9, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
                                     Get Started →
                                 </Link>
                             </div>
