@@ -20,7 +20,7 @@ const FEATURES = [
 
 export default function HospitalsPage() {
     return (
-        <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+        <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
             <PublicNav />
 
             {/* Hero */}
@@ -104,7 +104,7 @@ export default function HospitalsPage() {
 
 function PublicFooter() {
     return (
-        <footer style={{ background: '#0A1F44', color: 'rgba(255,255,255,.6)', padding: '48px 24px 32px', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+        <footer style={{ background: '#0A1F44', color: 'rgba(255,255,255,.6)', padding: '48px 24px 32px', fontFamily: 'Inter, system-ui, sans-serif' }}>
             <div style={{ maxWidth: 1120, margin: '0 auto' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, marginBottom: 40 }}>
                     <div style={{ flex: '1 1 220px' }}>

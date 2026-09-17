@@ -56,7 +56,7 @@ const INDIA_STATES = [
 
 export default function ProviderRegisterPage() {
     return (
-        <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F6F9FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans, system-ui, sans-serif', color: '#7A95B8', fontSize: 15 }}>Loading…</div>}>
+        <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F6F9FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, system-ui, sans-serif', color: '#7A95B8', fontSize: 15 }}>Loading…</div>}>
             <RegisterForm />
         </Suspense>
     );
@@ -182,7 +182,7 @@ function RegisterForm() {
     if (submitted) return <SuccessScreen email={form.email} providerType={form.providerType as ProviderType} name={form.name} loginPortal={loginPortal} />;
 
     return (
-        <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'DM Sans',system-ui,sans-serif" }}>
+        <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'Inter',system-ui,sans-serif" }}>
 
             {/* Header */}
             <div style={{ background: 'linear-gradient(135deg,#0A1F44,#1A54A8)', padding: '32px', textAlign: 'center' }}>
@@ -440,7 +440,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 function SuccessScreen({ email, name, providerType, loginPortal }: { email: string; name: string; providerType: ProviderType; loginPortal: string }) {
     const type = PROVIDER_TYPES.find(p => p.value === providerType);
     return (
-        <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'DM Sans',system-ui,sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ minHeight: '100vh', background: '#F6F9FF', fontFamily: "'Inter',system-ui,sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div style={{ background: '#fff', border: '1px solid #DDE6F5', borderRadius: 20, padding: '48px 40px', maxWidth: 540, width: '100%', textAlign: 'center', boxShadow: '0 8px 40px rgba(10,31,68,.09)' }}>
                 <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#16a34a,#0B96A0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, margin: '0 auto 24px' }}>✓</div>
                 <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0A1F44', margin: '0 0 12px' }}>Registration Submitted!</h1>

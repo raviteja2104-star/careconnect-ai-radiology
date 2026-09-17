@@ -26,6 +26,10 @@ export function PublicNav() {
     }, []);
 
     return (
+        <>
+        <style>{`
+            @keyframes cc-nav-pulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.35)}60%{box-shadow:0 0 0 8px rgba(37,99,235,0)}}
+        `}</style>
         <header style={{
             position: 'sticky', top: 0, zIndex: 50, background: 'rgba(255,255,255,0.97)',
             backdropFilter: 'blur(12px)', borderBottom: '1px solid #E8EEF8',
@@ -35,18 +39,21 @@ export function PublicNav() {
 
                 {/* Logo */}
                 <Link href="/home" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    <div style={{ width: 36, height: 36, borderRadius: 12, background: 'linear-gradient(135deg,#1D4ED8 0%,#0D9488 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'cc-nav-pulse 2.8s ease-out infinite', boxShadow: '0 2px 10px rgba(37,99,235,.3)' }}>
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                            {/* Heartbeat pulse line */}
+                            <polyline points="1,12 5,12 7,7 9,17 11,12 13,12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            {/* Heart right side */}
+                            <path d="M13,12 C14,9.5 18,8 19.5,10 C21,12 20,15 17,17.5 L14,20" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
                         </svg>
                     </div>
-                    <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', color: '#111827', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
-                        Care<span style={{ color: '#2563EB' }}>Connect</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.025em', color: '#0A1F44', fontFamily: 'Inter, system-ui, sans-serif' }}>
+                        Care<span style={{ background: 'linear-gradient(90deg,#1D4ED8,#0D9488)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Connect</span>
                     </span>
                 </Link>
 
                 {/* Desktop nav */}
-                <nav style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, fontFamily: 'DM Sans, system-ui, sans-serif' }} className="public-nav-desktop">
+                <nav style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, fontFamily: 'Inter, system-ui, sans-serif' }} className="public-nav-desktop">
                     <Link href="/patients" style={navLink()}>For Patients</Link>
 
                     {/* Providers dropdown */}
@@ -90,7 +97,7 @@ export function PublicNav() {
 
                 {/* CTAs */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <Link href="/login" style={{ fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 14px', borderRadius: 8, transition: 'background .15s', fontFamily: 'DM Sans, system-ui, sans-serif' }}
+                    <Link href="/login" style={{ fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', padding: '8px 14px', borderRadius: 8, transition: 'background .15s', fontFamily: 'Inter, system-ui, sans-serif' }}
                         className="public-nav-signin">
                         Sign In
                     </Link>
@@ -98,7 +105,7 @@ export function PublicNav() {
                         fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none',
                         padding: '9px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#2563EB,#0D9488)',
                         boxShadow: '0 2px 8px rgba(37,99,235,.35)', transition: 'opacity .15s',
-                        fontFamily: 'DM Sans, system-ui, sans-serif',
+                        fontFamily: 'Inter, system-ui, sans-serif',
                     }}>
                         Get Started
                     </Link>
@@ -115,7 +122,7 @@ export function PublicNav() {
 
             {/* Mobile menu */}
             {menuOpen && (
-                <div style={{ borderTop: '1px solid #E8EEF8', background: '#fff', padding: '12px 24px 20px', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+                <div style={{ borderTop: '1px solid #E8EEF8', background: '#fff', padding: '12px 24px 20px', fontFamily: 'Inter, system-ui, sans-serif' }}>
                     <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
                         {[
                             { href: '/patients', label: 'For Patients' },
@@ -144,6 +151,7 @@ export function PublicNav() {
                 }
             `}</style>
         </header>
+        </>
     );
 }
 

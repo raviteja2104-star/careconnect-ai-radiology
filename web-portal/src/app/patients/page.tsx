@@ -68,29 +68,104 @@ const STATS = [
 
 export default function PatientsPage() {
     return (
-        <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+        <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
             <PublicNav />
 
             {/* Hero */}
-            <section style={{ background: 'linear-gradient(140deg,#1E3A8A 0%,#1D4ED8 40%,#0F766E 80%,#0D9488 100%)', padding: 'clamp(60px,10vw,120px) 24px' }}>
-                <div style={{ maxWidth: 760, margin: '0 auto', textAlign: 'center' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 999, padding: '6px 16px', marginBottom: 28, fontSize: 13, color: 'rgba(255,255,255,.9)', fontWeight: 600 }}>
-                        ✦ Built for patients, not systems
+            <style>{`
+                @keyframes cc-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+                @keyframes cc-float2{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+                @keyframes cc-ecg{from{stroke-dashoffset:900}to{stroke-dashoffset:0}}
+                @keyframes cc-blink{0%,100%{opacity:1}50%{opacity:.25}}
+                @keyframes cc-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,234,212,.5)}70%{box-shadow:0 0 0 14px rgba(94,234,212,0)}}
+                @media(max-width:768px){.cc-hero-vis{display:none!important}}
+            `}</style>
+            <section style={{ background: 'linear-gradient(140deg,#1E3A8A 0%,#1D4ED8 40%,#0F766E 80%,#0D9488 100%)', padding: 'clamp(60px,8vw,100px) 24px', overflow: 'hidden' }}>
+                <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
+
+                    {/* Left: text */}
+                    <div style={{ flex: '1 1 380px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 999, padding: '6px 16px', marginBottom: 28, fontSize: 13, color: 'rgba(255,255,255,.9)', fontWeight: 600 }}>
+                            ✦ Built for patients, not systems
+                        </div>
+                        <h1 style={{ color: '#fff', fontSize: 'clamp(36px,5vw,58px)', fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.02em', margin: '0 0 20px' }}>
+                            Your healthcare,<br />
+                            <span style={{ color: '#5EEAD4' }}>simplified.</span>
+                        </h1>
+                        <p style={{ color: 'rgba(255,255,255,.8)', fontSize: 'clamp(16px,2vw,18px)', lineHeight: 1.65, margin: '0 0 40px', maxWidth: 480 }}>
+                            Find doctors, book lab tests, manage health records, and consult virtually — all from one platform built around you.
+                        </p>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                            <Link href="/login/patient" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 32px', borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.2)' }}>
+                                Create Free Account →
+                            </Link>
+                            <Link href="/nearby/search" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.15)', color: '#fff', padding: '14px 28px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.3)' }}>
+                                Find Doctors Near Me
+                            </Link>
+                        </div>
                     </div>
-                    <h1 style={{ color: '#fff', fontSize: 'clamp(36px,6vw,64px)', fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.02em', margin: '0 0 20px' }}>
-                        Your healthcare,<br />
-                        <span style={{ color: '#5EEAD4' }}>simplified.</span>
-                    </h1>
-                    <p style={{ color: 'rgba(255,255,255,.8)', fontSize: 'clamp(16px,2vw,19px)', lineHeight: 1.65, margin: '0 0 40px', maxWidth: 580, marginLeft: 'auto', marginRight: 'auto' }}>
-                        Find doctors, book lab tests, manage health records, and consult virtually — all from one platform built around you.
-                    </p>
-                    <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <Link href="/login/patient" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 32px', borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.2)', transition: 'transform .15s' }}>
-                            Create Free Account →
-                        </Link>
-                        <Link href="/nearby/search" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.15)', color: '#fff', padding: '14px 28px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.3)', transition: 'background .15s' }}>
-                            Find Doctors Near Me
-                        </Link>
+
+                    {/* Right: animated health dashboard */}
+                    <div className="cc-hero-vis" style={{ flex: '0 0 420px', position: 'relative', height: 420 }}>
+
+                        {/* Main card */}
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(255,255,255,.1)', backdropFilter: 'blur(24px)', borderRadius: 24, padding: '24px 24px 20px', border: '1px solid rgba(255,255,255,.2)', boxShadow: '0 20px 60px rgba(0,0,0,.3)', animation: 'cc-float 5s ease-in-out infinite' }}>
+
+                            {/* Patient header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                                <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#5EEAD4,#2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, animation: 'cc-pulse 2.5s ease-in-out infinite' }}>👤</div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Priya Sharma</div>
+                                    <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 12 }}>Patient · CC-2024-0847</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ADE80', animation: 'cc-blink 1.8s ease-in-out infinite' }} />
+                                    <span style={{ fontSize: 11, color: '#4ADE80', fontWeight: 700 }}>LIVE</span>
+                                </div>
+                            </div>
+
+                            {/* ECG monitor */}
+                            <div style={{ background: 'rgba(0,0,0,.28)', borderRadius: 14, padding: '10px 14px', marginBottom: 18 }}>
+                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>ECG Monitor</div>
+                                <svg viewBox="0 0 380 48" width="100%" height="48">
+                                    <polyline
+                                        points="0,24 28,24 36,7 43,41 50,10 57,24 85,24 93,7 100,41 107,10 114,24 142,24 150,7 157,41 164,10 171,24 199,24 207,7 214,41 221,10 228,24 256,24 264,7 271,41 278,10 285,24 380,24"
+                                        stroke="#5EEAD4" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"
+                                        strokeDasharray="900"
+                                        style={{ animation: 'cc-ecg 2.4s linear infinite' }}
+                                    />
+                                </svg>
+                            </div>
+
+                            {/* Vitals */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                                {([
+                                    { emoji: '❤️', val: '72 bpm',  lbl: 'Heart Rate' },
+                                    { emoji: '🩸', val: '120/80',  lbl: 'Blood Pressure' },
+                                    { emoji: '💨', val: '98%',     lbl: 'SpO₂' },
+                                ] as { emoji: string; val: string; lbl: string }[]).map(v => (
+                                    <div key={v.lbl} style={{ background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 10px 8px' }}>
+                                        <div style={{ fontSize: 18, marginBottom: 5 }}>{v.emoji}</div>
+                                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{v.val}</div>
+                                        <div style={{ color: 'rgba(255,255,255,.4)', fontSize: 10, marginTop: 3 }}>{v.lbl}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Appointment floating card */}
+                        <div style={{ position: 'absolute', bottom: 72, left: -16, background: 'rgba(255,255,255,.14)', backdropFilter: 'blur(16px)', borderRadius: 16, padding: '12px 16px', border: '1px solid rgba(255,255,255,.25)', boxShadow: '0 8px 32px rgba(0,0,0,.2)', animation: 'cc-float2 4s ease-in-out 1s infinite' }}>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.55)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Next Appointment</div>
+                            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Dr. Anand Kumar</div>
+                            <div style={{ color: '#5EEAD4', fontSize: 13, marginTop: 2 }}>Tomorrow · 10:30 AM</div>
+                        </div>
+
+                        {/* Lab result floating card */}
+                        <div style={{ position: 'absolute', bottom: 8, right: -8, background: 'rgba(74,222,128,.14)', backdropFilter: 'blur(16px)', borderRadius: 16, padding: '12px 16px', border: '1px solid rgba(74,222,128,.3)', boxShadow: '0 8px 32px rgba(0,0,0,.2)', animation: 'cc-float 3.5s ease-in-out .5s infinite' }}>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.55)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Lab Results</div>
+                            <div style={{ color: '#4ADE80', fontWeight: 700, fontSize: 15 }}>✓ All Normal</div>
+                            <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 12, marginTop: 2 }}>CBC · Lipid · HbA1c</div>
+                        </div>
                     </div>
                 </div>
             </section>
