@@ -237,46 +237,132 @@ export default function HomePage() {
             </header>
 
             {/* ══════════════════════════════ HERO ════════════════════════════════ */}
+            <style>{`
+                @keyframes cc-hp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+                @keyframes cc-hp-float2{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+                @keyframes cc-hp-ecg{from{stroke-dashoffset:700}to{stroke-dashoffset:0}}
+                @keyframes cc-hp-blink{0%,100%{opacity:1}50%{opacity:.2}}
+                @keyframes cc-hp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,234,212,.45)}65%{box-shadow:0 0 0 12px rgba(94,234,212,0)}}
+                @media(max-width:1023px){.cc-hp-vis{display:none!important}}
+            `}</style>
             <section className="relative overflow-hidden" style={{
                 background: 'linear-gradient(140deg, #1E3A8A 0%, #1D4ED8 35%, #0F766E 75%, #0D9488 100%)',
-                minHeight: 660,
             }}>
-                {/* Dot-grid texture */}
-                <div className="absolute inset-0 opacity-[0.07]" style={{
-                    backgroundImage: `radial-gradient(circle, #fff 1px, transparent 1px)`,
-                    backgroundSize: '28px 28px',
-                }} />
-                {/* Decorative glow orbs */}
-                <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-blue-400/20 blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 left-1/4 h-64 w-64 rounded-full bg-teal-300/15 blur-3xl pointer-events-none" />
+                <div className="relative mx-auto max-w-7xl px-4 pt-16 pb-10 sm:px-6 lg:px-8">
 
-                <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
-                    {/* Badge */}
-                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }} className="flex justify-center mb-7">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm">
-                            <Sparkles className="h-3.5 w-3.5 text-yellow-300" />
-                            Your connected healthcare companion
+                    {/* ── 2-column top ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 48, marginBottom: 48, flexWrap: 'wrap' }}>
+
+                        {/* Left: text + CTAs */}
+                        <div style={{ flex: '1 1 400px' }}>
+                            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5 }}>
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm mb-7">
+                                    <Sparkles className="h-3.5 w-3.5 text-yellow-300" />
+                                    Your connected healthcare companion
+                                </div>
+                            </motion.div>
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.08 }}>
+                                <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl leading-[1.05] mb-5">
+                                    Your Healthcare,<br />
+                                    <span style={{ color: '#5EEAD4' }}>Connected.</span>
+                                </h1>
+                                <p className="text-lg text-blue-100/85 leading-relaxed mb-8 max-w-lg">
+                                    Find doctors, book lab tests, manage health records, and consult virtually — one platform for your entire healthcare journey.
+                                </p>
+                                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                    <Link href={joinHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#1D4ED8', padding: '14px 28px', borderRadius: 12, fontWeight: 800, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.2)' }}>
+                                        Get Started Free →
+                                    </Link>
+                                    <Link href="/nearby/search" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,.14)', color: '#fff', padding: '14px 24px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', border: '1px solid rgba(255,255,255,.28)' }}>
+                                        Find Doctors Near Me
+                                    </Link>
+                                </div>
+                            </motion.div>
                         </div>
-                    </motion.div>
 
-                    {/* Headline */}
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.08 }} className="text-center">
-                        <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl leading-[1.05]">
-                            Your Healthcare,
-                            <br />
-                            <span style={{ color: '#5EEAD4' }}>Connected.</span>
-                        </h1>
-                        <p className="mt-5 text-lg text-blue-100/90 max-w-2xl mx-auto leading-relaxed">
-                            Find. Book. Manage. Care. — Everything you need for your healthcare journey, in one place.
-                        </p>
-                    </motion.div>
+                        {/* Right: animated healthcare card */}
+                        <div className="cc-hp-vis" style={{ flex: '0 0 420px', position: 'relative', height: 380 }}>
 
-                    {/* Search card */}
+                            {/* Appointment confirmation card */}
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'rgba(255,255,255,.11)', backdropFilter: 'blur(24px)', borderRadius: 24, padding: '22px 22px 18px', border: '1px solid rgba(255,255,255,.22)', boxShadow: '0 20px 60px rgba(0,0,0,.28)', animation: 'cc-hp-float 5s ease-in-out infinite' }}>
+
+                                {/* Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#4ADE80,#0D9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, animation: 'cc-hp-pulse 2.8s ease-out infinite' }}>✓</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ color: '#4ADE80', fontWeight: 700, fontSize: 13 }}>Booking Confirmed</div>
+                                        <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 11 }}>CareConnect · Ref #CC-20847</div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ADE80', animation: 'cc-hp-blink 1.6s ease-in-out infinite' }} />
+                                        <span style={{ fontSize: 10, color: '#4ADE80', fontWeight: 700 }}>LIVE</span>
+                                    </div>
+                                </div>
+
+                                {/* Doctor card */}
+                                <div style={{ background: 'rgba(255,255,255,.1)', borderRadius: 14, padding: '14px 16px', marginBottom: 14 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#1D4ED8,#5EEAD4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🩺</div>
+                                        <div>
+                                            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Dr. Anand Kumar</div>
+                                            <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 12 }}>Cardiologist · AIIMS</div>
+                                        </div>
+                                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                                            <div style={{ color: '#5EEAD4', fontWeight: 700, fontSize: 13 }}>Tomorrow</div>
+                                            <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 11 }}>11:30 AM</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Mini ECG */}
+                                <div style={{ background: 'rgba(0,0,0,.22)', borderRadius: 12, padding: '8px 12px', marginBottom: 14 }}>
+                                    <svg viewBox="0 0 340 36" width="100%" height="36">
+                                        <polyline
+                                            points="0,18 25,18 32,5 38,31 44,8 50,18 75,18 82,5 88,31 94,8 100,18 125,18 132,5 138,31 144,8 150,18 175,18 182,5 188,31 194,8 200,18 225,18 232,5 238,31 244,8 250,18 340,18"
+                                            stroke="#5EEAD4" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"
+                                            strokeDasharray="700"
+                                            style={{ animation: 'cc-hp-ecg 2.2s linear infinite' }}
+                                        />
+                                    </svg>
+                                </div>
+
+                                {/* Quick stats */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                                    {[
+                                        { lbl: 'Heart Rate', val: '72 bpm', e: '❤️' },
+                                        { lbl: 'SpO₂', val: '98%', e: '💨' },
+                                        { lbl: 'BP', val: '120/80', e: '🩸' },
+                                    ].map(v => (
+                                        <div key={v.lbl} style={{ background: 'rgba(255,255,255,.07)', borderRadius: 10, padding: '8px 10px' }}>
+                                            <div style={{ fontSize: 14, marginBottom: 3 }}>{v.e}</div>
+                                            <div style={{ color: '#fff', fontWeight: 700, fontSize: 12 }}>{v.val}</div>
+                                            <div style={{ color: 'rgba(255,255,255,.38)', fontSize: 9 }}>{v.lbl}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Lab results floating card */}
+                            <div style={{ position: 'absolute', bottom: 60, left: -14, background: 'rgba(74,222,128,.14)', backdropFilter: 'blur(16px)', borderRadius: 14, padding: '12px 16px', border: '1px solid rgba(74,222,128,.3)', boxShadow: '0 8px 32px rgba(0,0,0,.2)', animation: 'cc-hp-float2 3.8s ease-in-out .8s infinite' }}>
+                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Lab Results</div>
+                                <div style={{ color: '#4ADE80', fontWeight: 800, fontSize: 14 }}>✓ All Normal</div>
+                                <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginTop: 2 }}>CBC · Lipid · HbA1c</div>
+                            </div>
+
+                            {/* Records floating chip */}
+                            <div style={{ position: 'absolute', bottom: 8, right: -10, background: 'rgba(255,255,255,.13)', backdropFilter: 'blur(16px)', borderRadius: 14, padding: '12px 16px', border: '1px solid rgba(255,255,255,.22)', boxShadow: '0 8px 32px rgba(0,0,0,.2)', animation: 'cc-hp-float 4.2s ease-in-out .4s infinite' }}>
+                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Health Records</div>
+                                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📁 12 Documents</div>
+                                <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginTop: 2 }}>Encrypted & Secure</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Search card (centered below) ── */}
                     <motion.div initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.65, delay: 0.2 }}
-                        className="mx-auto mt-12 max-w-4xl">
+                        transition={{ duration: 0.65, delay: 0.2 }}>
                         <div className="rounded-2xl p-5 shadow-2xl" style={{
                             background: 'rgba(255,255,255,0.11)',
                             border: '1px solid rgba(255,255,255,0.22)',
@@ -357,47 +443,6 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* ══════════════════════════ SERVICES GRID ════════════════════════════ */}
-            <section id="services" className="py-24" style={{ background: '#F8FAFF' }}>
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-                        className="mx-auto mb-14 max-w-2xl text-center">
-                        <h2 className="text-3xl font-black text-gray-900 sm:text-4xl">
-                            Everything you need for your healthcare journey
-                        </h2>
-                        <p className="mt-4 text-base text-gray-500 leading-relaxed">
-                            From finding the right specialist to booking a home lab test — CareConnect covers every step.
-                        </p>
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }}
-                        variants={stagger}
-                        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {SERVICES.map(svc => (
-                            <motion.div key={svc.title} variants={fadeUp}>
-                                <Link href={svc.href}
-                                    className="group flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg hover:border-gray-200">
-                                    <div className={`mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl ${svc.color}`}>
-                                        <svc.icon className="h-6 w-6" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="mb-2 flex items-center justify-between gap-2">
-                                            <h3 className="font-bold text-gray-900">{svc.title}</h3>
-                                            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
-                                                {svc.badge}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm leading-relaxed text-gray-500">{svc.desc}</p>
-                                    </div>
-                                    <div className="mt-5 flex items-center gap-0.5 text-sm font-semibold text-blue-600">
-                                        Explore <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                </div>
-            </section>
 
             {/* ══════════════════════════ HOW IT WORKS ═════════════════════════════ */}
             <section id="how-it-works" className="bg-white py-24">
