@@ -184,37 +184,24 @@ app.get('/metrics', (req, res) => {
 // Health check — also attempts a live connection probe so the error is visible
 app.get('/api/health', async (req, res) => {
     const mongoose = require('mongoose');
+    const force = req.query.force === '1';
+    if (force && connectDB.forceReconnect) {
+        await connectDB.forceReconnect();
+    } else {
+        await connectDB();
+    }
     const dbState = mongoose.connection.readyState;
     const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
-
-    let dbError = null;
-    if (dbState !== 1) {
-        try {
-            await connectDB();
-            const freshState = mongoose.connection.readyState;
-            const freshStatus = freshState === 1 ? 'connected' : freshState === 2 ? 'connecting' : 'disconnected';
-            return res.json({
-                success: true,
-                message: 'CareConnect API is running',
-                version: '1.0.0',
-                timestamp: new Date().toISOString(),
-                services: {
-                    database: freshStatus,
-                    ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
-                },
-            });
-        } catch (err) {
-            dbError = err.message;
-        }
-    }
-
+    const dbError = connectDB.getLastError ? connectDB.getLastError() : null;
     res.json({
         success: true,
         message: 'CareConnect API is running',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
+        mongoUri: (process.env.MONGODB_URI || '').replace(/:([^@]+)@/, ':***@'),
         services: {
             database: dbStatus,
+            dbError: dbError || undefined,
             ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
         },
     });

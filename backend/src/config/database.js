@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 let cachedConnection = null;
 let pendingConnect = null;
 let lastFailureAt = 0;
+let lastError = null;
 const FAILURE_COOLDOWN_MS = 15000;
 
 // In-memory MongoDB server instance (dev fallback only)
@@ -54,6 +55,7 @@ const connectDB = async () => {
                     return conn;
                 } catch (error) {
                     const label = uri === atlasUri ? 'Atlas' : 'memory-server';
+                    lastError = error.message;
                     console.warn(`⚠️  MongoDB (${label}) failed: ${error.message}`);
                 }
             }
@@ -66,3 +68,14 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
+module.exports.getLastError = () => lastError;
+module.exports.forceReconnect = async () => {
+    cachedConnection = null;
+    lastFailureAt = 0;
+    lastError = null;
+    pendingConnect = null;
+    if (mongoose.connection.readyState !== 0) {
+        try { await mongoose.disconnect(); } catch (_) {}
+    }
+    return connectDB();
+};
