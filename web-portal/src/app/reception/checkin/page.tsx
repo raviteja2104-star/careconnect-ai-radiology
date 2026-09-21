@@ -16,8 +16,8 @@ function authHeaders(): Record<string, string> {
 type CheckinAppt = {
   _id: string;
   timeSlot?: string;
-  patient?: { name?: string; phone?: string };
-  doctor?: { name?: string };
+  patient?: { firstName?: string; lastName?: string; phone?: string };
+  doctor?: { firstName?: string; lastName?: string };
   specialty?: string;
   visitType?: string;
   status?: string;
@@ -289,10 +289,10 @@ export default function AppointmentCheckIn() {
       key: 'patient',
       header: 'Patient',
       sortable: true,
-      accessor: (apt) => apt.patient?.name ?? '',
+      accessor: (apt) => [apt.patient?.firstName, apt.patient?.lastName].filter(Boolean).join(' ') ?? '',
       cell: (apt) => (
         <div>
-          <p className="font-semibold text-foreground">{apt.patient?.name || 'Unknown Patient'}</p>
+          <p className="font-semibold text-foreground">{[apt.patient?.firstName, apt.patient?.lastName].filter(Boolean).join(' ') || 'Unknown Patient'}</p>
           <p className="mt-0.5 font-mono text-xs text-muted-foreground">{apt.patient?.phone || 'No Phone'}</p>
         </div>
       ),
@@ -301,10 +301,10 @@ export default function AppointmentCheckIn() {
       key: 'doctor',
       header: 'Doctor & Dept',
       sortable: true,
-      accessor: (apt) => `${apt.doctor?.name ?? ''} ${apt.specialty ?? ''}`,
+      accessor: (apt) => `${[apt.doctor?.firstName, apt.doctor?.lastName].filter(Boolean).join(' ') ?? ''} ${apt.specialty ?? ''}`,
       cell: (apt) => (
         <div>
-          <p className="font-semibold text-foreground">Dr. {apt.doctor?.name || 'Unassigned'}</p>
+          <p className="font-semibold text-foreground">Dr. {[apt.doctor?.firstName, apt.doctor?.lastName].filter(Boolean).join(' ') || 'Unassigned'}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{apt.specialty}</p>
         </div>
       ),

@@ -10,6 +10,7 @@ exports.getToday = async (req, res, next) => {
         const appts = await Appointment.find({
             date: { $gte: todayStart(), $lte: todayEnd() },
             status: { $nin: ['Cancelled'] },
+            doctor: req.user._id,
         })
             .populate('patient', 'firstName lastName phone')
             .populate('doctor', 'firstName lastName')
@@ -98,10 +99,14 @@ exports.saveSoap = async (req, res) => {
             }
         }
         if (!enc) {
-            // No encounter yet — create one attached to this appointment
-            const patientId = req.body.patientId;
+            // No encounter yet — derive patientId from body or the appointment
+            let patientId = req.body.patientId;
+            if (!patientId && mongoose.Types.ObjectId.isValid(id)) {
+                const appt = await Appointment.findById(id).select('patient').lean();
+                patientId = appt?.patient;
+            }
             if (!patientId) {
-                return res.status(400).json({ success: false, message: 'No encounter found and patientId is required to create one.' });
+                return res.status(400).json({ success: false, message: 'No encounter found and patientId could not be determined.' });
             }
             enc = await Encounter.create({
                 appointmentId: mongoose.Types.ObjectId.isValid(id) ? id : undefined,

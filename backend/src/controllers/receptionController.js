@@ -53,7 +53,7 @@ exports.getDoctorsStatus = async (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     const [doctors, activeTokens, todayAppointments] = await Promise.all([
-      User.find({ role: 'doctor' }, { name: 1, specialty: 1, department: 1 }).lean(),
+      User.find({ role: 'doctor' }, { firstName: 1, lastName: 1, specialty: 1, department: 1 }).lean(),
       QueueToken.find({ status: 'IN_PROGRESS', createdAt: { $gte: today } }, { doctor: 1 }).lean(),
       Appointment.find(
         { date: { $gte: today }, status: { $in: ['Scheduled', 'Checked_In'] } },
@@ -69,7 +69,8 @@ exports.getDoctorsStatus = async (req, res) => {
       let status = 'Offline';
       if (consultingSet.has(id)) status = 'Consulting';
       else if (scheduledSet.has(id)) status = 'Available';
-      return { id, name: doc.name, dept: doc.specialty || doc.department || 'General', status };
+      const name = [doc.firstName, doc.lastName].filter(Boolean).join(' ') || 'Unknown';
+      return { id, name, dept: doc.specialty || doc.department || 'General', status };
     });
 
     res.json({ success: true, data });
@@ -87,8 +88,8 @@ exports.getAppointments = async (req, res) => {
     
     // In real app, date filters exactly today
     const appointments = await Appointment.find({ date: { $gte: today } })
-      .populate('doctor', 'name')
-      .populate('patient', 'name email phone');
+      .populate('doctor', 'firstName lastName')
+      .populate('patient', 'firstName lastName email phone');
       
     res.json({ success: true, data: appointments });
   } catch (error) {
@@ -102,7 +103,7 @@ exports.checkinAppointment = async (req, res) => {
   try {
     const { appointmentId, paymentCollected } = req.body;
     
-    const appointment = await Appointment.findById(appointmentId).populate('doctor', 'name').populate('patient', 'name');
+    const appointment = await Appointment.findById(appointmentId).populate('doctor', 'firstName lastName').populate('patient', 'firstName lastName');
     if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found' });
     if (appointment.status === 'Checked_In') return res.status(400).json({ success: false, error: 'Already checked in' });
 

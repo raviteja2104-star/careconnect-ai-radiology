@@ -301,6 +301,38 @@ async function seed() {
         console.log(`  ✓  DoctorProfile for ${u?.firstName} ${u?.lastName}`);
     }
 
+    /* 3c — DoctorSchedule for ALL registered DoctorProfiles (not just demo doctors) */
+    console.log('\n3️⃣c  Seeding DoctorSchedule for all registered doctors…');
+    const morningShift3c = { name: 'Morning', startTime: '09:00', endTime: '13:00', consultationDuration: 15, bufferTime: 0, isTelemedicineEnabled: true, isWalkInEnabled: true, breaks: [] };
+    const afternoonShift3c = { name: 'Afternoon', startTime: '14:00', endTime: '17:00', consultationDuration: 15, bufferTime: 0, isTelemedicineEnabled: true, isWalkInEnabled: true, breaks: [] };
+    const allProfiles = await DoctorProfile.find({}).select('user hospital').lean();
+    for (const prof of allProfiles) {
+        if (!prof.user) continue;
+        const hosp = prof.hospital || DEMO_HOSPITAL;
+        await DoctorSchedule.findOneAndUpdate(
+            { doctor: prof.user, hospital: hosp },
+            {
+                doctor: prof.user,
+                hospital: hosp,
+                effectiveFrom: new Date('2020-01-01'),
+                weeklySchedule: {
+                    Monday:    [morningShift3c, afternoonShift3c],
+                    Tuesday:   [morningShift3c, afternoonShift3c],
+                    Wednesday: [morningShift3c, afternoonShift3c],
+                    Thursday:  [morningShift3c, afternoonShift3c],
+                    Friday:    [morningShift3c, afternoonShift3c],
+                    Saturday:  [morningShift3c],
+                    Sunday:    [],
+                },
+                leaves: [], exceptions: [],
+            },
+            { upsert: true, new: true }
+        );
+        const u = await User.findById(prof.user).select('firstName lastName').lean();
+        const name = u ? `${u.firstName} ${u.lastName}` : prof.user.toString();
+        console.log(`  ✓  DoctorSchedule for ${name} @ ${hosp}`);
+    }
+
     /* 4 — Appointments */
     console.log('\n4️⃣  Creating demo appointments…');
     const apptDefs = [

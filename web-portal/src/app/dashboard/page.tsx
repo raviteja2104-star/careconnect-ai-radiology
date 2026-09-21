@@ -132,12 +132,12 @@ export default function DashboardPage() {
         description={today}
         actions={
           <>
-            <Link href="/appointments">
+            <Link href="/doctor/queue">
               <Button variant="outline">
                 <Calendar className="h-4 w-4" aria-hidden /> Manage Schedule
               </Button>
             </Link>
-            <Link href="/emr">
+            <Link href="/consultations">
               <Button>
                 <Stethoscope className="h-4 w-4" aria-hidden /> Start Next Consult
               </Button>
