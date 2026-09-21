@@ -47,7 +47,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         // Real login wins: a stored JWT + user rebuilds the authenticated session.
         const stored = readStoredAuth();
         if (stored) {
-            const real = sessionFromBackendUser(stored.user, stored.token);
+            const real = sessionFromBackendUser(stored.user, stored.token, stored.permissions, stored.workspaces);
             authService.setActiveSession(real);
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSession(real);
@@ -71,7 +71,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }, [isAuthenticated]);
 
     const signIn = React.useCallback((user: BackendUser, token: string, permissions?: string[], workspaces?: string[]) => {
-        persistAuth(user, token, workspaces);
+        persistAuth(user, token, workspaces, permissions);
         const real = sessionFromBackendUser(user, token, permissions, workspaces);
         authService.setActiveSession(real);
         setSession(real);

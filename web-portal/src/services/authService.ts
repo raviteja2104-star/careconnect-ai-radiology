@@ -101,6 +101,8 @@ export const AUTH_API_BASE =
   'https://api.careconnect.care';
 export const TOKEN_STORAGE_KEY = 'token';
 export const USER_STORAGE_KEY = 'cc-user';
+export const PERMISSIONS_STORAGE_KEY = 'cc-permissions';
+export const WORKSPACES_STORAGE_KEY = 'cc-workspaces-data';
 
 /** Backend role strings (lowercase) as stored in MongoDB. */
 export type BackendRole =
@@ -192,6 +194,13 @@ export function sessionFromBackendUser(
   };
 }
 
+export interface StoredAuth {
+  user: BackendUser;
+  token: string;
+  permissions?: string[];
+  workspaces?: string[];
+}
+
 export interface AuthApiResult {
   user: BackendUser;
   token: string;
@@ -268,7 +277,7 @@ export function registerAccount(input: RegisterInput): Promise<AuthApiResult> {
 
 /* ─────────────────── Persisted credential helpers ─────────────────── */
 
-export function readStoredAuth(): { user: BackendUser; token: string } | null {
+export function readStoredAuth(): StoredAuth | null {
   if (typeof window === 'undefined') return null;
   try {
     const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -276,16 +285,26 @@ export function readStoredAuth(): { user: BackendUser; token: string } | null {
     if (!token || !rawUser) return null;
     const user = JSON.parse(rawUser) as BackendUser;
     if (!user || typeof user !== 'object' || !user._id) return null;
-    return { user, token };
+    const rawPerms = window.localStorage.getItem(PERMISSIONS_STORAGE_KEY);
+    const rawWs = window.localStorage.getItem(WORKSPACES_STORAGE_KEY);
+    const permissions = rawPerms ? JSON.parse(rawPerms) as string[] : undefined;
+    const workspaces = rawWs ? JSON.parse(rawWs) as string[] : undefined;
+    return { user, token, permissions, workspaces };
   } catch {
     return null;
   }
 }
 
-export function persistAuth(user: BackendUser, token: string, workspaces?: string[]): void {
+export function persistAuth(user: BackendUser, token: string, workspaces?: string[], permissions?: string[]): void {
   try {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    if (permissions) {
+      window.localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(permissions));
+    }
+    if (workspaces) {
+      window.localStorage.setItem(WORKSPACES_STORAGE_KEY, JSON.stringify(workspaces));
+    }
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
     // cc-session: signals to Next.js middleware that a session exists
     document.cookie = `cc-session=1; path=/; max-age=86400; SameSite=Lax${secure}`;
@@ -301,6 +320,8 @@ export function clearStoredAuth(): void {
   try {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(USER_STORAGE_KEY);
+    window.localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
+    window.localStorage.removeItem(WORKSPACES_STORAGE_KEY);
     document.cookie = 'cc-session=; path=/; max-age=0; SameSite=Lax';
     document.cookie = 'cc-workspaces=; path=/; max-age=0; SameSite=Lax';
   } catch {
