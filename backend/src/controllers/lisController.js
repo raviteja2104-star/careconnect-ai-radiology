@@ -195,9 +195,12 @@ exports.getWorklist = async (req, res) => {
             .lean();
 
         const now = Date.now();
+        const nameOf = (u) => u ? (`${u.firstName || ''} ${u.lastName || ''}`.trim() || undefined) : undefined;
         const data = items.map((i) => ({
             ...i,
             ageMinutes: Math.max(0, Math.round((now - new Date(i.createdAt).getTime()) / 60000)),
+            patientId: i.patientId ? { ...i.patientId, name: nameOf(i.patientId) } : i.patientId,
+            orderingDoctorId: i.orderingDoctorId ? { ...i.orderingDoctorId, name: nameOf(i.orderingDoctorId) } : i.orderingDoctorId,
         }));
 
         res.json({ success: true, count: data.length, items: data, data });
