@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
-  "$comment": "Root Directory must be set to web-portal in Vercel project settings",
   "buildCommand": "next build",
   "installCommand": "npm install --legacy-peer-deps",
   "headers": [
