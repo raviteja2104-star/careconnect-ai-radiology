@@ -200,7 +200,7 @@ exports.getWorklist = async (req, res) => {
             ageMinutes: Math.max(0, Math.round((now - new Date(i.createdAt).getTime()) / 60000)),
         }));
 
-        res.json({ success: true, count: data.length, data });
+        res.json({ success: true, count: data.length, items: data, data });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Failed to load worklist', error: err.message });
     }

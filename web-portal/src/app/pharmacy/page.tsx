@@ -86,6 +86,21 @@ export default function PharmacyDashboard() {
     staleTime: 60_000,
   });
 
+  const verifyMutation = useMutation({
+    mutationFn: async (rxId: string) => {
+      const res = await fetch(`${API_BASE}/api/pharmacy/queue/${rxId}/verify`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      });
+      if (!res.ok) throw new Error('Verification failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pharmacy-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['pharmacy-stats'] });
+    },
+  });
+
   const dispenseMutation = useMutation({
     mutationFn: async (rxId: string) => {
       const res = await fetch(`${API_BASE}/api/pharmacy/queue/${rxId}/dispense`, {
@@ -378,7 +393,14 @@ export default function PharmacyDashboard() {
               rowActions={rx => (
                 <div className="flex items-center justify-end gap-2">
                   {rx.status === 'Verification' && (
-                    <Button variant="secondary" size="sm">Verify Rx</Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={verifyMutation.isPending}
+                      onClick={() => verifyMutation.mutate(rx.orderId)}
+                    >
+                      Verify Rx
+                    </Button>
                   )}
                   {rx.status === 'Ready' && (
                     <Button

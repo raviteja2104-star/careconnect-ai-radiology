@@ -29,9 +29,10 @@ const QueueToken   = require('../models/QueueToken');
 const DoctorProfile  = require('../models/DoctorProfile');
 const DoctorSchedule = require('../models/DoctorSchedule');
 
-let Prescription, LabOrder;
+let Prescription, LabOrder, LabWorkItem;
 try { Prescription = require('../models/Prescription'); } catch (_) {}
 try { LabOrder     = require('../models/LabOrder');     } catch (_) {}
+try { LabWorkItem  = require('../models/LabWorkItem');  } catch (_) {}
 
 const { DEFAULT_ROLES } = require('../constants/permissions');
 const connectDB = require('../config/database');
@@ -279,10 +280,20 @@ async function seed() {
               room: dp.room, rating: 4.8 },
             { upsert: true, new: true }
         );
+        const morningShift = { name: 'Morning', startTime: '09:00', endTime: '13:00', consultationDuration: 15, bufferTime: 0, isTelemedicineEnabled: true, isWalkInEnabled: true };
+        const afternoonShift = { name: 'Afternoon', startTime: '14:00', endTime: '17:00', consultationDuration: 15, bufferTime: 0, isTelemedicineEnabled: true, isWalkInEnabled: true };
         await DoctorSchedule.findOneAndUpdate(
             { doctor: dp.userId, hospital: dp.hospital },
             { doctor: dp.userId, hospital: dp.hospital,
-              weeklySchedule: { Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: [] },
+              weeklySchedule: {
+                  Monday:    [morningShift, afternoonShift],
+                  Tuesday:   [morningShift, afternoonShift],
+                  Wednesday: [morningShift, afternoonShift],
+                  Thursday:  [morningShift, afternoonShift],
+                  Friday:    [morningShift, afternoonShift],
+                  Saturday:  [morningShift],
+                  Sunday:    [],
+              },
               leaves: [], exceptions: [] },
             { upsert: true, new: true }
         );
@@ -467,6 +478,51 @@ async function seed() {
         }
     } else {
         console.log('  ⚠  LabOrder model not loaded — skipped');
+    }
+
+    /* 8b — LIS LabWorkItem (so lab worklist shows real pending samples) */
+    console.log('\n8️⃣b  Creating LIS work item…');
+    if (LabWorkItem) {
+        try {
+            const labNumber = 'LIS-DEMO-001';
+            const existing = await LabWorkItem.findOne({ labNumber });
+            if (!existing) {
+                await LabWorkItem.create({
+                    labNumber,
+                    patientId:         patient._id,
+                    orderingDoctorId:  doctor._id,
+                    encounterId:       encounter._id,
+                    priority:          'urgent',
+                    status:            'ORDERED',
+                    tests: [{
+                        code: 'CBC',
+                        name: 'Complete Blood Count (CBC)',
+                        specimen: 'Whole blood (EDTA)',
+                        parameters: [
+                            { name: 'Haemoglobin', unit: 'g/dL', refRangeUsed: '12–16' },
+                            { name: 'WBC',         unit: '×10³/μL', refRangeUsed: '4–11' },
+                            { name: 'Platelets',   unit: '×10³/μL', refRangeUsed: '150–400' },
+                        ],
+                    }, {
+                        code: 'HBA1C',
+                        name: 'HbA1c (Glycated Haemoglobin)',
+                        specimen: 'Whole blood (EDTA)',
+                        parameters: [
+                            { name: 'HbA1c', unit: '%', refRangeUsed: '<5.7' },
+                        ],
+                    }],
+                    criticalEvents: [],
+                    auditLog: [{ action: 'ORDERED', by: doctor._id, at: days(-3) }],
+                });
+                console.log('  ✓  LIS work item LIS-DEMO-001 (ORDERED)');
+            } else {
+                console.log('  ↻  LIS work item already exists');
+            }
+        } catch (e) {
+            console.log(`  ⚠  LIS work item skipped: ${e.message}`);
+        }
+    } else {
+        console.log('  ⚠  LabWorkItem model not loaded — skipped');
     }
 
     /* 9 — Pharmacy order */

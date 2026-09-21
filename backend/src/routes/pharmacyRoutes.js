@@ -138,9 +138,40 @@ router.get(
 router.get('/queue', permitAny('STAFF.PHARMACY', 'STAFF.VIEW_PRESCRIPTIONS'), async (req, res, next) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
-        const orders = await PharmacyOrder.find({ status: { $ne: 'Cancelled' } })
-            .sort({ createdAt: -1 }).limit(50).lean().catch(() => []);
-        res.json({ success: true, data: orders });
+        const orders = await PharmacyOrder.find({ status: { $nin: ['Cancelled', 'cancelled'] } })
+            .sort({ createdAt: -1 }).limit(50)
+            .populate('patientId', 'firstName lastName fullName name')
+            .populate('doctorId', 'firstName lastName fullName name')
+            .lean().catch(() => []);
+
+        // Map DB statuses → frontend-expected statuses and shape items array
+        const STATUS_MAP = {
+            new: 'Verification', pending: 'Verification',
+            packing: 'Ready', ready: 'Ready',
+            out_for_delivery: 'Dispensed', delivered: 'Dispensed',
+            Verification: 'Verification', Ready: 'Ready', Dispensed: 'Dispensed',
+        };
+        const mapped = orders.map(o => {
+            const items = (o.medicines || []).map(m => {
+                const hit = m.match(/^(.+?)\s*[×x]\s*(\d+)/);
+                return hit
+                    ? { name: hit[1].trim(), strength: '', quantity: parseInt(hit[2], 10), unit: 'tablet' }
+                    : { name: m, strength: '', quantity: 1, unit: 'unit' };
+            });
+            const pat = o.patientId;
+            const doc = o.doctorId;
+            return {
+                orderId: o.orderId,
+                patientName: pat ? (pat.fullName || pat.name || `${pat.firstName} ${pat.lastName}`.trim()) : (o.patientName || 'Unknown'),
+                doctorName: doc ? (doc.fullName || doc.name || `${doc.firstName} ${doc.lastName}`.trim()) : (o.doctorName || ''),
+                createdAt: o.createdAt,
+                status: STATUS_MAP[o.status] || 'Verification',
+                items: items.length ? items : [{ name: 'Item 1', strength: '', quantity: 1, unit: 'unit' }],
+                aiFlag: o.aiFlag || false,
+                aiMsg: o.aiMsg || undefined,
+            };
+        });
+        res.json({ success: true, data: mapped });
     } catch (err) { next(err); }
 });
 
@@ -166,6 +197,25 @@ router.get(
                 PharmacyOrder.countDocuments({ aiFlag: true, status: { $ne: 'Dispensed' } }).catch(() => 0),
             ]);
             res.json({ success: true, data: { todayRx, pendingDispense, aiAlerts, lowStock: 0 } });
+        } catch (err) { next(err); }
+    }
+);
+
+// ── PATCH /queue/:rxId/verify ─────────────────────────────────────────────────
+router.patch(
+    '/queue/:rxId/verify',
+    permit('STAFF.PHARMACY'),
+    async (req, res, next) => {
+        try {
+            const { rxId } = req.params;
+            if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
+            const order = await PharmacyOrder.findOneAndUpdate(
+                { orderId: rxId, status: { $in: ['new', 'pending', 'Verification'] } },
+                { status: 'ready' },
+                { new: true }
+            );
+            if (!order) return res.status(404).json({ success: false, message: 'Order not found or already verified.' });
+            res.json({ success: true, data: order });
         } catch (err) { next(err); }
     }
 );
