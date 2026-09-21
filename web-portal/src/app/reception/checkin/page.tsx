@@ -91,7 +91,7 @@ function QrModal({ onClose, pendingAppointments, onCheckin, isProcessing }: QrMo
       pendingAppointments.find(
         (a) =>
           (patient.phone && a.patient?.phone === patient.phone) ||
-          a.patient?.name === `${patient.firstName} ${patient.lastName}`,
+          [a.patient?.firstName, a.patient?.lastName].filter(Boolean).join(' ') === `${patient.firstName} ${patient.lastName}`,
       ) ?? null
     );
   };
@@ -196,7 +196,7 @@ function QrModal({ onClose, pendingAppointments, onCheckin, isProcessing }: QrMo
                       <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         {appt.timeSlot}
-                        {appt.doctor?.name && ` with Dr. ${appt.doctor.name}`}
+                        {(appt.doctor?.firstName || appt.doctor?.lastName) && ` with Dr. ${[appt.doctor.firstName, appt.doctor.lastName].filter(Boolean).join(' ')}`}
                         {appt.specialty && ` · ${appt.specialty}`}
                       </p>
                       <Button

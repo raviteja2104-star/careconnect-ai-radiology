@@ -36,38 +36,45 @@ export default function HospitalCommandCenterPage() {
 
   const apiData = res?.data ?? {};
 
-  // Clinical / operational data not yet returned by the basic telemetry endpoint —
-  // default to zero so the page renders correctly even before a richer endpoint exists.
+  // n() returns the raw number from the API, or null when the backend
+  // explicitly returns null (feature not yet implemented). Components
+  // must render null as "—" — never as "0".
+  const n = (key: string): number | null => {
+    const v = apiData[key];
+    return v === undefined ? null : (v as number | null);
+  };
+
   const clinicalAlerts = {
-    codeBlueCount: apiData.codeBlueCount ?? 0,
-    sepsisRiskAlerts: apiData.sepsisRiskAlerts ?? 0,
-    strokeAlerts: apiData.strokeAlerts ?? 0,
-    highNews2Count: apiData.highNews2Count ?? 0,
-    criticalLabValues: apiData.criticalLabValues ?? 0,
+    codeBlueCount: n('codeBlueCount'),
+    sepsisRiskAlerts: n('sepsisRiskAlerts'),
+    strokeAlerts: n('strokeAlerts'),
+    highNews2Count: n('highNews2Count'),
+    criticalLabValues: n('criticalLabValues'),
   };
   const hospital = {
-    icuOccupancyPct: apiData.icuOccupancyPct ?? 0,
-    ipdOccupiedBeds: apiData.ipdOccupiedBeds ?? 0,
-    otUtilisationPct: apiData.otUtilisationPct ?? 0,
-    waitingPatientsAvgMins: apiData.waitingPatientsAvgMins ?? 0,
+    icuOccupancyPct: n('icuOccupancyPct'),
+    ipdOccupiedBeds: n('ipdOccupiedBeds'),
+    otUtilisationPct: n('otUtilisationPct'),
+    waitingPatientsAvgMins: n('waitingPatientsAvgMins'),
+    waitingPatientsCount: n('waitingPatientsCount'),
   };
   const operations = {
-    availableBeds: apiData.availableBeds ?? 0,
-    labTurnaroundAvgMins: apiData.labTurnaroundAvgMins ?? 0,
-    radiologyTurnaroundAvgMins: apiData.radiologyTurnaroundAvgMins ?? 0,
-    pharmacyStockHealthPct: apiData.pharmacyStockHealthPct ?? 0,
+    availableBeds: n('availableBeds'),
+    labTurnaroundAvgMins: n('labTurnaroundAvgMins'),
+    radiologyTurnaroundAvgMins: n('radiologyTurnaroundAvgMins'),
+    pharmacyStockHealthPct: n('pharmacyStockHealthPct'),
   };
   const financial = {
-    revenueTodayINR: apiData.revenueTodayINR ?? 0,
-    pendingInsuranceClaimsINR: apiData.pendingInsuranceClaimsINR ?? 0,
-    outstandingInvoicesCount: apiData.outstandingInvoicesCount ?? 0,
+    revenueTodayINR: n('revenueTodayINR') ?? 0,
+    pendingInsuranceClaimsINR: n('pendingInsuranceClaimsINR'),
+    outstandingInvoicesCount: n('outstandingInvoicesCount') ?? 0,
   };
   const aiGateway = {
-    avgLatencyMs: apiData.apiLatencyMs ?? 0,
-    aiConsultationsCount: apiData.aiConsultationsCount ?? 0,
-    acceptedRecommendationsPct: apiData.acceptedRecommendationsPct ?? 0,
-    overrideCount: apiData.overrideCount ?? 0,
-    translationDispatches: apiData.translationDispatches ?? 0,
+    avgLatencyMs: n('apiLatencyMs'),
+    aiConsultationsCount: n('aiConsultationsCount'),
+    acceptedRecommendationsPct: n('acceptedRecommendationsPct'),
+    overrideCount: n('overrideCount'),
+    translationDispatches: n('translationDispatches'),
   };
 
   return (
@@ -99,40 +106,40 @@ export default function HospitalCommandCenterPage() {
         <StatGrid className="xl:grid-cols-5">
           <StatCard
             label="Code Blue"
-            value={clinicalAlerts.codeBlueCount}
-            sub="Active Cardiac Arrests"
+            value={clinicalAlerts.codeBlueCount ?? '—'}
+            sub={clinicalAlerts.codeBlueCount === null ? 'Not yet available' : 'Active Cardiac Arrests'}
             icon={HeartPulse}
             tone="emerald"
             delay={0}
           />
           <StatCard
             label="Sepsis Bundle"
-            value={clinicalAlerts.sepsisRiskAlerts}
-            sub="1-Hour Protocol Timers"
+            value={clinicalAlerts.sepsisRiskAlerts ?? '—'}
+            sub={clinicalAlerts.sepsisRiskAlerts === null ? 'Not yet available' : '1-Hour Protocol Timers'}
             icon={AlertCircle}
             tone="amber"
             delay={0.05}
           />
           <StatCard
             label="Stroke Alerts"
-            value={clinicalAlerts.strokeAlerts}
-            sub="STAT CT Imaging Gate"
+            value={clinicalAlerts.strokeAlerts ?? '—'}
+            sub={clinicalAlerts.strokeAlerts === null ? 'Not yet available' : 'STAT CT Imaging Gate'}
             icon={Zap}
             tone="violet"
             delay={0.1}
           />
           <StatCard
             label="High NEWS2"
-            value={clinicalAlerts.highNews2Count}
-            sub="Score ≥ 7 Deterioration"
+            value={clinicalAlerts.highNews2Count ?? '—'}
+            sub={clinicalAlerts.highNews2Count === null ? 'Not yet available' : 'Score ≥ 7 Deterioration'}
             icon={ShieldAlert}
             tone="rose"
             delay={0.15}
           />
           <StatCard
             label="Critical Labs"
-            value={clinicalAlerts.criticalLabValues}
-            sub="STAT Panic Value Alerts"
+            value={clinicalAlerts.criticalLabValues ?? '—'}
+            sub={clinicalAlerts.criticalLabValues === null ? 'Not yet available' : 'STAT Panic Value Alerts'}
             icon={Activity}
             tone="teal"
             delay={0.2}
@@ -151,26 +158,40 @@ export default function HospitalCommandCenterPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              <Progress
-                value={hospital.icuOccupancyPct}
-                tone="warning"
-                label={`ICU Occupancy (${hospital.ipdOccupiedBeds} Beds)`}
-                showValue
-              />
-              <Progress
-                value={hospital.otUtilisationPct}
-                tone="brand"
-                label="Operation Theatre (OT) Utilisation"
-                showValue
-              />
+              {hospital.icuOccupancyPct === null ? (
+                <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">ICU Occupancy — <span className="font-semibold">Not yet available</span> (bed management not implemented)</div>
+              ) : (
+                <Progress
+                  value={hospital.icuOccupancyPct}
+                  tone="warning"
+                  label={`ICU Occupancy (${hospital.ipdOccupiedBeds ?? '?'} Beds)`}
+                  showValue
+                />
+              )}
+              {hospital.otUtilisationPct === null ? (
+                <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">OT Utilisation — <span className="font-semibold">Not yet available</span> (OT scheduling not implemented)</div>
+              ) : (
+                <Progress
+                  value={hospital.otUtilisationPct}
+                  tone="brand"
+                  label="Operation Theatre (OT) Utilisation"
+                  showValue
+                />
+              )}
               <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-center">
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Available Ward Beds</span>
-                  <span className="text-xl font-bold tabular-nums text-success">{operations.availableBeds}</span>
+                  <span className="text-xl font-bold tabular-nums text-success">
+                    {operations.availableBeds === null ? '—' : operations.availableBeds}
+                  </span>
                 </div>
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg OPD Wait Time</span>
-                  <span className="text-xl font-bold tabular-nums text-info">{hospital.waitingPatientsAvgMins}m</span>
+                  <span className="text-xl font-bold tabular-nums text-info">
+                    {hospital.waitingPatientsAvgMins === null
+                      ? (hospital.waitingPatientsCount === 0 ? '0m' : '—')
+                      : `${hospital.waitingPatientsAvgMins}m`}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -189,19 +210,19 @@ export default function HospitalCommandCenterPage() {
               <TatRow
                 title="Laboratory Stat TAT"
                 sub="Specimen to Result Delivery"
-                value={`${operations.labTurnaroundAvgMins} mins`}
+                value={operations.labTurnaroundAvgMins === null ? '—' : `${operations.labTurnaroundAvgMins} mins`}
                 valueClass="text-success"
               />
               <TatRow
                 title="Radiology PACS TAT"
                 sub="DICOM Scan to Report Signoff"
-                value={`${operations.radiologyTurnaroundAvgMins} mins`}
+                value={operations.radiologyTurnaroundAvgMins === null ? '—' : `${operations.radiologyTurnaroundAvgMins} mins`}
                 valueClass="text-primary"
               />
               <TatRow
                 title="Pharmacy Stock Health"
                 sub="Critical Medication Availability"
-                value={`${operations.pharmacyStockHealthPct}%`}
+                value={operations.pharmacyStockHealthPct === null ? '—' : `${operations.pharmacyStockHealthPct}%`}
                 valueClass="text-info"
               />
             </CardContent>
@@ -220,14 +241,18 @@ export default function HospitalCommandCenterPage() {
               <div className="rounded-2xl border border-success/30 bg-success-soft p-4">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-success">Revenue Today</span>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                  ₹{(financial.revenueTodayINR / 100000).toFixed(2)} Lakhs
+                  {financial.revenueTodayINR > 0
+                    ? `₹${(financial.revenueTodayINR / 100000).toFixed(2)} Lakhs`
+                    : '₹0.00 Lakhs'}
                 </h2>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending Insurance</span>
                   <span className="text-sm font-bold tabular-nums text-warning">
-                    ₹{(financial.pendingInsuranceClaimsINR / 100000).toFixed(2)}L
+                    {financial.pendingInsuranceClaimsINR === null
+                      ? '—'
+                      : `₹${(financial.pendingInsuranceClaimsINR / 100000).toFixed(2)}L`}
                   </span>
                 </div>
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
@@ -252,14 +277,16 @@ export default function HospitalCommandCenterPage() {
               </CardTitle>
               <CardDescription className="mt-1">Copilot inference activity across the clinical estate.</CardDescription>
             </div>
-            <Badge tone="brand" className="font-mono">Avg Latency: {aiGateway.avgLatencyMs}ms</Badge>
+            <Badge tone="brand" className="font-mono">
+              {aiGateway.avgLatencyMs === null ? 'Latency: —' : `Avg Latency: ${aiGateway.avgLatencyMs}ms`}
+            </Badge>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <GatewayTile label="AI Consultations Today" value={aiGateway.aiConsultationsCount} valueClass="text-violet-600 dark:text-violet-400" />
-              <GatewayTile label="Clinician Acceptance Rate" value={`${aiGateway.acceptedRecommendationsPct}%`} valueClass="text-success" />
-              <GatewayTile label="Clinician Overrides" value={aiGateway.overrideCount} valueClass="text-warning" />
-              <GatewayTile label="Rx Translation Dispatches" value={aiGateway.translationDispatches} valueClass="text-info" />
+              <GatewayTile label="AI Consultations Today" value={aiGateway.aiConsultationsCount ?? '—'} valueClass="text-violet-600 dark:text-violet-400" />
+              <GatewayTile label="Clinician Acceptance Rate" value={aiGateway.acceptedRecommendationsPct === null ? '—' : `${aiGateway.acceptedRecommendationsPct}%`} valueClass="text-success" />
+              <GatewayTile label="Clinician Overrides" value={aiGateway.overrideCount ?? '—'} valueClass="text-warning" />
+              <GatewayTile label="Rx Translation Dispatches" value={aiGateway.translationDispatches ?? '—'} valueClass="text-info" />
             </div>
           </CardContent>
         </Card>

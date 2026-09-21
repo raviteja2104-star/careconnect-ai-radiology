@@ -6,40 +6,106 @@
 
 exports.getCommandCenter = async (req, res) => {
   try {
-    const isDBConnected = () => require('mongoose').connection.readyState === 1;
+    const mongoose = require('mongoose');
+    const isDBConnected = () => mongoose.connection.readyState === 1;
     if (!isDBConnected()) {
       return res.json({
         success: true,
         data: {
           activeSessions: 0,
-          apiLatencyMs: 0,
           dbConnected: false,
           uptime: process.uptime(),
           memUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          queueDepth: 0,
-          activeAlerts: [],
+          // All operational metrics unavailable without DB
+          waitingPatientsCount: null,
+          waitingPatientsAvgMins: null,
+          revenueTodayINR: null,
+          outstandingInvoicesCount: null,
+          icuOccupancyPct: null,
+          ipdOccupiedBeds: null,
+          otUtilisationPct: null,
+          availableBeds: null,
+          labTurnaroundAvgMins: null,
+          radiologyTurnaroundAvgMins: null,
+          pharmacyStockHealthPct: null,
+          pendingInsuranceClaimsINR: null,
+          codeBlueCount: null,
+          sepsisRiskAlerts: null,
+          strokeAlerts: null,
+          highNews2Count: null,
+          criticalLabValues: null,
+          aiConsultationsCount: null,
+          acceptedRecommendationsPct: null,
+          overrideCount: null,
+          translationDispatches: null,
+          apiLatencyMs: null,
         },
       });
     }
+
     const User = require('../models/User');
     const Appointment = require('../models/Appointment');
-    const [userCount, todayAppts] = await Promise.all([
-      User.countDocuments({ isActive: true }),
-      Appointment.countDocuments({
-        date: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-      }),
-    ]);
+    const QueueToken = require('../models/QueueToken');
+    const Invoice = require('../models/Invoice');
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [userCount, todayAppts, waitingTokens, revenueAgg, outstandingInvoices] =
+      await Promise.all([
+        User.countDocuments({ isActive: true }),
+        Appointment.countDocuments({ date: { $gte: today } }),
+        QueueToken.find({ status: 'WAITING', createdAt: { $gte: today } }, { createdAt: 1 }).lean(),
+        Invoice.aggregate([
+          { $match: { issuedAt: { $gte: today }, status: { $in: ['PAID', 'PARTIALLY_PAID'] } } },
+          { $group: { _id: null, total: { $sum: '$amountPaid' } } },
+        ]).catch(() => []),
+        Invoice.countDocuments({ status: 'PENDING' }).catch(() => 0),
+      ]);
+
+    // Compute average waiting time in minutes from queue tokens created today
+    let waitingPatientsAvgMins = null;
+    if (waitingTokens.length > 0) {
+      const now = Date.now();
+      const totalMs = waitingTokens.reduce((sum, t) => sum + (now - new Date(t.createdAt).getTime()), 0);
+      waitingPatientsAvgMins = Math.round(totalMs / waitingTokens.length / 60000);
+    }
+
     res.json({
       success: true,
       data: {
         activeSessions: userCount,
         todayAppointments: todayAppts,
-        apiLatencyMs: 0, // populated by Telemetry middleware in observability dashboard
         dbConnected: true,
         uptime: process.uptime(),
         memUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        queueDepth: 0,
-        activeAlerts: [],
+
+        // Real operational metrics derived from existing data
+        waitingPatientsCount: waitingTokens.length,
+        waitingPatientsAvgMins,
+        revenueTodayINR: revenueAgg[0]?.total ?? 0,
+        outstandingInvoicesCount: outstandingInvoices,
+
+        // Features not yet implemented — explicitly null, NOT zero.
+        // Frontend must render null as "—" rather than "0".
+        icuOccupancyPct: null,
+        ipdOccupiedBeds: null,
+        otUtilisationPct: null,
+        availableBeds: null,
+        labTurnaroundAvgMins: null,
+        radiologyTurnaroundAvgMins: null,
+        pharmacyStockHealthPct: null,
+        pendingInsuranceClaimsINR: null,
+        codeBlueCount: null,
+        sepsisRiskAlerts: null,
+        strokeAlerts: null,
+        highNews2Count: null,
+        criticalLabValues: null,
+        aiConsultationsCount: null,
+        acceptedRecommendationsPct: null,
+        overrideCount: null,
+        translationDispatches: null,
+        apiLatencyMs: null,
       },
     });
   } catch (err) {
@@ -332,17 +398,44 @@ exports.getAdminAuditLogs = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([
-      AuditLog.find().sort({ at: -1 }).skip(skip).limit(limit).lean(),
+      AuditLog.find()
+        .sort({ at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('actorId', 'firstName lastName email role')
+        .lean(),
       AuditLog.countDocuments(),
     ]);
 
-    const data = logs.map((log) => ({
-      time: log.at ? new Date(log.at).toISOString() : null,
-      user: log.actorId ? String(log.actorId) : null,
-      action: log.action,
-      resource: log.resource,
-      ip: log.ip || null,
-    }));
+    // Map to the shape the admin audit-log frontend expects (AuditLogEntry type).
+    // actorId is populated so it now carries name/email/role rather than a raw ObjectId.
+    const data = logs.map((log) => {
+      const actor = log.actorId && typeof log.actorId === 'object' ? log.actorId : null;
+      return {
+        _id: String(log._id),
+        seq: log.seq,
+        at: log.at ? new Date(log.at).toISOString() : null,
+        userId: actor
+          ? {
+              _id: String(actor._id),
+              firstName: actor.firstName || null,
+              lastName: actor.lastName || null,
+              email: actor.email || null,
+              role: actor.role || null,
+            }
+          : (log.actorId ? { _id: String(log.actorId) } : null),
+        userRole: log.actorRole || null,
+        action: log.action,
+        resource: log.resource,
+        resourceId: log.resourceId || null,
+        method: log.method || null,
+        path: log.path || null,
+        statusCode: log.statusCode || null,
+        ip: log.ip || null,
+        traceId: log.traceId || null,
+        success: log.statusCode ? log.statusCode < 400 : true,
+      };
+    });
 
     res.json({ success: true, data, total, page, limit });
   } catch (err) {
