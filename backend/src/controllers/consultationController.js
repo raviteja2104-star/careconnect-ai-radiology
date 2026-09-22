@@ -7,11 +7,14 @@ const todayEnd   = () => { const d = new Date(); d.setHours(23, 59, 59, 999); re
 // GET /api/consultations/today
 exports.getToday = async (req, res, next) => {
     try {
-        const appts = await Appointment.find({
+        // Admins see all today's consultations; doctors see only their own
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+        const apptFilter = {
             date: { $gte: todayStart(), $lte: todayEnd() },
             status: { $nin: ['Cancelled'] },
-            doctor: req.user._id,
-        })
+            ...(isAdmin ? {} : { doctor: req.user._id }),
+        };
+        const appts = await Appointment.find(apptFilter)
             .populate('patient', 'firstName lastName phone')
             .populate('doctor', 'firstName lastName')
             .sort({ timeSlot: 1 })
