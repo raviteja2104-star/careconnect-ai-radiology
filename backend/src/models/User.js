@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema(
             // capture: nurse is an explicit capturer role in that spec) — the
             // frontend's authService.mapBackendRole() already maps
             // 'nurse'->'NURSE' and expected this value to exist here.
-            enum: ['patient', 'doctor', 'radiologist', 'admin', 'lab_tech', 'pharmacist', 'reception', 'emergency', 'nurse'],
+            enum: ['patient', 'doctor', 'radiologist', 'admin', 'lab_tech', 'pharmacist', 'reception', 'emergency', 'nurse', 'biller'],
             required: true,
             default: 'patient'
         },
@@ -132,6 +132,10 @@ const userSchema = new mongoose.Schema(
         // Wallet
         credits: { type: Number, default: 0 },
         abhaId: { type: String, default: '' },
+
+        // Multi-tenancy — optional, set on staff accounts
+        organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', index: true },
+        tenantId: { type: String, index: true },
     },
     {
         timestamps: true,

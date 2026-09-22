@@ -85,9 +85,9 @@ exports.getAppointments = async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    // In real app, date filters exactly today
-    const appointments = await Appointment.find({ date: { $gte: today } })
+    const todayEnd = new Date(today); todayEnd.setHours(23, 59, 59, 999);
+
+    const appointments = await Appointment.find({ date: { $gte: today, $lte: todayEnd } })
       .populate('doctor', 'firstName lastName')
       .populate('patient', 'firstName lastName email phone');
       

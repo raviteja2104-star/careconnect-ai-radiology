@@ -176,10 +176,68 @@ router.get('/queue', permitAny('STAFF.PHARMACY', 'STAFF.VIEW_PRESCRIPTIONS'), as
 });
 
 // ── GET /inventory ────────────────────────────────────────────────────────────
-router.get('/inventory', permit('STAFF.PHARMACY'), async (req, res, next) => {
+router.get('/inventory', permitAny('STAFF.PHARMACY', 'DOCTOR.VIEW'), async (req, res, next) => {
     try {
         if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
-        res.json({ success: true, data: [] });
+        const MedicineInventory = require('../models/MedicineInventory');
+        const { q, lowStock, page = 1, limit = 50 } = req.query;
+        const filter = { isActive: true };
+        if (q) filter.$text = { $search: q };
+        if (lowStock === 'true') filter.$expr = { $lte: ['$stockQty', '$reorderLevel'] };
+        const [items, total] = await Promise.all([
+            MedicineInventory.find(filter).sort({ name: 1 }).skip((Number(page) - 1) * Number(limit)).limit(Number(limit)).lean(),
+            MedicineInventory.countDocuments(filter),
+        ]);
+        const lowStockCount = await MedicineInventory.countDocuments({ isActive: true, $expr: { $lte: ['$stockQty', '$reorderLevel'] } });
+        res.json({ success: true, data: items, total, lowStockCount, page: Number(page) });
+    } catch (err) { next(err); }
+});
+
+// ── POST /inventory ───────────────────────────────────────────────────────────
+router.post('/inventory', permit('STAFF.PHARMACY'), async (req, res, next) => {
+    try {
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
+        const MedicineInventory = require('../models/MedicineInventory');
+        const item = await MedicineInventory.create({ ...req.body, tenantId: req.user.tenantId || 't-default' });
+        res.status(201).json({ success: true, data: item });
+    } catch (err) { next(err); }
+});
+
+// ── PATCH /inventory/:id ──────────────────────────────────────────────────────
+router.patch('/inventory/:id', permit('STAFF.PHARMACY'), async (req, res, next) => {
+    try {
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
+        const MedicineInventory = require('../models/MedicineInventory');
+        const item = await MedicineInventory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        if (!item) return res.status(404).json({ success: false, message: 'Item not found' });
+        res.json({ success: true, data: item });
+    } catch (err) { next(err); }
+});
+
+// ── POST /inventory/:id/dispense — reduce stock when dispensing ───────────────
+router.post('/inventory/:id/dispense', permit('STAFF.DISPENSE_MEDICATION'), async (req, res, next) => {
+    try {
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
+        const MedicineInventory = require('../models/MedicineInventory');
+        const { qty } = req.body;
+        if (!qty || qty <= 0) return res.status(400).json({ success: false, message: 'qty must be a positive number' });
+        const item = await MedicineInventory.findById(req.params.id);
+        if (!item) return res.status(404).json({ success: false, message: 'Item not found' });
+        if (item.stockQty < qty) return res.status(409).json({ success: false, message: `Insufficient stock (have ${item.stockQty}, need ${qty})` });
+        item.stockQty -= qty;
+        await item.save();
+        res.json({ success: true, data: item });
+    } catch (err) { next(err); }
+});
+
+// ── DELETE /inventory/:id — soft-delete ───────────────────────────────────────
+router.delete('/inventory/:id', permit('STAFF.PHARMACY'), async (req, res, next) => {
+    try {
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable.' });
+        const MedicineInventory = require('../models/MedicineInventory');
+        const item = await MedicineInventory.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+        if (!item) return res.status(404).json({ success: false, message: 'Item not found' });
+        res.json({ success: true, message: 'Item deactivated' });
     } catch (err) { next(err); }
 });
 

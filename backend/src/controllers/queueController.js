@@ -110,13 +110,26 @@ exports.completeToken = async (req, res) => {
 // @route   POST /api/queue/call/:id
 exports.callToken = async (req, res) => {
   try {
-    const token = await QueueToken.findById(req.params.id);
-    if (!token) return res.status(404).json({ success: false, error: 'Token not found' });
+    const token = await QueueToken.findById(req.params.id).populate('patient', 'phone firstName lastName');
     
+    if (!token) return res.status(404).json({ success: false, error: 'Token not found' });
+
     token.status = 'CALLED';
     token.calledAt = Date.now();
     token.room = req.body.room || 'OPD-1';
     await token.save();
+
+    // Resolve patient phone: populated patient > appointment lookup > null
+    let patientPhone = token.patient?.phone || null;
+    if (!patientPhone && token.appointment) {
+      const Appointment = require('../models/Appointment');
+      const User = require('../models/User');
+      const appt = await Appointment.findById(token.appointment).select('patient').lean();
+      if (appt?.patient) {
+        const pt = await User.findById(appt.patient).select('phone').lean();
+        patientPhone = pt?.phone || null;
+      }
+    }
 
     // Publish WebSocket event
     if (req.app.get('io')) {
@@ -124,25 +137,27 @@ exports.callToken = async (req, res) => {
       req.app.get('io').emit('QUEUE_UPDATED', { department: token.department });
     }
 
-    // Publish Notification Intent to Outbox
-    await EventPublisher.publish({
-      eventType: 'QueueCalled',
-      version: '1.0',
-      aggregateId: token._id.toString(),
-      tenantId: req.headers['x-tenant-id'] || 't-default',
-      traceId: req.headers['x-trace-id'] || uuidv4(),
-      payload: {
-        patientName: token.patientName,
-        tokenNumber: token.tokenNumber,
-        department: token.department,
-        room: token.room
-      },
-      recipient: {
-        id: token.patientName, // Needs patient mapping in real app
-        phone: '+15550001234', // Mocked for scaffolding
-        preferences: { sms: true, push: true, whatsapp: true, email: false }
-      }
-    });
+    // Publish Notification Intent to Outbox only when we have a real phone
+    if (patientPhone) {
+      await EventPublisher.publish({
+        eventType: 'QueueCalled',
+        version: '1.0',
+        aggregateId: token._id.toString(),
+        tenantId: req.headers['x-tenant-id'] || 't-default',
+        traceId: req.headers['x-trace-id'] || uuidv4(),
+        payload: {
+          patientName: token.patientName,
+          tokenNumber: token.tokenNumber,
+          department: token.department,
+          room: token.room
+        },
+        recipient: {
+          id: token.patient?._id?.toString() || token.patientName,
+          phone: patientPhone,
+          preferences: { sms: true, push: true, whatsapp: true, email: false }
+        }
+      });
+    }
 
     res.json({ success: true, data: token });
   } catch (error) {

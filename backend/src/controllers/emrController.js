@@ -536,6 +536,56 @@ exports.createOrder = async (req, res) => {
             return created;
         });
 
+        // ── Bridge: medication → PharmacyOrder ────────────────────────────────
+        if (category === 'medication' && details.drugs?.length) {
+            try {
+                const PharmacyOrderModel = require('../models/PharmacyOrder');
+                const patientUser = await User.findById(encounter.patientId).select('firstName lastName phone fullName').lean();
+                const medicines = details.drugs.map(d => {
+                    const name = d.name || d.generic || 'Unknown';
+                    const qty = d.quantity || d.durationDays || 1;
+                    return `${name}${d.dose ? ' ' + d.dose : ''} ×${qty}`;
+                });
+                await PharmacyOrderModel.create({
+                    orderId: `RX-${Date.now()}-${order._id.toString().slice(-4).toUpperCase()}`,
+                    patientId: encounter.patientId,
+                    patientName: patientUser
+                        ? (patientUser.fullName || `${patientUser.firstName || ''} ${patientUser.lastName || ''}`.trim())
+                        : 'Unknown Patient',
+                    patientPhone: patientUser?.phone || '',
+                    doctorId: req.user._id,
+                    doctorName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+                    medicines,
+                    items: medicines.length,
+                    amount: 0,
+                    status: 'new',
+                });
+            } catch (bridgeErr) {
+                console.error('[ClinicalOrder→PharmacyOrder bridge]', bridgeErr.message);
+            }
+        }
+
+        // ── Bridge: lab → LabWorkItem ──────────────────────────────────────────
+        if (category === 'lab' && details.tests?.length) {
+            try {
+                const LabWorkItem = require('../models/LabWorkItem');
+                await LabWorkItem.create({
+                    clinicalOrderId: order._id,
+                    encounterId: encounter._id,
+                    patientId: encounter.patientId,
+                    orderingDoctorId: req.user._id,
+                    priority: order.priority || 'routine',
+                    status: 'ORDERED',
+                    tests: details.tests.map(t => ({ code: t.code || '', name: t.name || t.code || 'Unknown Test' })),
+                    tenantId: encounter.tenantId || req.user.tenantId || 't-default',
+                    auditTrail: [{ action: 'ORDERED', by: req.user._id }],
+                    traceId,
+                });
+            } catch (bridgeErr) {
+                console.error('[ClinicalOrder→LabWorkItem bridge]', bridgeErr.message);
+            }
+        }
+
         res.status(201).json(order);
     } catch (err) {
         res.status(500).json({ message: 'Failed to create order', error: err.message });

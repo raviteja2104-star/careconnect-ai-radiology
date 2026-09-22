@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Consultation = require('../models/Consultation');
+const Appointment = require('../models/Appointment');
 const RadiologyScan = require('../models/RadiologyScan');
 
 const isDBConnected = () => {
@@ -33,12 +34,13 @@ const getDoctorStats = async (req, res, next) => {
             return res.json({ success: true, data: MOCK_STATS });
         }
         const doctorId = req.user._id;
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
         const [totalPatients, pending, active, completedToday, completedTotal] = await Promise.all([
-            Consultation.distinct('patientId', { doctorId }).then(r => r.length),
-            Consultation.countDocuments({ doctorId, status: 'pending' }),
-            Consultation.countDocuments({ doctorId, status: 'active' }),
-            Consultation.countDocuments({ doctorId, status: 'completed', updatedAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) } }),
-            Consultation.countDocuments({ doctorId, status: 'completed' }),
+            Appointment.distinct('patient', { doctor: doctorId }).then(r => r.length),
+            Appointment.countDocuments({ doctor: doctorId, status: { $in: ['Booked', 'Confirmed', 'Checked_In', 'Waiting', 'Vitals', 'Doctor_Ready'] } }),
+            Appointment.countDocuments({ doctor: doctorId, status: 'In_Consultation' }),
+            Appointment.countDocuments({ doctor: doctorId, status: 'Completed', updatedAt: { $gte: todayStart } }),
+            Appointment.countDocuments({ doctor: doctorId, status: 'Completed' }),
         ]);
         res.json({ success: true, data: { totalPatients, pendingConsultations: pending, activeConsultations: active, completedToday, completedTotal } });
     } catch (error) { next(error); }
@@ -52,7 +54,7 @@ const getPatients = async (req, res, next) => {
             return res.json({ success: true, data: MOCK_PATIENTS });
         }
         const doctorId = req.user._id;
-        const patientIds = await Consultation.distinct('patientId', { doctorId });
+        const patientIds = await Appointment.distinct('patient', { doctor: doctorId });
         const patients = await User.find({ _id: { $in: patientIds }, role: 'patient' }).select('firstName lastName email dateOfBirth gender bloodGroup allergies phone avatar');
         res.json({ success: true, data: patients });
     } catch (error) { next(error); }
