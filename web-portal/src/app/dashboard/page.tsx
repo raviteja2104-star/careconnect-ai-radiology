@@ -47,11 +47,11 @@ export default function DashboardPage() {
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const userName = React.useMemo(() => {
-    if (typeof window === 'undefined') return 'Doctor';
+    if (typeof window === 'undefined') return '';
     try {
       const u = JSON.parse(localStorage.getItem('cc-user') ?? '{}');
-      return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.name || u.email?.split('@')[0] || 'Doctor';
-    } catch { return 'Doctor'; }
+      return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name || u.email?.split('@')[0] || '';
+    } catch { return ''; }
   }, []);
 
   const [today, setToday] = React.useState('');
@@ -128,7 +128,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Good Morning, ${userName}`}
+        title={userName ? `Good Morning, ${userName}` : 'Good Morning'}
         description={today}
         actions={
           <>

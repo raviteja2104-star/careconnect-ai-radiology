@@ -133,7 +133,7 @@ exports.getThreads = async (req, res) => {
       .select('firstName lastName role')
       .lean();
     const userMap = Object.fromEntries(
-      users.map(u => [u._id.toString(), { name: `${u.firstName} ${u.lastName}`, role: u.role }])
+      users.map(u => [u._id.toString(), { name: [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Patient', role: u.role }])
     );
 
     const formatted = threads.map(t => {

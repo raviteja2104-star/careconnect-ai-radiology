@@ -20,7 +20,7 @@ exports.listDoctors = async (req, res) => {
     let results = profiles.map(p => ({
       _id: p.user?._id,
       profileId: p._id,
-      name: p.user ? `${p.user.firstName} ${p.user.lastName}` : 'Unknown',
+      name: p.user ? [p.user.firstName, p.user.lastName].filter(Boolean).join(' ') || 'Unknown' : 'Unknown',
       email: p.user?.email || '',
       phone: p.user?.phone || '',
       gender: p.user?.gender || '',

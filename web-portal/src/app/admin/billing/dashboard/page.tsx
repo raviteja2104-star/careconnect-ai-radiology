@@ -42,7 +42,7 @@ type Invoice = {
   invoiceNumber: string;
   totalAmount: number;
   amountDue: number;
-  patient?: { name?: string; _id?: string };
+  patient?: { name?: string; firstName?: string; lastName?: string; _id?: string };
   issuedAt: string;
   type: string;
   status: string;
@@ -131,7 +131,7 @@ export default function RevenueDashboard() {
     setModal({
       open: true,
       prefillPatientId: inv.patient?._id ?? '',
-      prefillPatientName: inv.patient?.name ?? '',
+      prefillPatientName: [inv.patient?.firstName, inv.patient?.lastName].filter(Boolean).join(' ') || inv.patient?.name || '',
       prefillAmount: String(inv.amountDue ?? inv.totalAmount ?? ''),
     });
   };

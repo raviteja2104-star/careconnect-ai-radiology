@@ -407,7 +407,7 @@ exports.getAppointments = async (req, res) => {
       doctor: a.doctor
         ? {
             ...a.doctor,
-            name: `${a.doctor.firstName} ${a.doctor.lastName}`.trim(),
+            name: [a.doctor.firstName, a.doctor.lastName].filter(Boolean).join(' ') || 'Doctor',
             specialty: a.specialty || a.doctor.specialization || '',
             image: a.doctor.profilePicture || null,
           }
