@@ -16,6 +16,14 @@ const {
   createSupportTicket,
 } = require('../controllers/adminController');
 
+const {
+  listTemplates, createTemplate, updateTemplate, publishTemplate,
+} = require('../controllers/formTemplateController');
+
+const {
+  listOpsRecords, createOpsRecord, updateOpsRecord,
+} = require('../controllers/adminOpsController');
+
 router.get('/command-center', protect, permit('ADMIN.VIEW_DASHBOARD'), getCommandCenter);
 router.get('/platform-stats', protect, permit('ADMIN.VIEW_ANALYTICS'), getPlatformStats);
 router.post('/ai-scribe', protect, permitAny('ADMIN.VIEW_ANALYTICS', 'DOCTOR.EDIT_CLINICAL_NOTES'), generateScribe);
@@ -27,5 +35,16 @@ router.get('/migration-jobs', protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), g
 router.post('/migration-jobs', protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), createMigrationJob);
 router.get('/support-tickets', protect, permit('ADMIN.VIEW_USERS'), getSupportTickets);
 router.post('/support-tickets', protect, permit('ADMIN.VIEW_USERS'), createSupportTicket);
+
+// Form templates
+router.get('/form-templates',         protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), listTemplates);
+router.post('/form-templates',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), createTemplate);
+router.patch('/form-templates/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), updateTemplate);
+router.patch('/form-templates/:id/publish', protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), publishTemplate);
+
+// Enterprise ops records (projects, devices, lms_course, releases)
+router.get('/ops/:type',         protect, permit('ADMIN.VIEW_ANALYTICS'),          listOpsRecords);
+router.post('/ops/:type',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  createOpsRecord);
+router.patch('/ops/:type/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  updateOpsRecord);
 
 module.exports = router;

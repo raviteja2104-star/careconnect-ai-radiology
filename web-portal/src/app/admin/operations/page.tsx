@@ -8,7 +8,7 @@ import {
   GitBranch, Clock, Users, Plus, Award, Stethoscope, FileSignature, Star,
 } from 'lucide-react';
 import {
-  enterpriseOperationsService, HospitalCustomerProject, DeviceInstallationRecord,
+  enterpriseOperationsService,
   SupportTicketRecord, LMSTrainingCourse, ReleaseEnvironmentStatus
 } from '@/services/enterpriseOperationsService';
 import {
@@ -35,11 +35,29 @@ export default function EnterpriseOperationsPage() {
   const [activeTab, setActiveTab] = useState<OpsTab>('PROJECTS');
   const queryClient = useQueryClient();
 
-  // Static data from service singletons (no real backend source for these)
-  const [projects] = useState<HospitalCustomerProject[]>(enterpriseOperationsService.getProjects());
-  const [devices] = useState<DeviceInstallationRecord[]>(enterpriseOperationsService.getDevices());
-  const [courses] = useState<LMSTrainingCourse[]>(enterpriseOperationsService.getLMS());
-  const [releases] = useState<ReleaseEnvironmentStatus[]>(enterpriseOperationsService.getReleases());
+  const { data: projectsRes } = useQuery({
+    queryKey: ['admin-ops-projects'],
+    queryFn: () => fetch(`${API}/api/admin/ops/project`, { headers: authHeaders() }).then(r => r.json()),
+  });
+  const projects = projectsRes?.data ?? [];
+
+  const { data: devicesRes } = useQuery({
+    queryKey: ['admin-ops-devices'],
+    queryFn: () => fetch(`${API}/api/admin/ops/device`, { headers: authHeaders() }).then(r => r.json()),
+  });
+  const devices = devicesRes?.data ?? [];
+
+  const { data: coursesRes } = useQuery({
+    queryKey: ['admin-ops-lms'],
+    queryFn: () => fetch(`${API}/api/admin/ops/lms_course`, { headers: authHeaders() }).then(r => r.json()),
+  });
+  const courses: LMSTrainingCourse[] = coursesRes?.data ?? [];
+
+  const { data: releasesRes } = useQuery({
+    queryKey: ['admin-ops-releases'],
+    queryFn: () => fetch(`${API}/api/admin/ops/release`, { headers: authHeaders() }).then(r => r.json()),
+  });
+  const releases: ReleaseEnvironmentStatus[] = releasesRes?.data ?? [];
 
   // Real support tickets from DB
   const { data: ticketsRes } = useQuery({
@@ -246,7 +264,7 @@ export default function EnterpriseOperationsPage() {
           <DataTable
             columns={deviceColumns}
             data={devices}
-            rowKey={(d) => d.id}
+            rowKey={(d) => (d as Record<string, string>)._id ?? (d as Record<string, string>).id}
             searchPlaceholder="Search devices…"
             exportName="device-installations"
             emptyTitle="No devices registered"
