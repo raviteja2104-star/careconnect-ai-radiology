@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Users, Clock, AlertTriangle, IndianRupee, Video,
+  Users, Clock, AlertTriangle, Video,
   Activity, Calendar, Bell,
   Stethoscope, FlaskConical,
   CheckCircle, XCircle, Heart, Pill, ChevronRight,
@@ -108,7 +108,7 @@ export default function DashboardPage() {
       label: 'Active Patients',
       value: overviewLoading ? '—' : String(overview.activePatients ?? '—'),
       sub: `${overview.criticalPatients ?? 0} critical`,
-      icon: IndianRupee, tone: 'emerald' as const, trend: 'up' as const,
+      icon: Users, tone: 'emerald' as const, trend: 'up' as const,
     },
   ];
 
