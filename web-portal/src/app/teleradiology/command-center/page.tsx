@@ -81,7 +81,7 @@ export default function TeleradiologyCommandCenterPage() {
         .filter((s) => s.criticalFinding?.flagged)
         .sort((a, b) => Number(Boolean(a.criticalFinding?.acknowledgedAt)) - Number(Boolean(b.criticalFinding?.acknowledgedAt)));
 
-    const radiologists = Array.isArray(stats.radiologists) ? stats.radiologists : [];
+    const radiologists = Array.isArray(stats.radiologistPool) ? stats.radiologistPool : [];
     let pool = radiologists;
     if (pool.length === 0) {
         const map = new Map<string, number>();

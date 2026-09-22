@@ -155,6 +155,30 @@ export default function DoctorQueueWorkspace() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeToken = tokens.find((t: any) => t.status === 'CALLED' || t.status === 'IN_PROGRESS');
 
+  // Elapsed timer for the active consultation.
+  // Uses calledAt/updatedAt from the token when available; falls back to client-side tracking.
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    if (!activeToken) { setElapsedSeconds(0); return; }
+    const startMs = activeToken.calledAt
+      ? new Date(activeToken.calledAt).getTime()
+      : activeToken.updatedAt
+        ? new Date(activeToken.updatedAt).getTime()
+        : Date.now();
+    const tick = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  // Reset when a different patient becomes active; ignore other token changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeToken?._id]);
+
+  const elapsedLabel = (() => {
+    const m = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+    const s = (elapsedSeconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  })();
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -222,7 +246,7 @@ export default function DoctorQueueWorkspace() {
                   </div>
                   <div className="text-right">
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time Elapsed</p>
-                    <p className="font-mono text-3xl font-bold tabular-nums text-foreground">04:22</p>
+                    <p className="font-mono text-3xl font-bold tabular-nums text-foreground">{elapsedLabel}</p>
                   </div>
                 </div>
 

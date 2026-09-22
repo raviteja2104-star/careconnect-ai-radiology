@@ -180,6 +180,7 @@ const ROUTE_ACCESS: Array<{ prefix: string; roles: Role[] }> = [
     { prefix: '/bed-management', roles: CLINICAL_ROLES },
     { prefix: '/emergency', roles: CLINICAL_ROLES },
     { prefix: '/ems', roles: CLINICAL_ROLES },
+    { prefix: '/patient', roles: ['PATIENT', 'SUPER_ADMIN'] },
     // /nearby is the B2C consumer search experience — patient-only.
     // /nearby/provider is the clinical provider directory — separate rule above wins
     // (longest-prefix-first sort ensures /nearby/provider beats /nearby for clinical roles).

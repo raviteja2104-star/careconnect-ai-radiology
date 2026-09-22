@@ -83,6 +83,7 @@ exports.getPatient360 = async (req, res) => {
 
         const patient = await User.findById(patientId)
             .select('-password')
+            .populate('primaryDoctor', 'firstName lastName')
             .lean();
         if (!patient) return res.status(404).json({ message: 'Patient not found' });
 

@@ -116,7 +116,7 @@ function PaymentModal({ invoice, onClose, onSuccess }: PaymentModalProps) {
     setErrorMsg('');
     try {
       // Step 1: create Razorpay order
-      const orderRes = await fetch(`${API_BASE}/payments/create-order`, {
+      const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ amount: invoice.amountDue, purpose: 'invoice_payment' }),

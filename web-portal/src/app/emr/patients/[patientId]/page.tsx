@@ -205,7 +205,9 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                                         <dt className="font-semibold uppercase tracking-wide text-subtle-foreground">Primary physician</dt>
                                         <dd className="text-foreground">
                                             {patient?.primaryPhysicianName ||
-                                                (typeof patient?.primaryDoctor === 'object' ? patient?.primaryDoctor?.name : undefined) || '—'}
+                                                (patient?.primaryDoctor && typeof patient.primaryDoctor === 'object'
+                                                    ? [patient.primaryDoctor.firstName, patient.primaryDoctor.lastName].filter(Boolean).join(' ')
+                                                    : undefined) || '—'}
                                         </dd>
                                     </div>
                                 </dl>
