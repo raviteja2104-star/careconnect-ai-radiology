@@ -62,7 +62,7 @@ exports.getToday = async (req, res, next) => {
                 type: a.visitType || 'OPD',
                 status: statusMap[a.status] || 'Pending Review',
                 chiefComplaint: enc?.chiefComplaint || a.reason || '',
-                doctor: a.doctor ? `Dr. ${a.doctor.firstName || ''} ${a.doctor.lastName || ''}`.trim() : '',
+                doctor: a.doctor ? `${a.doctor.firstName || ''} ${a.doctor.lastName || ''}`.trim() : '',
                 department: a.specialty,
                 diagnosis: primaryDiag?.term || '',
                 soap: enc ? {
