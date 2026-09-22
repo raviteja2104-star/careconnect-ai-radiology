@@ -362,7 +362,7 @@ export default function DigitalHealthWallet() {
                       <div>
                         <Badge tone="brand" dot pulse>Virtual Consult</Badge>
                         <h4 className="mt-2 text-base font-bold text-foreground">
-                          Dr. {[session.doctor?.firstName, session.doctor?.lastName].filter(Boolean).join(' ') || session.doctor?.name || 'Assigned Doctor'}
+                          Dr. {[(session.doctor as {firstName?: string; lastName?: string; name?: string} | undefined)?.firstName, (session.doctor as {firstName?: string; lastName?: string; name?: string} | undefined)?.lastName].filter(Boolean).join(' ') || session.doctor?.name || 'Assigned Doctor'}
                         </h4>
                       </div>
                     </div>

@@ -98,10 +98,10 @@ export default function CommunicationDashboard() {
       key: 'patient',
       header: 'Patient',
       sortable: true,
-      accessor: (log) => [log.patient?.firstName, log.patient?.lastName].filter(Boolean).join(' ') || log.patient?.name || '',
-      cell: (log) => (
-        <p className="font-medium text-foreground">{[log.patient?.firstName, log.patient?.lastName].filter(Boolean).join(' ') || log.patient?.name || 'Unknown'}</p>
-      ),
+      accessor: (log) => { const p = log.patient as { name?: string; firstName?: string; lastName?: string } | undefined; return [p?.firstName, p?.lastName].filter(Boolean).join(' ') || p?.name || ''; },
+      cell: (log) => { const p = log.patient as { name?: string; firstName?: string; lastName?: string } | undefined; return (
+        <p className="font-medium text-foreground">{[p?.firstName, p?.lastName].filter(Boolean).join(' ') || p?.name || 'Unknown'}</p>
+      ); },
     },
     {
       key: 'relatedEvent',

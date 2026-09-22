@@ -256,12 +256,12 @@ export default function DoctorSchedulePage() {
       if (res.success) {
         queryClient.invalidateQueries({ queryKey: ['schedule', doctorId] });
         queryClient.invalidateQueries({ queryKey: ['schedule-slots', doctorId] });
-        toast({ title: 'Schedule saved', description: 'Your weekly hours are updated.' });
+        toast('success', 'Schedule saved', 'Your weekly hours are updated.');
       } else {
-        toast({ title: 'Save failed', description: res.error || 'Unknown error', variant: 'destructive' });
+        toast('error', 'Save failed', res.error || 'Unknown error');
       }
     },
-    onError: () => toast({ title: 'Save failed', description: 'Network error', variant: 'destructive' }),
+    onError: () => toast('error', 'Save failed', 'Network error'),
   });
 
   // Add leave
@@ -275,9 +275,9 @@ export default function DoctorSchedulePage() {
     onSuccess: res => {
       if (res.success) {
         queryClient.invalidateQueries({ queryKey: ['schedule', doctorId] });
-        toast({ title: 'Leave added' });
+        toast('success', 'Leave added');
       } else {
-        toast({ title: 'Failed to add leave', description: res.error, variant: 'destructive' });
+        toast('error', 'Failed to add leave', res.error);
       }
     },
   });
@@ -291,7 +291,7 @@ export default function DoctorSchedulePage() {
       }).then(r => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', doctorId] });
-      toast({ title: 'Leave removed' });
+      toast('success', 'Leave removed');
     },
   });
 

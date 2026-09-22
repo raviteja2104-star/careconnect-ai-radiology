@@ -25,6 +25,28 @@ function authHeaders(): Record<string, string> {
 
 type OpsTab = 'PROJECTS' | 'DEVICES' | 'LMS' | 'SUPPORT' | 'ADOPTION' | 'RELEASES';
 
+interface DeviceInstallationRecord {
+  id: string;
+  deviceName: string;
+  category: string;
+  department: string;
+  status: 'CERTIFIED' | 'TESTED' | 'INSTALLED' | string;
+  certifiedBy: string;
+  [key: string]: unknown;
+}
+
+interface ProjectRecord {
+  id: string;
+  hospitalName: string;
+  stage: string;
+  implementationPct: number;
+  healthScorePct: number;
+  targetGoLiveDate: string;
+  assignedProjectManager: string;
+  raidRiskCount: number;
+  [key: string]: unknown;
+}
+
 const sevTone: Record<SupportTicketRecord['severity'], 'neutral' | 'warning' | 'danger'> = {
   MINOR: 'neutral',
   MAJOR: 'warning',
@@ -39,7 +61,7 @@ export default function EnterpriseOperationsPage() {
     queryKey: ['admin-ops-projects'],
     queryFn: () => fetch(`${API}/api/admin/ops/project`, { headers: authHeaders() }).then(r => r.json()),
   });
-  const projects = projectsRes?.data ?? [];
+  const projects: ProjectRecord[] = projectsRes?.data ?? [];
 
   const { data: devicesRes } = useQuery({
     queryKey: ['admin-ops-devices'],

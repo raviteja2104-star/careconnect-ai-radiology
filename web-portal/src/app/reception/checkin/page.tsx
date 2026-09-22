@@ -264,13 +264,13 @@ export default function AppointmentCheckIn() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['reception_appointments'] });
       if (res?.success && res?.data?.token?.tokenNumber) {
-        toast({ title: `Token issued: ${res.data.token.tokenNumber}`, description: res.data.token.patientName });
+        toast('success', `Token issued: ${res.data.token.tokenNumber}`, res.data.token.patientName);
       } else if (!res?.success) {
-        toast({ title: 'Check-in failed', description: res?.error || res?.message || 'Unknown error', variant: 'destructive' });
+        toast('error', 'Check-in failed', res?.error || res?.message || 'Unknown error');
       }
     },
     onError: () => {
-      toast({ title: 'Check-in failed', description: 'Network error — please retry.', variant: 'destructive' });
+      toast('error', 'Check-in failed', 'Network error — please retry.');
     },
   });
 
