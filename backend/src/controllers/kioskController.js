@@ -24,7 +24,7 @@ exports.kioskCheckIn = async (req, res) => {
       patient: patient._id, 
       date: { $gte: today },
       status: { $in: ['Booked', 'Confirmed'] }
-    }).populate('doctor', 'name');
+    }).populate('doctor', 'firstName lastName');
 
     if (!appointment) {
       return res.status(404).json({ success: false, error: 'No upcoming appointments found for today.' });

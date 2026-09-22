@@ -67,7 +67,7 @@ exports.getPatientJourney = async (req, res) => {
     today.setHours(0,0,0,0);
 
     const transfers = await PatientTransfer.find({ patient: patientId, createdAt: { $gte: today } })
-      .populate('requestedBy', 'name')
+      .populate('requestedBy', 'firstName lastName')
       .populate('queueToken')
       .sort({ createdAt: 1 });
 

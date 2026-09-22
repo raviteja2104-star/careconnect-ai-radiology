@@ -272,8 +272,8 @@ exports.listEncounters = async (req, res) => {
         const encounters = await Encounter.find(filter)
             .sort({ createdAt: -1 })
             .limit(100)
-            .populate('doctorId', 'name')
-            .populate('patientId', 'name')
+            .populate('doctorId', 'firstName lastName')
+            .populate('patientId', 'firstName lastName')
             .lean();
         res.json(encounters);
     } catch (err) {
@@ -574,7 +574,7 @@ exports.listOrders = async (req, res) => {
         const orders = await ClinicalOrder.find(filter)
             .sort({ createdAt: -1 })
             .limit(200)
-            .populate('orderingDoctorId', 'name')
+            .populate('orderingDoctorId', 'firstName lastName')
             .lean();
         res.json(orders);
     } catch (err) {

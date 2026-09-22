@@ -472,11 +472,11 @@ export default function LabResultEntryPage({ params }: { params: Promise<{ id: s
     return (
         <div className="space-y-6">
             <PageHeader
-                title={item.patientId?.name || 'Unknown patient'}
+                title={[item.patientId?.firstName, item.patientId?.lastName].filter(Boolean).join(' ') || item.patientId?.name || 'Unknown patient'}
                 description={
                     <span className="inline-flex flex-wrap items-center gap-2">
                         <span className="font-semibold tabular-nums text-foreground">{item.labNumber}</span>
-                        <span>· Ordered by {item.orderingDoctorId?.name || '—'} · {formatWhen(item.createdAt)}</span>
+                        <span>· Ordered by {[item.orderingDoctorId?.firstName, item.orderingDoctorId?.lastName].filter(Boolean).join(' ') || item.orderingDoctorId?.name || '—'} · {formatWhen(item.createdAt)}</span>
                     </span>
                 }
                 crumbs={[

@@ -36,8 +36,8 @@ router.get('/orders', async (req, res, next) => {
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(Number(limit))
-                .populate('patientId', 'name')
-                .populate('doctorId', 'name')
+                .populate('patientId', 'firstName lastName')
+                .populate('doctorId', 'firstName lastName')
                 .lean(),
             PharmacyOrder.countDocuments(filter),
         ]);
@@ -51,7 +51,7 @@ router.get('/orders', async (req, res, next) => {
         const revenueAgg = await PharmacyOrder.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]);
 
         const stats = { pending, packed, shipped, delivered, totalRevenue: revenueAgg[0]?.total ?? 0 };
-        res.json({ success: true, data: orders.map(o => ({ ...o, patientName: o.patientId?.name || o.patientName || 'Unknown' })), stats, total, page: Number(page) });
+        res.json({ success: true, data: orders.map(o => ({ ...o, patientName: [o.patientId?.firstName, o.patientId?.lastName].filter(Boolean).join(' ') || o.patientName || 'Unknown' })), stats, total, page: Number(page) });
     } catch (err) { next(err); }
 });
 
@@ -87,7 +87,7 @@ router.post(
                 status: 'pending',
             });
             const populated = await PharmacyOrder.findById(order._id)
-                .populate('patientId', 'name').populate('doctorId', 'name').lean();
+                .populate('patientId', 'firstName lastName').populate('doctorId', 'firstName lastName').lean();
             res.status(201).json({ success: true, data: populated });
         } catch (err) { next(err); }
     }
@@ -106,7 +106,7 @@ router.put(
                 return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${VALID.join(', ')}` });
             }
             const order = await PharmacyOrder.findByIdAndUpdate(req.params.id, { status }, { new: true })
-                .populate('patientId', 'name').lean();
+                .populate('patientId', 'firstName lastName').lean();
             if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
             res.json({ success: true, data: order });
         } catch (err) { next(err); }

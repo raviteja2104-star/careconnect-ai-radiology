@@ -70,9 +70,9 @@ const loadStudy = async (req, res) => {
 exports.getStudy = async (req, res) => {
     try {
         const study = await RadiologyStudy.findById(req.params.studyId)
-            .populate('patientId', 'name')
-            .populate('assignedRadiologistId', 'name')
-            .populate('orderingDoctorId', 'name')
+            .populate('patientId', 'firstName lastName')
+            .populate('assignedRadiologistId', 'firstName lastName')
+            .populate('orderingDoctorId', 'firstName lastName')
             .lean();
         if (!study) return res.status(404).json({ success: false, message: 'Study not found' });
         res.json(withComputedFields(study));

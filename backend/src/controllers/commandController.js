@@ -48,7 +48,7 @@ exports.getPatientFlow = async (req, res) => {
     const activeTransfers = await PatientTransfer.find({ 
       status: { $in: ['REQUESTED', 'WAITING', 'IN_PROGRESS'] },
       createdAt: { $gte: today }
-    }).populate('patient', 'name').limit(20);
+    }).populate('patient', 'firstName lastName').limit(20);
 
     res.json({
       success: true,

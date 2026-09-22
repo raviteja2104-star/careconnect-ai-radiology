@@ -93,8 +93,8 @@ export interface Amendment {
 export interface WorklistItem {
     _id: string;
     labNumber: string;
-    patientId: { _id: string; name?: string };
-    orderingDoctorId?: { name?: string };
+    patientId: { _id: string; firstName?: string; lastName?: string; name?: string };
+    orderingDoctorId?: { firstName?: string; lastName?: string; name?: string };
     priority: LabPriority;
     status: LabStatus;
     sample?: SampleInfo;

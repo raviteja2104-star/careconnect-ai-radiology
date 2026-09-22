@@ -60,7 +60,7 @@ exports.getDepartmentQueue = async (req, res) => {
         status: { $in: ['WAITING', 'CALLED', 'IN_PROGRESS'] },
       })
         .sort({ status: 1, priority: -1, createdAt: 1 })
-        .populate('doctor', 'name'),
+        .populate('doctor', 'firstName lastName'),
 
       QueueToken.find({
         department,

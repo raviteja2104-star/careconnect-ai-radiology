@@ -264,7 +264,7 @@ exports.getPatientWallet = async (req, res) => {
         const appointments = await Appointment.find({
             patient: patientId,
             date: { $gte: today }
-        }).populate('doctor', 'name').sort({ date: 1, timeSlot: 1 }).limit(5);
+        }).populate('doctor', 'firstName lastName').sort({ date: 1, timeSlot: 1 }).limit(5);
 
         // 3. Fetch Active Queue Tokens (Live wait time)
         const activeTokens = await QueueToken.find({
@@ -289,7 +289,7 @@ exports.getPatientWallet = async (req, res) => {
         const telemedicine = await TelemedicineSession.find({
             patient: patientId,
             status: 'SCHEDULED'
-        }).populate('doctor', 'name');
+        }).populate('doctor', 'firstName lastName');
 
         res.json({
             success: true,

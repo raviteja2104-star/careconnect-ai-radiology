@@ -190,10 +190,10 @@ export default function RevenueDashboard() {
     {
       key: 'patient',
       header: 'Patient',
-      accessor: (inv) => inv.patient?.name ?? '',
+      accessor: (inv) => [inv.patient?.firstName, inv.patient?.lastName].filter(Boolean).join(' ') || inv.patient?.name || '',
       cell: (inv) => (
         <div>
-          <p className="font-medium text-foreground">{inv.patient?.name || 'Unknown Patient'}</p>
+          <p className="font-medium text-foreground">{[inv.patient?.firstName, inv.patient?.lastName].filter(Boolean).join(' ') || inv.patient?.name || 'Unknown Patient'}</p>
           <p className="text-xs text-muted-foreground">{new Date(inv.issuedAt).toLocaleTimeString()}</p>
         </div>
       ),

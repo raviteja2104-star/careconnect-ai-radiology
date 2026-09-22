@@ -91,16 +91,17 @@ router.get('/appointments', protect, async (req, res, next) => {
         const appts = await Appointment.find(filter)
             .sort({ scheduledAt: 1 })
             .limit(10)
-            .populate('patient', 'name')
+            .populate('patient', 'firstName lastName')
             .lean();
+        const patFullName = (p) => p ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : '';
         const data = appts.map(a => ({
             _id: a._id,
-            name: a.patient?.name || a.patientName || 'Unknown',
+            name: patFullName(a.patient) || a.patientName || 'Unknown',
             type: a.type || 'Consultation',
             time: a.scheduledAt
                 ? new Date(a.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
                 : '—',
-            avatar: (a.patient?.name || 'U').charAt(0).toUpperCase(),
+            avatar: (patFullName(a.patient) || a.patientName || 'U').charAt(0).toUpperCase(),
             status: a.status,
         }));
         res.json({ success: true, data });
