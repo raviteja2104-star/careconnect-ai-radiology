@@ -78,7 +78,7 @@ function mapApiAppointment(raw: RawAppointment): AppointmentData {
   return {
     id: raw._id ?? raw.id ?? '',
     doctorId: raw.doctor?._id ?? '',
-    doctorName: raw.doctorName ?? raw.doctor?.name ?? 'Doctor',
+    doctorName: raw.doctorName ?? ([raw.doctor?.firstName, raw.doctor?.lastName].filter(Boolean).join(' ') || raw.doctor?.name) ?? 'Doctor',
     specialty: raw.specialty ?? raw.doctor?.specialty ?? '',
     hospital: raw.hospital ?? raw.doctor?.hospital ?? 'CareConnect',
     room: raw.room,

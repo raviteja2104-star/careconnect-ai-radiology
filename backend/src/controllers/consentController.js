@@ -117,7 +117,7 @@ exports.getConsents = async (req, res) => {
     const { patientId } = req.query;
     const filter = patientId ? { patient: patientId } : {};
     const consents = await ConsentDocument.find(filter)
-      .populate('patient', 'name phone uhid')
+      .populate('patient', 'firstName lastName phone')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: consents });

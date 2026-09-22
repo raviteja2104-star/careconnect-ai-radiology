@@ -125,7 +125,7 @@ exports.checkinAppointment = async (req, res) => {
     const token = await QueueToken.create({
       tokenNumber,
       patient: appointment.patient._id,
-      patientName: appointment.patient.name,
+      patientName: `${appointment.patient.firstName || ''} ${appointment.patient.lastName || ''}`.trim() || 'Patient',
       appointment: appointment._id,
       department: appointment.specialty,
       doctor: appointment.doctor._id,

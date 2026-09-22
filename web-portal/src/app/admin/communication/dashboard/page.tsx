@@ -98,9 +98,9 @@ export default function CommunicationDashboard() {
       key: 'patient',
       header: 'Patient',
       sortable: true,
-      accessor: (log) => log.patient?.name ?? '',
+      accessor: (log) => [log.patient?.firstName, log.patient?.lastName].filter(Boolean).join(' ') || log.patient?.name || '',
       cell: (log) => (
-        <p className="font-medium text-foreground">{log.patient?.name || 'Unknown'}</p>
+        <p className="font-medium text-foreground">{[log.patient?.firstName, log.patient?.lastName].filter(Boolean).join(' ') || log.patient?.name || 'Unknown'}</p>
       ),
     },
     {

@@ -49,7 +49,7 @@ function getCurrentUser(): { id: string; name: string } {
   try {
     if (typeof window !== 'undefined') {
       const u = JSON.parse(localStorage.getItem('cc-user') || '{}');
-      return { id: u._id || u.id || '', name: u.name || 'Me' };
+      return { id: u._id || u.id || '', name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.name || 'Me' };
     }
   } catch {}
   return { id: '', name: 'Me' };
@@ -61,7 +61,9 @@ function mapChannel(raw: any): Channel {
   const updatedAt = raw.updatedAt || raw.lastMessage?.createdAt;
   return {
     id: raw._id || raw.id,
-    name: raw.name || raw.subject || raw.participant?.name || 'Unknown',
+    name: raw.name || raw.subject
+        || ([raw.participant?.firstName, raw.participant?.lastName].filter(Boolean).join(' ') || raw.participant?.name)
+        || 'Unknown',
     role: raw.role || raw.participant?.role || raw.type || '',
     lastMsg,
     time: updatedAt ? new Date(updatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',

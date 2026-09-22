@@ -50,7 +50,7 @@ export default function DashboardPage() {
     if (typeof window === 'undefined') return 'Doctor';
     try {
       const u = JSON.parse(localStorage.getItem('cc-user') ?? '{}');
-      return u.name || u.email?.split('@')[0] || 'Doctor';
+      return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.name || u.email?.split('@')[0] || 'Doctor';
     } catch { return 'Doctor'; }
   }, []);
 

@@ -140,7 +140,7 @@ export default function PatientDisplayBoard() {
                       <div className="rounded-2xl border-2 border-primary/40 bg-primary/10 px-8 py-6">
                         <p className="text-6xl font-black text-primary">{token.room || 'Room 1'}</p>
                       </div>
-                      <p className="mt-4 text-xl font-semibold text-muted-foreground">Dr. {token.doctor?.name || 'Assigned Doctor'}</p>
+                      <p className="mt-4 text-xl font-semibold text-muted-foreground">Dr. {[token.doctor?.firstName, token.doctor?.lastName].filter(Boolean).join(' ') || token.doctor?.name || 'Assigned Doctor'}</p>
                     </div>
                   </motion.div>
                 ))}

@@ -99,7 +99,7 @@ export function buildLabReportHtml(item: WorklistItem): string {
 <html>
 <head>
 <meta charset="utf-8">
-<title>Lab Report — ${esc(item.labNumber)} — ${esc(item.patientId?.name || 'Patient')}</title>
+<title>Lab Report — ${esc(item.labNumber)} — ${esc([item.patientId?.firstName, item.patientId?.lastName].filter(Boolean).join(' ') || item.patientId?.name || 'Patient')}</title>
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
@@ -155,10 +155,10 @@ export function buildLabReportHtml(item: WorklistItem): string {
   </div>
 
   <div class="pinfo">
-    <span><b>Patient:</b> ${esc(item.patientId?.name || '—')}</span>
+    <span><b>Patient:</b> ${esc([item.patientId?.firstName, item.patientId?.lastName].filter(Boolean).join(' ') || item.patientId?.name || '—')}</span>
     <span><b>Patient ID:</b> ${esc(item.patientId?._id || '—')}</span>
     <span><b>Lab No:</b> ${esc(item.labNumber)}</span>
-    <span><b>Ordering doctor:</b> ${esc(item.orderingDoctorId?.name || '—')}</span>
+    <span><b>Ordering doctor:</b> ${esc([item.orderingDoctorId?.firstName, item.orderingDoctorId?.lastName].filter(Boolean).join(' ') || item.orderingDoctorId?.name || '—')}</span>
     <span><b>Priority:</b> ${esc(item.priority.toUpperCase())}</span>
     <span><b>Sample ID:</b> ${esc(item._id)}</span>
     <span><b>Collected:</b> ${esc(formatWhen(item.sample?.collectedAt))}</span>
