@@ -292,8 +292,8 @@ exports.getEncounter = async (req, res) => {
             });
         }
         const encounter = await Encounter.findById(req.params.id)
-            .populate('doctorId', 'name')
-            .populate('patientId', 'name')
+            .populate('doctorId', 'firstName lastName')
+            .populate('patientId', 'firstName lastName')
             .lean();
         if (!encounter) return res.status(404).json({ message: 'Encounter not found' });
         if (req.user.role === 'patient' && String(encounter.patientId._id) !== String(req.user._id)) {

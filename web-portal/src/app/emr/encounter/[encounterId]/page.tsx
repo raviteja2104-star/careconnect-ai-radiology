@@ -19,7 +19,7 @@ import {
     fetchEncounterBundle, fetchPatient360, putNote, signNote, amendNote, postDiagnosis,
     postVitals, patientDisplayName, ApiOfflineError,
     type NoteFormat, type NoteSections, type ClinicalNoteRecord, type DiagnosisEntry,
-    type VitalsEntry,
+    type VitalsEntry, type PatientRecord,
 } from '../../_lib/api';
 import { ContextRail } from './context-rail';
 import { OrdersPanel, type OrderPanelTab } from './orders-panel';
@@ -103,7 +103,12 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         enabled: Boolean(patientId),
     });
     const p360 = q360.data?.data;
-    const patientName = patientDisplayName(p360?.patient) || (typeof encounter?.patientId === 'object' ? encounter?.patientId.name : undefined) || 'Patient';
+    const encPatient = typeof encounter?.patientId === 'object' ? encounter.patientId as PatientRecord : null;
+    const encPatientName = encPatient
+        ? `${encPatient.firstName || ''} ${encPatient.lastName || ''}`.trim() || encPatient.name || undefined
+        : undefined;
+    // Use patient 360 when resolved; fall back to the populated name from the encounter bundle
+    const patientName = p360?.patient ? patientDisplayName(p360.patient) : (encPatientName || 'Patient');
 
     /* ── Note state ── */
     const [format, setFormat] = React.useState<NoteFormat>('SOAP');
