@@ -181,6 +181,13 @@ export default function ConsultationsPage() {
       const data = await r.json();
       if (r.ok && data.success) {
         setSaveMessage('Draft saved.');
+        // If a new encounter was created (no prior encounterId), capture its ID
+        const newEncounterId = data.data?._id?.toString?.();
+        if (newEncounterId && !selected.encounterId) {
+          const updated = { ...selected, encounterId: newEncounterId };
+          setSelected(updated);
+          setConsultations(prev => prev.map(c => c.id === selected.id ? updated : c));
+        }
       } else {
         setSaveMessage(data.message || 'Save failed.');
       }
@@ -304,8 +311,8 @@ export default function ConsultationsPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge tone={sc.tone} dot pulse={sc.pulse}>{selected.status}</Badge>
-                        <Link href="/emr">
-                          <Button size="sm">
+                        <Link href={selected.encounterId ? `/emr/encounter/${selected.encounterId}` : '#'}>
+                          <Button size="sm" disabled={!selected.encounterId} title={!selected.encounterId ? 'Save a draft first to open the full EMR workspace' : undefined}>
                             <FileText className="h-3.5 w-3.5" aria-hidden /> Open Full EMR
                           </Button>
                         </Link>
