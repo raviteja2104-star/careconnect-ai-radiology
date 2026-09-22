@@ -17,6 +17,8 @@ import {
   X,
   Loader2,
   ChevronRight,
+  FileText,
+  Stethoscope,
 } from 'lucide-react';
 import {
   PageHeader,
@@ -57,11 +59,15 @@ export interface AppointmentData {
   status: 'Upcoming' | 'Completed' | 'Cancelled';
   image: string;
   room?: string;
+  patientId?: string;
+  patientName?: string;
+  patientImage?: string;
 }
 
 type RawAppointment = {
   _id?: string; id?: string; date?: string; doctorName?: string;
-  doctor?: { _id?: string; name?: string; specialty?: string; hospital?: string; image?: string };
+  doctor?: { _id?: string; firstName?: string; lastName?: string; name?: string; specialty?: string; hospital?: string; image?: string };
+  patient?: { _id?: string; firstName?: string; lastName?: string; name?: string; phone?: string; email?: string; avatar?: string };
   specialty?: string; hospital?: string; room?: string; timeSlot?: string; time?: string;
   visitType?: string; type?: string; status?: string;
 };
@@ -87,6 +93,9 @@ function mapApiAppointment(raw: RawAppointment): AppointmentData {
     type: (raw.visitType === 'Video Call' || raw.type === 'Video Call') ? 'Video Call' : 'In-Person',
     status: statusMap[String(raw.status).toLowerCase()] ?? 'Upcoming',
     image: raw.doctor?.image ?? '',
+    patientId: raw.patient?._id ?? '',
+    patientName: [raw.patient?.firstName, raw.patient?.lastName].filter(Boolean).join(' ') || raw.patient?.name || '',
+    patientImage: raw.patient?.avatar ?? '',
   };
 }
 
@@ -245,11 +254,13 @@ interface AppointmentRowProps {
   onCancel: (id: string) => Promise<void>;
   onReschedule: (apt: AppointmentData) => void;
   cancelling: boolean;
+  viewerRole: string;
 }
 
-function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling }: AppointmentRowProps) {
+function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling, viewerRole }: AppointmentRowProps) {
   const router = useRouter();
   const isVideo = appointment.type === 'Video Call';
+  const isStaff = viewerRole === 'doctor' || viewerRole === 'admin' || viewerRole === 'superadmin';
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
@@ -263,6 +274,12 @@ function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling
     }
   };
 
+  const primaryName  = isStaff ? (appointment.patientName || 'Patient') : appointment.doctorName;
+  const primaryImage = isStaff ? (appointment.patientImage ?? '') : appointment.image;
+  const secondaryLine = isStaff
+    ? `Dr. ${appointment.doctorName}${appointment.specialty ? ` · ${appointment.specialty}` : ''}`
+    : appointment.specialty;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -272,10 +289,10 @@ function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling
       <Card variant="interactive" className="p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
           <div className="flex min-w-0 items-center gap-4">
-            <Avatar name={appointment.doctorName} src={appointment.image} size="lg" />
+            <Avatar name={primaryName} src={primaryImage} size="lg" />
             <div className="min-w-0">
-              <h3 className="text-base font-semibold text-foreground">{appointment.doctorName}</h3>
-              <p className="text-sm font-medium text-muted-foreground">{appointment.specialty}</p>
+              <h3 className="text-base font-semibold text-foreground">{primaryName}</h3>
+              <p className="text-sm font-medium text-muted-foreground">{secondaryLine}</p>
               <p className="mt-1.5 flex items-center gap-1.5 text-xs text-subtle-foreground">
                 <MapPin className="h-3.5 w-3.5" aria-hidden />
                 {appointment.hospital} {appointment.room && `• Room ${appointment.room}`}
@@ -306,48 +323,76 @@ function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling
           </div>
 
           <div className="flex items-center gap-2">
-            {appointment.status === 'Upcoming' && (
+            {isStaff ? (
+              // Doctor / admin: show EMR link, no cancel/reschedule
               <>
-                {isVideo ? (
+                {appointment.patientId && (
+                  <Link href={`/emr?patientId=${appointment.patientId}`}>
+                    <Button size="sm" variant="secondary">
+                      <FileText className="h-4 w-4" aria-hidden /> Open EMR
+                    </Button>
+                  </Link>
+                )}
+                {appointment.status === 'Upcoming' && isVideo && (
                   <Button size="sm" onClick={() => router.push('/telemedicine')}>
                     <Video className="h-4 w-4" aria-hidden /> Join Video
                   </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.hospital)}`, '_blank', 'noopener,noreferrer')}
-                  >
-                    <MapPin className="h-4 w-4" aria-hidden /> Directions
-                  </Button>
                 )}
-                <Button size="sm" variant="outline" onClick={() => onReschedule(appointment)}>
-                  Reschedule
-                </Button>
-                <Dropdown
-                  trigger={
-                    <Button size="icon-sm" variant="ghost" aria-label="More options">
-                      <MoreHorizontal className="h-4 w-4" />
+                {appointment.status === 'Upcoming' && (
+                  <Link href={`/doctor/queue`}>
+                    <Button size="sm" variant="outline">
+                      <Stethoscope className="h-4 w-4" aria-hidden /> Queue
                     </Button>
-                  }
-                >
-                  <DropdownItem onClick={() => onReschedule(appointment)}>Reschedule</DropdownItem>
-                  <DropdownItem
-                    className="text-danger"
-                    onClick={() => { setConfirmCancel(true); setCancelError(null); }}
-                  >
-                    Cancel appointment
-                  </DropdownItem>
-                </Dropdown>
+                  </Link>
+                )}
               </>
-            )}
-            {appointment.status === 'Completed' && (
-              <Button size="sm" variant="secondary" onClick={() => router.push('/appointments/book')}>Book Follow-up</Button>
+            ) : (
+              // Patient: original actions
+              <>
+                {appointment.status === 'Upcoming' && (
+                  <>
+                    {isVideo ? (
+                      <Button size="sm" onClick={() => router.push('/telemedicine')}>
+                        <Video className="h-4 w-4" aria-hidden /> Join Video
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.hospital)}`, '_blank', 'noopener,noreferrer')}
+                      >
+                        <MapPin className="h-4 w-4" aria-hidden /> Directions
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => onReschedule(appointment)}>
+                      Reschedule
+                    </Button>
+                    <Dropdown
+                      trigger={
+                        <Button size="icon-sm" variant="ghost" aria-label="More options">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      }
+                    >
+                      <DropdownItem onClick={() => onReschedule(appointment)}>Reschedule</DropdownItem>
+                      <DropdownItem
+                        className="text-danger"
+                        onClick={() => { setConfirmCancel(true); setCancelError(null); }}
+                      >
+                        Cancel appointment
+                      </DropdownItem>
+                    </Dropdown>
+                  </>
+                )}
+                {appointment.status === 'Completed' && (
+                  <Button size="sm" variant="secondary" onClick={() => router.push('/appointments/book')}>Book Follow-up</Button>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {confirmCancel && (
+        {!isStaff && confirmCancel && (
           <div className="mt-4 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3">
             <p className="mb-1 text-sm font-medium text-danger">Cancel this appointment?</p>
             <p className="mb-3 text-xs text-muted-foreground">This cannot be undone. You can book a new appointment afterwards.</p>
@@ -381,6 +426,14 @@ function AppointmentRow({ appointment, delay, onCancel, onReschedule, cancelling
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+function getViewerRole(): string {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('cc-user') : null;
+    if (raw) return JSON.parse(raw).role ?? '';
+  } catch { /* ignore */ }
+  return '';
+}
+
 export default function AppointmentsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -388,6 +441,8 @@ export default function AppointmentsPage() {
   const [search, setSearch] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [reschedulingAppt, setReschedulingAppt] = useState<AppointmentData | null>(null);
+  const [viewerRole] = useState<string>(() => getViewerRole());
+  const isStaff = viewerRole === 'doctor' || viewerRole === 'admin' || viewerRole === 'superadmin';
 
   const handleCancel = useCallback(async (id: string) => {
     setCancellingId(id);
@@ -436,11 +491,15 @@ export default function AppointmentsPage() {
     if (!search.trim()) return byTab;
     const q = search.toLowerCase();
     return byTab.filter(a =>
-      a.doctorName.toLowerCase().includes(q) ||
-      a.specialty.toLowerCase().includes(q) ||
-      a.hospital.toLowerCase().includes(q)
+      isStaff
+        ? (a.patientName ?? '').toLowerCase().includes(q) ||
+          a.doctorName.toLowerCase().includes(q) ||
+          a.specialty.toLowerCase().includes(q)
+        : a.doctorName.toLowerCase().includes(q) ||
+          a.specialty.toLowerCase().includes(q) ||
+          a.hospital.toLowerCase().includes(q)
     );
-  }, [appointments, activeTab, search]);
+  }, [appointments, activeTab, search, isStaff]);
 
   const upcoming = appointments.filter(a => a.status === 'Upcoming').length;
   const completed = appointments.filter(a => a.status === 'Completed').length;
@@ -451,15 +510,17 @@ export default function AppointmentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Appointments"
-        description="Manage your upcoming and past medical visits."
+        description={isStaff ? "Your scheduled appointments and patient visits." : "Manage your upcoming and past medical visits."}
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Appointments' }]}
         actions={
-          <Link href="/appointments/book">
-            <Button>
-              <Plus className="h-4 w-4" aria-hidden />
-              Book Appointment
-            </Button>
-          </Link>
+          !isStaff ? (
+            <Link href="/appointments/book">
+              <Button>
+                <Plus className="h-4 w-4" aria-hidden />
+                Book Appointment
+              </Button>
+            </Link>
+          ) : undefined
         }
       />
 
@@ -481,7 +542,7 @@ export default function AppointmentsPage() {
         <div className="w-full md:w-72">
           <Input
             icon={<Search />}
-            placeholder="Search doctor or specialty…"
+            placeholder={isStaff ? "Search patient or doctor…" : "Search doctor or specialty…"}
             aria-label="Search appointments"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -501,6 +562,7 @@ export default function AppointmentsPage() {
               onCancel={handleCancel}
               onReschedule={setReschedulingAppt}
               cancelling={cancellingId === apt.id}
+              viewerRole={viewerRole}
             />
           ))
         ) : (
@@ -510,10 +572,12 @@ export default function AppointmentsPage() {
             description={
               search
                 ? `No appointments match "${search}". Try a different search term.`
-                : `You don't have any ${activeTab.toLowerCase()} appointments. Would you like to schedule one?`
+                : isStaff
+                  ? `No ${activeTab.toLowerCase()} appointments are scheduled.`
+                  : `You don't have any ${activeTab.toLowerCase()} appointments. Would you like to schedule one?`
             }
             action={
-              activeTab === 'Upcoming' && !search
+              !isStaff && activeTab === 'Upcoming' && !search
                 ? { label: 'Book an Appointment', onClick: () => router.push('/appointments/book') }
                 : undefined
             }

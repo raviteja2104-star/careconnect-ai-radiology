@@ -388,17 +388,30 @@ exports.rescheduleAppointment = async (req, res) => {
   }
 };
 
-// @desc    Get user appointments (patient-scoped, auth required)
+// @desc    Get appointments scoped by caller role:
+//          doctor → their own schedule; admin/superadmin → all; patient → own
 // @route   GET /api/appointments?type=video&status=Booked
 exports.getAppointments = async (req, res) => {
   try {
-    const filter = { patient: req.user._id };
+    const role = req.user.role;
+    const filter = {};
+
+    if (role === 'doctor') {
+      filter.doctor = req.user._id;
+    } else if (role === 'admin' || role === 'superadmin') {
+      if (req.query.patientId) filter.patient = req.query.patientId;
+      if (req.query.doctorId)  filter.doctor  = req.query.doctorId;
+    } else {
+      filter.patient = req.user._id;
+    }
+
     if (req.query.type === 'video') filter.visitType = 'Video Call';
     if (req.query.status) filter.status = req.query.status;
 
     const appointments = await Appointment
       .find(filter)
-      .populate('doctor', 'firstName lastName email specialization profilePicture hospital department')
+      .populate('doctor',   'firstName lastName email specialization profilePicture hospital department')
+      .populate('patient',  'firstName lastName email phone avatar')
       .sort({ date: 1 })
       .lean();
 
@@ -407,9 +420,15 @@ exports.getAppointments = async (req, res) => {
       doctor: a.doctor
         ? {
             ...a.doctor,
-            name: [a.doctor.firstName, a.doctor.lastName].filter(Boolean).join(' ') || 'Doctor',
+            name:      [a.doctor.firstName, a.doctor.lastName].filter(Boolean).join(' ') || 'Doctor',
             specialty: a.specialty || a.doctor.specialization || '',
-            image: a.doctor.profilePicture || null,
+            image:     a.doctor.profilePicture || null,
+          }
+        : null,
+      patient: a.patient
+        ? {
+            ...a.patient,
+            name: [a.patient.firstName, a.patient.lastName].filter(Boolean).join(' ') || 'Patient',
           }
         : null,
     }));
