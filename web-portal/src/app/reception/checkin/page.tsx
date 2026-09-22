@@ -5,6 +5,7 @@ import { QrCode, Video, MapPin, IndianRupee, Clock, X, ChevronRight } from 'luci
 import {
   PageHeader, Button, Badge, DataTable, SkeletonTable, type Column,
 } from '@/components/ui';
+import { useToast } from '@/components/ui/toast';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
@@ -236,6 +237,7 @@ function QrModal({ onClose, pendingAppointments, onCheckin, isProcessing }: QrMo
 
 export default function AppointmentCheckIn() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [qrModalOpen, setQrModalOpen] = React.useState(false);
 
   // Close on Escape
@@ -261,9 +263,14 @@ export default function AppointmentCheckIn() {
       }).then((res) => res.json()),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['reception_appointments'] });
-      if (res?.data?.token?.tokenNumber) {
-        alert(`Token Generated: ${res.data.token.tokenNumber}`);
+      if (res?.success && res?.data?.token?.tokenNumber) {
+        toast({ title: `Token issued: ${res.data.token.tokenNumber}`, description: res.data.token.patientName });
+      } else if (!res?.success) {
+        toast({ title: 'Check-in failed', description: res?.error || res?.message || 'Unknown error', variant: 'destructive' });
       }
+    },
+    onError: () => {
+      toast({ title: 'Check-in failed', description: 'Network error — please retry.', variant: 'destructive' });
     },
   });
 

@@ -58,6 +58,7 @@ exports.getDepartmentQueue = async (req, res) => {
       QueueToken.find({
         department,
         status: { $in: ['WAITING', 'CALLED', 'IN_PROGRESS'] },
+        createdAt: { $gte: today },
       })
         .sort({ status: 1, priority: -1, createdAt: 1 })
         .populate('doctor', 'firstName lastName'),
