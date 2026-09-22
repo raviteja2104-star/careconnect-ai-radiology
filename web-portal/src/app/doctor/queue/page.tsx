@@ -26,15 +26,23 @@ function getDoctorIdFromToken(): string | null {
   }
 }
 
+const ALL_DEPARTMENTS = [
+  'OPD', 'General Medicine', 'Cardiology', 'Neurology', 'Orthopedics',
+  'Pediatrics', 'Emergency', 'Radiology', 'Laboratory', 'Pharmacy', 'Billing',
+];
+
 export default function DoctorQueueWorkspace() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [department, setDepartment] = useState('OPD');
+  const [viewerRole, setViewerRole] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTarget, setTransferTarget] = useState('Laboratory');
   const [transferPriority, setTransferPriority] = useState<'Routine' | 'Urgent' | 'Emergency'>('Routine');
 
-  // Fetch the authenticated doctor's department from the API on mount.
+  // Fetch the authenticated user's profile on mount.
+  // Doctors: auto-set department from their specialization/department field.
+  // Admins/superadmins: no fixed department — they pick from the selector.
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token) return;
@@ -46,11 +54,18 @@ export default function DoctorQueueWorkspace() {
       .then(({ data }) => {
         if (!data) return;
         const user = data.user ?? data;
-        setDepartment(user.specialization || user.department || 'General Medicine');
+        const role: string = user.role ?? '';
+        setViewerRole(role);
+        if (role === 'doctor') {
+          setDepartment(user.specialization || user.department || 'OPD');
+        }
+        // admins keep the default 'OPD' and use the selector to change it
       })
-      .catch(() => {}); // keep default 'OPD' on any error
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isAdmin = viewerRole === 'admin' || viewerRole === 'superadmin';
 
   // Subscribe to private-doctor-{userId} so PATIENT_JOINED_WAITING_ROOM
   // arrives instantly via Pusher instead of waiting for the next React Query poll.
@@ -146,6 +161,19 @@ export default function DoctorQueueWorkspace() {
         title="Doctor Workspace"
         description="Live queue and token management"
         crumbs={[{ label: 'Doctor', href: '/dashboard' }, { label: 'Live Queue' }]}
+        actions={
+          isAdmin ? (
+            <Select
+              value={department}
+              onChange={e => setDepartment(e.target.value)}
+              aria-label="Select department queue"
+            >
+              {ALL_DEPARTMENTS.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </Select>
+          ) : undefined
+        }
       />
 
       <StatGrid className="sm:grid-cols-2 xl:grid-cols-2">
