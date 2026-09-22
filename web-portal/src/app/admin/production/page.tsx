@@ -58,16 +58,24 @@ export default function ProductionHardeningPage() {
   const [activeTab, setActiveTab] = useState<'AUTH' | 'COMPLIANCE' | 'HARDWARE' | 'TESTING' | 'MOBILE' | 'AI_SAFETY' | 'GOLIVE'>('AUTH');
   const queryClient = useQueryClient();
 
-  // Static service data
   const [session] = useState<AuthUserSession>(authService.getCurrentSession());
   const [policy] = useState(authService.getSecurityPolicy());
   const [logs, setLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
   const [testMetrics] = useState<QualityMetricsData>(testingSuiteService.getTestMetrics());
-  const [compliance] = useState<RegulatoryComplianceStatus[]>(productionHardeningService.getCompliance());
-  const [devices] = useState<ClinicalDeviceInterface[]>(productionHardeningService.getDevices());
-  const [aiSafety] = useState<AISafetyValidationMetric[]>(productionHardeningService.getAISafety());
-  const [mobileApps] = useState<MobileAppHealthStatus[]>(productionHardeningService.getMobileApps());
-  const [goLive] = useState(productionHardeningService.getGoLiveChecklist());
+
+  const { data: complianceRes } = useQuery({ queryKey: ['admin-ops-production_compliance'], queryFn: () => fetch(`${API}/api/admin/ops/production_compliance`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const compliance: RegulatoryComplianceStatus[] = (complianceRes?.data?.length ? complianceRes.data : productionHardeningService.getCompliance()) as RegulatoryComplianceStatus[];
+
+  const { data: clinDevicesRes } = useQuery({ queryKey: ['admin-ops-production_device'], queryFn: () => fetch(`${API}/api/admin/ops/production_device`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const devices: ClinicalDeviceInterface[] = (clinDevicesRes?.data?.length ? clinDevicesRes.data : productionHardeningService.getDevices()) as ClinicalDeviceInterface[];
+
+  const { data: aiSafetyRes } = useQuery({ queryKey: ['admin-ops-production_ai_safety'], queryFn: () => fetch(`${API}/api/admin/ops/production_ai_safety`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const aiSafety: AISafetyValidationMetric[] = (aiSafetyRes?.data?.length ? aiSafetyRes.data : productionHardeningService.getAISafety()) as AISafetyValidationMetric[];
+
+  const { data: mobileRes } = useQuery({ queryKey: ['admin-ops-production_mobile_app'], queryFn: () => fetch(`${API}/api/admin/ops/production_mobile_app`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const mobileApps: MobileAppHealthStatus[] = (mobileRes?.data?.length ? mobileRes.data : productionHardeningService.getMobileApps()) as MobileAppHealthStatus[];
+
+  const goLive = productionHardeningService.getGoLiveChecklist();
 
   // Interactive Migration Form
   const [importSystem, setImportSystem] = useState('LOCAL_EXCEL');

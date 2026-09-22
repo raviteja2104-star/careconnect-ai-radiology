@@ -132,7 +132,7 @@ function demoEntry(
         traceId: `demo-trace-${String(id).padStart(4, '0')}`,
         requestBody: action !== 'READ' ? { _note: 'demo request payload' } : undefined,
         responseCode: statusCode,
-        durationMs: durationMs ?? Math.floor(Math.random() * 200 + 20),
+        durationMs: durationMs ?? 45,
         at,
         success: statusCode < 400,
     };

@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Database, Activity, Layers, Heart, RefreshCw, Users, FileText,
@@ -27,14 +28,27 @@ const riskTone: Record<PredictiveModelInsight['riskLevel'], 'success' | 'warning
   CRITICAL: 'danger',
 };
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function EnterpriseDataPlatformPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('TWIN');
 
-  // States
-  const [empi] = useState<MasterPatientIndexRecord[]>(enterpriseDataPlatformService.getEMPI());
-  const [assets] = useState<DataAssetRecord[]>(enterpriseDataPlatformService.getAssets());
-  const [popHealth] = useState<PopulationHealthMetric[]>(enterpriseDataPlatformService.getPopulationHealth());
-  const [predictive] = useState<PredictiveModelInsight[]>(enterpriseDataPlatformService.getPredictiveInsights());
+  const { data: empiRes } = useQuery({ queryKey: ['admin-ops-enterprise_empi'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_empi`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const empi: MasterPatientIndexRecord[] = (empiRes?.data ?? enterpriseDataPlatformService.getEMPI()) as MasterPatientIndexRecord[];
+
+  const { data: assetsRes } = useQuery({ queryKey: ['admin-ops-enterprise_asset'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_asset`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const assets: DataAssetRecord[] = (assetsRes?.data ?? enterpriseDataPlatformService.getAssets()) as DataAssetRecord[];
+
+  const { data: popHealthRes } = useQuery({ queryKey: ['admin-ops-enterprise_pop_health'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_pop_health`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const popHealth: PopulationHealthMetric[] = (popHealthRes?.data ?? enterpriseDataPlatformService.getPopulationHealth()) as PopulationHealthMetric[];
+
+  const { data: predictiveRes } = useQuery({ queryKey: ['admin-ops-enterprise_predictive'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_predictive`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const predictive: PredictiveModelInsight[] = (predictiveRes?.data ?? enterpriseDataPlatformService.getPredictiveInsights()) as PredictiveModelInsight[];
+
   const [twin, setTwin] = useState<DigitalTwinHospitalState>(enterpriseDataPlatformService.getDigitalTwinState());
 
   // Research Query Form

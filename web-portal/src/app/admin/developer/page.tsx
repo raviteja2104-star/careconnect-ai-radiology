@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Code2, ShoppingBag, Terminal, Webhook, Zap, ShieldCheck, Key,
@@ -52,32 +53,92 @@ function CodeBlock({ children, onCopy, copyLabel }: { children: React.ReactNode;
   );
 }
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token
+    ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+}
+
 export default function DeveloperPlatformPage() {
   const [activeTab, setActiveTab] = useState<'MARKETPLACE' | 'SDKS' | 'WEBHOOKS' | 'EVENTS' | 'OAUTH' | 'CERTIFICATION'>('MARKETPLACE');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // State
-  const [apps, setApps] = useState<MarketplaceAppListing[]>(developerPlatformService.getMarketplaceApps());
-  const [sdks] = useState<SDKReleaseItem[]>(developerPlatformService.getSDKs());
-  const [webhooks, setWebhooks] = useState<WebhookSubscriptionRecord[]>(developerPlatformService.getWebhooks());
-  const [events] = useState<EventBusMessage[]>(developerPlatformService.getEvents());
   const [oauthApps] = useState(developerPlatformService.getOAuthApps());
   const [analytics] = useState(developerPlatformService.getAnalytics());
+
+  const { data: appsRes } = useQuery({
+    queryKey: ['admin-ops-developer_app'],
+    queryFn: () => fetch(`${API}/api/admin/ops/developer_app`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+  const apps: MarketplaceAppListing[] = (appsRes?.data ?? developerPlatformService.getMarketplaceApps()) as MarketplaceAppListing[];
+
+  const { data: sdksRes } = useQuery({
+    queryKey: ['admin-ops-developer_sdk'],
+    queryFn: () => fetch(`${API}/api/admin/ops/developer_sdk`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60_000,
+  });
+  const sdks: SDKReleaseItem[] = (sdksRes?.data ?? developerPlatformService.getSDKs()) as SDKReleaseItem[];
+
+  const { data: webhooksRes } = useQuery({
+    queryKey: ['admin-ops-developer_webhook'],
+    queryFn: () => fetch(`${API}/api/admin/ops/developer_webhook`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 15_000,
+  });
+  const webhooks: WebhookSubscriptionRecord[] = (webhooksRes?.data ?? developerPlatformService.getWebhooks()) as WebhookSubscriptionRecord[];
+
+  const { data: eventsRes } = useQuery({
+    queryKey: ['admin-ops-developer_event'],
+    queryFn: () => fetch(`${API}/api/admin/ops/developer_event`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 15_000,
+  });
+  const events: EventBusMessage[] = (eventsRes?.data ?? developerPlatformService.getEvents()) as EventBusMessage[];
 
   // Webhook Registration Modal State
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
   const [newWebhookEvent, setNewWebhookEvent] = useState('lab.result.ready');
 
+  const installMutation = useMutation({
+    mutationFn: (id: string) => {
+      const app = apps.find(a => a.id === id);
+      if (!app) return Promise.reject(new Error('App not found'));
+      const dbId = (appsRes?.data ?? []).find((a: MarketplaceAppListing & { _id?: string }) => a.id === id)?._id;
+      if (dbId) {
+        return fetch(`${API}/api/admin/ops/developer_app/${dbId}`, {
+          method: 'PATCH', headers: authHeaders(),
+          body: JSON.stringify({ ...app, status: 'INSTALLED', installCount: (app.installCount ?? 0) + 1 }),
+        }).then(r => r.json());
+      }
+      return fetch(`${API}/api/admin/ops/developer_app`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ ...app, status: 'INSTALLED', installCount: (app.installCount ?? 0) + 1 }),
+      }).then(r => r.json());
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-ops-developer_app'] }),
+  });
+
+  const addWebhookMutation = useMutation({
+    mutationFn: (payload: { targetUrl: string; events: string[] }) =>
+      fetch(`${API}/api/admin/ops/developer_webhook`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ id: `wh-${Date.now()}`, targetUrl: payload.targetUrl, events: payload.events, signingSecret: `whsec_${Date.now()}`, status: 'ACTIVE', successPct: 100, lastDelivery: 'just now' }),
+      }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-ops-developer_webhook'] }),
+  });
+
   const handleInstallApp = (id: string) => {
     developerPlatformService.installApp(id);
-    setApps([...developerPlatformService.getMarketplaceApps()]);
+    installMutation.mutate(id);
   };
 
   const handleAddWebhook = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWebhookUrl) return;
     developerPlatformService.registerWebhook(newWebhookUrl, [newWebhookEvent]);
-    setWebhooks([...developerPlatformService.getWebhooks()]);
+    addWebhookMutation.mutate({ targetUrl: newWebhookUrl, events: [newWebhookEvent] });
     setNewWebhookUrl('');
   };
 

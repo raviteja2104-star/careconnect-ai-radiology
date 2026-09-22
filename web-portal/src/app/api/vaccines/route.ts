@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           ...v,
           status,
           givenDate: givenDate || new Date().toISOString().split('T')[0],
-          batchNo: batchNo || `LOT-${Math.floor(1000 + Math.random() * 9000)}`,
+          batchNo: batchNo || undefined,
         };
       }
       return v;

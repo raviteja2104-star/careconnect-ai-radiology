@@ -77,7 +77,13 @@ export default function EnterpriseCommercialPage() {
   // Local service fallback states
   const [tenants] = useState<TenantAccountRecord[]>(commercialSaaSPlatformService.getTenants());
   const [financials] = useState<FinancialMetricRecord>(commercialSaaSPlatformService.getFinancials());
-  const [partners] = useState<PartnerEcosystemRecord[]>(commercialSaaSPlatformService.getPartners());
+
+  const { data: partnersRes } = useQuery({
+    queryKey: ['admin-ops-commercial_partner'],
+    queryFn: () => fetch(`${API}/api/admin/ops/commercial_partner`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60_000,
+  });
+  const partners: PartnerEcosystemRecord[] = (partnersRes?.data ?? commercialSaaSPlatformService.getPartners()) as PartnerEcosystemRecord[];
 
   // API queries
   const { data: tenantsRes } = useQuery({

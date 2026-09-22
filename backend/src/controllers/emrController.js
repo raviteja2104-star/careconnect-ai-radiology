@@ -263,7 +263,7 @@ exports.createEncounter = async (req, res) => {
 exports.listEncounters = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.json([{ _id: 'mock-enc-1', patientId: req.query.patientId || req.user._id, doctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, type: 'Consultation', status: 'completed', specialty: 'General', createdAt: new Date() }]);
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
         }
         const filter = {};
         if (req.user.tenantId) filter.tenantId = req.user.tenantId;
@@ -286,11 +286,7 @@ exports.listEncounters = async (req, res) => {
 exports.getEncounter = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.json({
-                encounter: { _id: req.params.id, patientId: { _id: 'demo-patient-1', name: 'Demo Patient' }, doctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, type: 'Consultation', status: 'completed', specialty: 'General', createdAt: new Date() },
-                notes: [{ _id: 'mock-note-1', status: 'signed', format: 'soap', sections: { subjective: 'Patient reports fever.', objective: 'Temp 101F', assessment: 'Viral fever', plan: 'Rest and hydration' }, signedAt: new Date() }],
-                orders: [{ _id: 'mock-ord-1', category: 'lab', department: 'Hematology', priority: 'Routine', status: 'completed', details: { testCode: 'CBC' } }]
-            });
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
         }
         const encounter = await Encounter.findById(req.params.id)
             .populate('doctorId', 'firstName lastName')
@@ -474,18 +470,7 @@ const ORDER_EVENTS = {
 exports.createOrder = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.status(201).json({
-                _id: `mock-order-${Date.now()}`,
-                encounterId: req.params.id,
-                patientId: 'demo-patient-1',
-                orderingDoctorId: req.user._id,
-                category: req.body.category,
-                priority: req.body.priority || 'routine',
-                department: req.body.department,
-                details: req.body.details || {},
-                status: 'acknowledged',
-                orderCode: `ORD-${Date.now().toString().slice(-4)}`
-            });
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
         }
         const traceId = traceOf(req);
         const mongoose = require('mongoose');
@@ -561,10 +546,7 @@ exports.createOrder = async (req, res) => {
 exports.listOrders = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.json([
-                { _id: 'mock-order-1', patientId: 'demo-patient-1', orderingDoctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, category: req.query.category || 'lab', priority: 'Routine', department: 'Pathology', status: 'acknowledged', details: { testName: 'Complete Blood Count' }, createdAt: new Date() },
-                { _id: 'mock-order-2', patientId: 'demo-patient-1', orderingDoctorId: { _id: 'demo-doc', name: 'Dr. Demo' }, category: req.query.category || 'radiology', priority: 'Stat', department: 'Imaging', status: 'completed', details: { scanCode: 'MRI-BRAIN' }, createdAt: new Date() }
-            ]);
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
         }
         const filter = {};
         if (req.user.tenantId) filter.tenantId = req.user.tenantId;
@@ -587,7 +569,7 @@ exports.listOrders = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.json({ _id: req.params.orderId, status: req.body.status, orderCode: 'ORD-DEMO', category: 'mock' });
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
         }
         const { status, note } = req.body;
         const allowed = ['acknowledged', 'in_progress', 'completed', 'cancelled'];

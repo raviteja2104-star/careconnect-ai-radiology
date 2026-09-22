@@ -292,7 +292,7 @@ class LowCodeWorkflowService {
           nodeLabel: startNode?.label || 'Workflow Triggered',
           action: 'INITIATED',
           performedBy: 'System Orchestrator',
-          digitalSignature: `SIG-SHA256-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+          digitalSignature: `EVT-${Date.now().toString(16).toUpperCase()}`
         }
       ]
     };

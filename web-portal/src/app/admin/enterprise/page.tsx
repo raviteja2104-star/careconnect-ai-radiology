@@ -48,11 +48,16 @@ const ABDM_MILESTONES = [
 export default function EnterpriseIntegrationHubPage() {
   const [activeTab, setActiveTab] = useState<'FHIR' | 'HL7' | 'DEVICES' | 'ABDM' | 'API_GATEWAY' | 'RECOVERY'>('FHIR');
 
-  // States
-  const [fhirResources] = useState<FHIRResourceRecord[]>(integrationHubService.getFHIRResources());
-  const [hl7Messages] = useState<HL7MessageRecord[]>(integrationHubService.getHL7Messages());
-  const [devices] = useState<DeviceTelemetryRecord[]>(integrationHubService.getDevices());
-  const [health] = useState(integrationHubService.getSystemHealth());
+  const { data: fhirRes } = useQuery({ queryKey: ['admin-ops-integration_fhir'], queryFn: () => fetch(`${API}/api/admin/ops/integration_fhir`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const fhirResources: FHIRResourceRecord[] = (fhirRes?.data?.length ? fhirRes.data : integrationHubService.getFHIRResources()) as FHIRResourceRecord[];
+
+  const { data: hl7Res } = useQuery({ queryKey: ['admin-ops-integration_hl7'], queryFn: () => fetch(`${API}/api/admin/ops/integration_hl7`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const hl7Messages: HL7MessageRecord[] = (hl7Res?.data?.length ? hl7Res.data : integrationHubService.getHL7Messages()) as HL7MessageRecord[];
+
+  const { data: devicesRes } = useQuery({ queryKey: ['admin-ops-integration_device'], queryFn: () => fetch(`${API}/api/admin/ops/integration_device`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const devices: DeviceTelemetryRecord[] = (devicesRes?.data?.length ? devicesRes.data : integrationHubService.getDevices()) as DeviceTelemetryRecord[];
+
+  const health = integrationHubService.getSystemHealth();
 
   const [testEndpoint, setTestEndpoint] = useState('https://fhir.careconnect.hospital/r4/Patient');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

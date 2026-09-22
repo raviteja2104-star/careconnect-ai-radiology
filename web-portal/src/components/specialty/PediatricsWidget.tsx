@@ -22,7 +22,7 @@ export const PediatricsWidget: React.FC = () => {
           ...v,
           status: nextStatus,
           givenDate: nextStatus === 'given' ? new Date().toISOString().split('T')[0] : undefined,
-          batchNo: nextStatus === 'given' ? `LOT-${Math.floor(1000 + Math.random() * 9000)}` : undefined
+          batchNo: nextStatus === 'given' ? undefined : undefined
         };
       }
       return v;

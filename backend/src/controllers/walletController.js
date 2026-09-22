@@ -3,14 +3,9 @@ const User = require('../models/User');
 
 const isDB = () => { const m = require('mongoose'); return m.connection.readyState === 1; };
 
-let mockBalance = 1250;
-let mockTransactions = [
-    { _id: 'tx-1', type: 'credit', amount: 5000, label: 'Initial Topup', createdAt: new Date().toISOString() }
-];
-
 exports.getBalance = async (req, res, next) => {
     try {
-        if (!isDB()) return res.json({ success: true, data: { balance: mockBalance, name: req.user.firstName } });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const user = await User.findById(req.user._id).select('credits firstName');
         res.json({ success: true, data: { balance: user?.credits || 0, name: user?.firstName || '' } });
     } catch (err) { next(err); }
@@ -18,7 +13,7 @@ exports.getBalance = async (req, res, next) => {
 
 exports.getTransactions = async (req, res, next) => {
     try {
-        if (!isDB()) return res.json({ success: true, data: mockTransactions, total: mockTransactions.length, pages: 1 });
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         const { page = 1, limit = 20 } = req.query;
         const txs = await WalletTransaction.find({ userId: req.user._id })
             .sort({ createdAt: -1 })
@@ -39,12 +34,7 @@ exports.topUp = async (req, res, next) => {
 };
 
 exports.deductCredits = async (userId, { amount, label, referenceId, referenceType }) => {
-    if (!isDB()) {
-        if (mockBalance < amount) throw new Error('Insufficient credits');
-        mockBalance -= amount;
-        mockTransactions.unshift({ _id: `tx-${Date.now()}`, type: 'debit', amount, label, referenceId, createdAt: new Date().toISOString() });
-        return mockBalance;
-    }
+    if (!isDB()) throw new Error('Database unavailable — credit deduction requires a live DB connection');
     const user = await User.findById(userId);
     if (!user || (user.credits || 0) < amount) throw new Error('Insufficient credits');
     const updated = await User.findByIdAndUpdate(userId, { $inc: { credits: -amount } }, { new: true });

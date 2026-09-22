@@ -176,7 +176,7 @@ const isDBConnected = () => require('mongoose').connection.readyState === 1;
 exports.getWorklist = async (req, res) => {
     try {
         if (!isDBConnected()) {
-            return res.json({ success: true, count: 1, data: [{ _id: 'mock-lis-1', labNumber: 'LAB-123', status: 'VERIFICATION_PENDING', priority: 'stat', patientId: { firstName: 'Ravi', lastName: 'Teja' }, orderingDoctorId: { firstName: 'Demo', lastName: 'Doc' }, tests: [{ name: 'CBC', parameters: [{ name: 'Hemoglobin', value: '14.2', refRangeUsed: '13-17' }] }], ageMinutes: 15, createdAt: new Date() }] });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
         const { status, priority, q } = req.query;
         const filter = {};

@@ -120,7 +120,7 @@ const sendOtp = async (req, res, next) => {
         if (!identifier) return res.status(400).json({ success: false, message: 'Please provide phone or email.' });
 
         // Generate a 6-digit OTP. Set STATIC_OTP env var for testing only — never in production.
-        const otp = process.env.STATIC_OTP || Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = process.env.STATIC_OTP || require('crypto').randomInt(100000, 999999).toString();
         
         // Store OTP with 5-minute TTL (Redis when available, in-memory fallback for dev)
         await otpStore.set(identifier, otp);

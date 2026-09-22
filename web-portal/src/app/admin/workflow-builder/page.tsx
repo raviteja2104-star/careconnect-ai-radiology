@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   GitMerge, Play, CheckCircle2, Plus, Trash2, Save,
@@ -20,19 +21,63 @@ import {
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
 type StudioTab = 'BUILDER' | 'FORMS' | 'RULES' | 'APPROVALS' | 'NOTIFICATIONS' | 'INTEGRATIONS' | 'MARKETPLACE' | 'VERSIONS';
 
 export default function EnterpriseWorkflowStudioPage() {
   const [activeTab, setActiveTab] = useState<StudioTab>('BUILDER');
+  const queryClient = useQueryClient();
 
   // Canvas State
   const [activeWorkflow, setActiveWorkflow] = useState<WorkflowDefinition>(WORKFLOW_TEMPLATES[0]);
+  const [activeWorkflowDbId, setActiveWorkflowDbId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(activeWorkflow.nodes[3]);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simStepIndex, setSimStepIndex] = useState(0);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[] } | null>(null);
   const [saveToast, setSaveToast] = useState(false);
+
+  // Load workflow definitions from backend
+  const { data: workflowsRes } = useQuery({
+    queryKey: ['admin-ops-workflow_definition'],
+    queryFn: () => fetch(`${API}/api/admin/ops/workflow_definition`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const list = workflowsRes?.data ?? [];
+    if (list.length > 0) {
+      const first = list[0] as WorkflowDefinition & { _id: string };
+      setActiveWorkflow(first);
+      setActiveWorkflowDbId(first._id);
+      setSelectedNode(first.nodes?.[3] ?? first.nodes?.[0] ?? null);
+    }
+  }, [workflowsRes]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (wf: WorkflowDefinition) => {
+      if (activeWorkflowDbId) {
+        const res = await fetch(`${API}/api/admin/ops/workflow_definition/${activeWorkflowDbId}`, {
+          method: 'PATCH', headers: authHeaders(), body: JSON.stringify(wf),
+        });
+        return res.json();
+      }
+      const res = await fetch(`${API}/api/admin/ops/workflow_definition`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(wf),
+      });
+      return res.json();
+    },
+    onSuccess: (json) => {
+      if (json?.data?._id) setActiveWorkflowDbId(json.data._id);
+      queryClient.invalidateQueries({ queryKey: ['admin-ops-workflow_definition'] });
+    },
+  });
 
   // Studio Sub-State
   const [formsList, setFormsList] = useState(bpmWorkflowStudioService.getForms());
@@ -99,6 +144,7 @@ export default function EnterpriseWorkflowStudioPage() {
 
   const handleSave = () => {
     lowCodeWorkflowService.saveDefinition(activeWorkflow);
+    saveMutation.mutate(activeWorkflow);
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 3000);
   };

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   FolderKanban, Terminal, Sparkles, Workflow, BookOpen, GitCommitHorizontal,
@@ -38,15 +39,28 @@ const DEBT_SEVERITY_TONE: Record<TechDebtItem['severity'], 'danger' | 'warning' 
   MINOR: 'neutral',
 };
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function EnterpriseProgramPage() {
   const [activeTab, setActiveTab] = useState<'PORTFOLIO' | 'TRACEABILITY' | 'DEVSECOPS' | 'ARCHITECTURE' | 'TECH_DEBT'>('PORTFOLIO');
 
-  // States
-  const [initiatives] = useState<PortfolioInitiative[]>(enterpriseProgramService.getInitiatives());
-  const [matrix] = useState<TraceabilityMatrixItem[]>(enterpriseProgramService.getMatrix());
-  const [techDebt] = useState<TechDebtItem[]>(enterpriseProgramService.getTechDebt());
-  const [adrs] = useState<ArchitectureRecord[]>(enterpriseProgramService.getADRs());
-  const [engMetrics] = useState(enterpriseProgramService.getEngineeringDevSecOpsMetrics());
+  const { data: initiativesRes } = useQuery({ queryKey: ['admin-ops-program_initiative'], queryFn: () => fetch(`${API}/api/admin/ops/program_initiative`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const initiatives: PortfolioInitiative[] = (initiativesRes?.data ?? enterpriseProgramService.getInitiatives()) as PortfolioInitiative[];
+
+  const { data: matrixRes } = useQuery({ queryKey: ['admin-ops-program_matrix'], queryFn: () => fetch(`${API}/api/admin/ops/program_matrix`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const matrix: TraceabilityMatrixItem[] = (matrixRes?.data ?? enterpriseProgramService.getMatrix()) as TraceabilityMatrixItem[];
+
+  const { data: techDebtRes } = useQuery({ queryKey: ['admin-ops-program_tech_debt'], queryFn: () => fetch(`${API}/api/admin/ops/program_tech_debt`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const techDebt: TechDebtItem[] = (techDebtRes?.data ?? enterpriseProgramService.getTechDebt()) as TechDebtItem[];
+
+  const { data: adrsRes } = useQuery({ queryKey: ['admin-ops-program_adr'], queryFn: () => fetch(`${API}/api/admin/ops/program_adr`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const adrs: ArchitectureRecord[] = (adrsRes?.data ?? enterpriseProgramService.getADRs()) as ArchitectureRecord[];
+
+  const engMetrics = enterpriseProgramService.getEngineeringDevSecOpsMetrics();
 
   // Interactive AI Assistant State
   const [aiPrompt, setAiPrompt] = useState('Generate release notes for v1.1.0-hardened detailing OAuth 2.1, PHI scanner, & k6 load test results.');

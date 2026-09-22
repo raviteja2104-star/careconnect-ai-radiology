@@ -165,7 +165,7 @@ class WorkflowEngine {
       performedByRole: byRole,
       performedByName: byName,
       notes,
-      digitalSignature: `SIG-SHA256-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+      digitalSignature: `EVT-${Date.now().toString(16).toUpperCase()}`
     };
 
     const updatedItem: WorkflowItem = {

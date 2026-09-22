@@ -5,22 +5,48 @@ const { deductCredits } = require('./walletController');
 // Credit pricing per modality
 const SCAN_CREDIT_COST = { XRAY: 2, CT: 5, MRI: 8 };
 
+const User = require('../models/User');
+
+const FALLBACK_SPECIALISTS = [
+    { _id: 's1', firstName: 'Sarah', lastName: 'Wilson', specialization: 'Neuroradiology', marketplaceRating: 4.9, marketplaceFee: 45, marketplaceTat: '2-4hrs', isMarketplaceAvailable: true },
+    { _id: 's2', firstName: 'James', lastName: 'Chen', specialization: 'Cardiothoracic Radiology', marketplaceRating: 4.8, marketplaceFee: 60, marketplaceTat: '1-3hrs', isMarketplaceAvailable: true },
+    { _id: 's3', firstName: 'Priya', lastName: 'Verma', specialization: 'Musculoskeletal Radiology', marketplaceRating: 5.0, marketplaceFee: 35, marketplaceTat: '4-6hrs', isMarketplaceAvailable: true },
+    { _id: 's4', firstName: 'Arjun', lastName: 'Mehta', specialization: 'Abdominal Radiology', marketplaceRating: 4.7, marketplaceFee: 50, marketplaceTat: '3-5hrs', isMarketplaceAvailable: false },
+    { _id: 's5', firstName: 'Aiko', lastName: 'Tanaka', specialization: 'Paediatric Radiology', marketplaceRating: 4.9, marketplaceFee: 55, marketplaceTat: '2-4hrs', isMarketplaceAvailable: true },
+];
+
+function formatSpecialist(u) {
+    return {
+        id: String(u._id),
+        name: `Dr. ${u.firstName} ${u.lastName}`.trim(),
+        specialization: u.specialization,
+        rating: u.marketplaceRating ?? 4.8,
+        fee: u.marketplaceFee ?? 50,
+        tat: u.marketplaceTat ?? '4-6hrs',
+        available: u.isMarketplaceAvailable ?? false,
+    };
+}
+
 /**
  * GET /api/marketplace/specialists
- * Returns curated specialist directory (static + future DB-driven).
  */
 exports.listSpecialists = async (req, res) => {
-    // In production → query User.find({ role: 'radiologist', isMarketplaceListed: true })
-    res.json({
-        success: true,
-        data: [
-            { id: 's1', name: 'Dr. Sarah Wilson', specialization: 'Neuroradiology', rating: 4.9, fee: 45, tat: '2-4hrs', available: true },
-            { id: 's2', name: 'Dr. James Chen', specialization: 'Cardiothoracic', rating: 4.8, fee: 60, tat: '1-3hrs', available: true },
-            { id: 's3', name: 'Dr. Priya Verma', specialization: 'Musculoskeletal', rating: 5.0, fee: 35, tat: '4-6hrs', available: true },
-            { id: 's4', name: 'Dr. Arjun Mehta', specialization: 'Abdominal', rating: 4.7, fee: 50, tat: '3-5hrs', available: false },
-            { id: 's5', name: 'Dr. Aiko Tanaka', specialization: 'Paediatric', rating: 4.9, fee: 55, tat: '2-4hrs', available: true },
-        ]
-    });
+    try {
+        const { isDB } = require('./walletController'); // reuse helper
+        const dbReady = require('mongoose').connection.readyState === 1;
+        if (!dbReady) {
+            return res.json({ success: true, data: FALLBACK_SPECIALISTS.map(formatSpecialist) });
+        }
+        const users = await User.find({ role: 'radiologist', isMarketplaceListed: true })
+            .select('firstName lastName specialization marketplaceRating marketplaceFee marketplaceTat isMarketplaceAvailable avatar')
+            .lean();
+        const data = users.length > 0
+            ? users.map(formatSpecialist)
+            : FALLBACK_SPECIALISTS.map(formatSpecialist);
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 };
 
 /**
@@ -36,12 +62,7 @@ exports.requestOpinion = async (req, res, next) => {
         const fee = specialistMeta?.fee || 50;
 
         if (!isDB()) {
-            const balanceAfter = await deductCredits(req.user._id, {
-                amount: fee,
-                label: `Second Opinion — ${specialistMeta?.name}`,
-                referenceId: scanId,
-            });
-            return res.status(201).json({ success: true, data: { status: 'pending', id: 'mock-opinion', fee }, balanceAfter });
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
         }
 
         const scan = await RadiologyScan.findById(scanId);
