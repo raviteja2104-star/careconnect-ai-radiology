@@ -37,6 +37,45 @@ exports.getRevenueDashboard = async (req, res) => {
   }
 };
 
+// @desc    Billing stats for reception pages
+// @route   GET /api/billing/stats
+exports.getBillingStats = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const allInvoices = await Invoice.find({});
+    const todayInvoices = allInvoices.filter(inv => new Date(inv.issuedAt) >= today);
+
+    let todayRevenue = 0;
+    let pendingAmount = 0;
+    let paidCount = 0;
+    let overdueCount = 0;
+
+    todayInvoices.forEach(inv => { todayRevenue += inv.amountPaid || 0; });
+
+    const now = new Date();
+    allInvoices.forEach(inv => {
+      if (inv.status === 'PAID') paidCount++;
+      if (inv.amountDue > 0) pendingAmount += inv.amountDue;
+      if (inv.status === 'OVERDUE' || (inv.dueDate && new Date(inv.dueDate) < now && inv.amountDue > 0)) overdueCount++;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        todayRevenue,
+        pendingAmount,
+        totalInvoices: allInvoices.length,
+        paidCount,
+        overdueCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Generate a new invoice
 // @route   POST /api/billing/invoices
 exports.createInvoice = async (req, res) => {

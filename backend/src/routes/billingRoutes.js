@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getRevenueDashboard,
+  getBillingStats,
   createInvoice,
   getInvoice,
   getInvoices,
@@ -17,6 +18,9 @@ router.use(audit('Billing'));
 
 // Revenue dashboard — admin/billing staff only
 router.get('/dashboard', permit('STAFF.VIEW_REVENUE'), getRevenueDashboard);
+
+// Reception billing stats (todayRevenue, pendingAmount, paidCount, overdueCount)
+router.get('/stats', permitAny('STAFF.BILLING', 'STAFF.VIEW_REVENUE'), getBillingStats);
 
 // Invoices — patients see own invoices; billing staff see all.
 // Controller scopes results to req.user for patient role.

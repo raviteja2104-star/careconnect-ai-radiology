@@ -75,7 +75,7 @@ export default function EmergencyDepartment() {
 
   const stats = [
     { label: 'Patients Waiting', value: apiStats ? String(apiStats.triageWaiting) : '—', icon: Clock,     tone: 'amber'  as const, sub: 'In waiting room now' },
-    { label: 'Avg Wait Time',    value: apiStats ? `${apiStats.averageWaitMins}m`  : '—', icon: Hourglass, tone: 'brand'  as const, sub: 'Door to provider' },
+    { label: 'Avg Wait Time',    value: apiStats?.averageWaitMins != null ? `${apiStats.averageWaitMins}m` : '—', icon: Hourglass, tone: 'brand'  as const, sub: 'Door to provider' },
     { label: 'Critical (ESI 1-2)', value: apiStats ? String(apiStats.critical)     : '—', icon: AlertTriangle, tone: 'rose' as const, sub: 'Active resuscitation / emergent' },
     { label: 'En Route',         value: apiStats ? String(apiStats.enRoute)        : '—', icon: Truck,     tone: 'violet' as const, sub: 'EMS inbound' },
   ];
