@@ -60,6 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Doctor Dashboard', path: '/dashboard', icon: Stethoscope, keywords: 'physician overview' },
             { name: 'Review Dashboard', path: '/health-records/dashboard', icon: ClipboardCheck, keywords: 'health record capture review queue clinician verification low confidence' },
             { name: 'My Queue', path: '/doctor/queue', icon: ListOrdered, keywords: 'patients waiting tokens' },
+            { name: 'Telemedicine', path: '/doctor/telemedicine', icon: Video, keywords: 'video virtual consult telemedicine' },
             { name: 'Consultations', path: '/consultations', icon: FolderHeart, keywords: 'soap notes visits' },
             { name: 'EMR', path: '/emr', icon: FileText, keywords: 'records charting' },
             { name: 'Patients', path: '/patients', icon: Users, keywords: 'directory list' },
