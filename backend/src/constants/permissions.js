@@ -449,7 +449,7 @@ const DEFAULT_ROLES = [
         name: 'HOSPITAL_ADMIN',
         displayName: 'Hospital Administrator',
         description: 'Full hospital operations, staff, permissions, and system settings.',
-        workspaces: ['ADMINISTRATION', 'HOSPITAL_STAFF'],
+        workspaces: ['ADMINISTRATION', 'HOSPITAL_STAFF', 'RADIOLOGY'],
         isSystem: true,
         permissions: [
             'ADMIN.VIEW_USERS', 'ADMIN.CREATE_USERS', 'ADMIN.EDIT_USERS', 'ADMIN.DISABLE_USERS',
