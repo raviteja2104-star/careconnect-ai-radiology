@@ -96,6 +96,15 @@ function userHasWorkspaceFor(pathname: string, workspaces: string[]): boolean {
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
+    // Redirect authenticated clinical users from the B2C /patients page to the clinical list.
+    if (pathname === '/patients' && req.cookies.has('cc-session')) {
+        const rawWorkspaces = req.cookies.get('cc-workspaces')?.value ?? '';
+        const workspaces = decodeURIComponent(rawWorkspaces).split(',').filter(Boolean);
+        if (workspaces.length > 0 && !workspaces.includes('PATIENT')) {
+            return NextResponse.redirect(new URL('/emr/patients', req.url));
+        }
+    }
+
     // Always allow public paths and infrastructure prefixes
     if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
     for (const prefix of PUBLIC_PREFIXES) {
