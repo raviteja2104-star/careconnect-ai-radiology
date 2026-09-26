@@ -54,6 +54,7 @@ const DEMO_USERS = [
         phone: '+91-9000000001', role: 'admin',
         rbacRole: 'SUPER_ADMIN',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         hospital: DEMO_HOSPITAL, department: 'Administration',
     },
     {
@@ -62,6 +63,7 @@ const DEMO_USERS = [
         phone: '+91-9000000002', role: 'doctor',
         rbacRole: 'DOCTOR',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         specialization: 'General Physician',
         licenseNumber: 'MCI-DEMO-10001',
         experience: 10, consultationFee: 500,
@@ -74,6 +76,7 @@ const DEMO_USERS = [
         phone: '+91-9000000011', role: 'doctor',
         rbacRole: 'DOCTOR',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         specialization: 'General Medicine',
         licenseNumber: 'MCI-DEMO-10002',
         experience: 15, consultationFee: 600,
@@ -86,6 +89,7 @@ const DEMO_USERS = [
         phone: '+91-9000000003', role: 'nurse',
         rbacRole: 'NURSE',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         hospital: DEMO_HOSPITAL, department: 'General Medicine',
     },
     {
@@ -94,6 +98,7 @@ const DEMO_USERS = [
         phone: '+91-9000000004', role: 'reception',
         rbacRole: 'RECEPTIONIST',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         hospital: DEMO_HOSPITAL, department: 'Front Desk',
     },
     {
@@ -119,6 +124,7 @@ const DEMO_USERS = [
         phone: '+91-9000000006', role: 'pharmacist',
         rbacRole: 'PHARMACY_STAFF',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         hospital: DEMO_HOSPITAL, department: 'Pharmacy',
     },
     {
@@ -127,6 +133,7 @@ const DEMO_USERS = [
         phone: '+91-9000000007', role: 'lab_tech',
         rbacRole: 'LAB_TECHNICIAN',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         hospital: DEMO_HOSPITAL, department: 'Laboratory',
     },
     {
@@ -135,6 +142,7 @@ const DEMO_USERS = [
         phone: '+91-9000000008', role: 'radiologist',
         rbacRole: 'RADIOLOGIST',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         specialization: 'Radiology',
         licenseNumber: 'MCI-DEMO-10008',
         experience: 8, consultationFee: 700,
@@ -147,6 +155,7 @@ const DEMO_USERS = [
         phone: '+91-9000000009', role: 'emergency',
         rbacRole: 'EMERGENCY_STAFF',
         isActive: true, isVerified: true,
+        tenantId: 't-default',
         hospital: DEMO_HOSPITAL, department: 'Emergency',
     },
 ];
