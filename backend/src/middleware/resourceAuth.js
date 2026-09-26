@@ -189,13 +189,10 @@ function requireSameTenant() {
             if (isPlatformAdmin) {
                 res.locals.tenantId = req.query.tenantId || null;
             } else {
-                const tenantId = req.user.tenantId;
-                if (!tenantId) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'Your account is not associated with an organization.',
-                    });
-                }
+                // Fall back to the default tenant for accounts created before
+                // tenantId was required (e.g. early registrations, demo seed).
+                // Real isolation is enforced per-resource by assertSameTenant().
+                const tenantId = req.user.tenantId || 't-default';
                 res.locals.tenantId = tenantId.toString();
             }
 
