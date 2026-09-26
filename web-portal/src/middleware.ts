@@ -131,7 +131,8 @@ export function middleware(req: NextRequest) {
             return NextResponse.next();
         }
 
-        if (!userHasWorkspaceFor(pathname, workspaces)) {
+        // ADMINISTRATION workspace = SUPER_ADMIN; they can access every workspace area.
+        if (!workspaces.includes('ADMINISTRATION') && !userHasWorkspaceFor(pathname, workspaces)) {
             return NextResponse.redirect(new URL('/home', req.url));
         }
     }
