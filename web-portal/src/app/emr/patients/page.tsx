@@ -2,11 +2,11 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { Users, Search, UserPlus, WifiOff } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Users, Search, UserPlus, WifiOff, X } from 'lucide-react';
 import {
     PageHeader, Badge, Card, CardContent, Avatar, EmptyState, ErrorState,
-    Input, Skeleton,
+    Input, Skeleton, Button,
 } from '@/components/ui';
 import { API_BASE, getToken, ApiOfflineError, patientDisplayName, ageOf, type PatientRecord } from '../_lib/api';
 
@@ -34,6 +34,23 @@ const DEMO_PATIENTS: PatientRecord[] = [
     },
 ];
 
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+interface AddPatientForm {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    dateOfBirth: string;
+    gender: string;
+    bloodGroup: string;
+}
+
+const EMPTY_FORM: AddPatientForm = {
+    firstName: '', lastName: '', phone: '', email: '',
+    dateOfBirth: '', gender: '', bloodGroup: '',
+};
+
 async function fetchPatients(): Promise<{ data: PatientRecord[]; demo: boolean }> {
     const token = getToken();
     try {
@@ -58,8 +75,168 @@ async function fetchPatients(): Promise<{ data: PatientRecord[]; demo: boolean }
     }
 }
 
+async function createPatient(form: AddPatientForm): Promise<PatientRecord> {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/patients`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(form),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to create patient');
+    return json.data as PatientRecord;
+}
+
+function AddPatientModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const queryClient = useQueryClient();
+    const [form, setForm] = React.useState<AddPatientForm>(EMPTY_FORM);
+    const [error, setError] = React.useState('');
+
+    const mutation = useMutation({
+        mutationFn: createPatient,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['emr', 'patients-list'] });
+            setForm(EMPTY_FORM);
+            setError('');
+            onClose();
+        },
+        onError: (err: Error) => setError(err.message),
+    });
+
+    const set = (field: keyof AddPatientForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+        setForm((f) => ({ ...f, [field]: e.target.value }));
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setError('');
+        mutation.mutate(form);
+    }
+
+    React.useEffect(() => {
+        if (!open) { setForm(EMPTY_FORM); setError(''); }
+    }, [open]);
+
+    if (!open) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-background shadow-xl">
+                <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                    <h2 className="text-base font-semibold text-foreground">Register New Patient</h2>
+                    <button onClick={onClose} className="rounded-lg p-1 hover:bg-muted" aria-label="Close">
+                        <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">First Name *</label>
+                            <input
+                                required
+                                value={form.firstName}
+                                onChange={set('firstName')}
+                                placeholder="Priya"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Last Name *</label>
+                            <input
+                                required
+                                value={form.lastName}
+                                onChange={set('lastName')}
+                                placeholder="Sharma"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                            <input
+                                type="tel"
+                                value={form.phone}
+                                onChange={set('phone')}
+                                placeholder="+91 98765 43210"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Email</label>
+                            <input
+                                type="email"
+                                value={form.email}
+                                onChange={set('email')}
+                                placeholder="patient@example.com"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Date of Birth</label>
+                            <input
+                                type="date"
+                                value={form.dateOfBirth}
+                                onChange={set('dateOfBirth')}
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Gender</label>
+                            <select
+                                value={form.gender}
+                                onChange={set('gender')}
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                                <option value="">Select</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Blood Group</label>
+                            <select
+                                value={form.bloodGroup}
+                                onChange={set('bloodGroup')}
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                                <option value="">Unknown</option>
+                                {BLOOD_GROUPS.map((bg) => (
+                                    <option key={bg} value={bg}>{bg}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {error && (
+                        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-1">
+                        <Button type="button" variant="ghost" onClick={onClose} disabled={mutation.isPending}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={mutation.isPending}>
+                            {mutation.isPending ? 'Registering…' : 'Register Patient'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 export default function ClinicalPatientsPage() {
     const [search, setSearch] = React.useState('');
+    const [modalOpen, setModalOpen] = React.useState(false);
 
     const { data, isLoading, isError, refetch } = useQuery({
         queryKey: ['emr', 'patients-list'],
@@ -85,16 +262,24 @@ export default function ClinicalPatientsPage() {
 
     return (
         <div className="space-y-6">
+            <AddPatientModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
             <PageHeader
                 title="Patients"
                 description="Search and view your patient records."
                 crumbs={[{ label: 'Clinical', href: '/dashboard' }, { label: 'Patients' }]}
                 actions={
-                    demo ? (
-                        <Badge tone="warning" dot pulse>
-                            <WifiOff className="h-3 w-3" aria-hidden /> Demo data — backend offline
-                        </Badge>
-                    ) : undefined
+                    <div className="flex items-center gap-2">
+                        {demo && (
+                            <Badge tone="warning" dot pulse>
+                                <WifiOff className="h-3 w-3" aria-hidden /> Demo data — backend offline
+                            </Badge>
+                        )}
+                        <Button onClick={() => setModalOpen(true)}>
+                            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden />
+                            Add Patient
+                        </Button>
+                    </div>
                 }
             />
 
@@ -147,7 +332,7 @@ export default function ClinicalPatientsPage() {
                     action={
                         search
                             ? { label: 'Clear search', onClick: () => setSearch('') }
-                            : undefined
+                            : { label: 'Register first patient', onClick: () => setModalOpen(true) }
                     }
                 />
             )}
@@ -202,17 +387,6 @@ export default function ClinicalPatientsPage() {
                     })}
                 </div>
             )}
-
-            <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/40 p-4">
-                <UserPlus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                <p className="text-xs text-muted-foreground">
-                    To register a new patient, go to{' '}
-                    <Link href="/reception/walkin" className="font-semibold text-primary hover:underline">
-                        Walk-in Registration
-                    </Link>{' '}
-                    (requires Receptionist or Admin access).
-                </p>
-            </div>
         </div>
     );
 }
