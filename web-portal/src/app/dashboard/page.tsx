@@ -308,9 +308,9 @@ export default function DashboardPage() {
             <CardContent className="p-2">
               {[
                 { href: '/emr', type: 'radiology' as const, title: 'Review pending scans & reports', sub: 'Radiology · EMR' },
-                { href: '/prescriptions', type: 'prescription' as const, title: 'Manage prescriptions', sub: 'Medication orders' },
+                { href: '/pharmacy', type: 'prescription' as const, title: 'Manage prescriptions', sub: 'Medication orders' },
                 { href: '/lab-orders', type: 'lab' as const, title: 'Lab orders & results', sub: 'Pathology · LIS' },
-                { href: '/appointments', type: 'approval' as const, title: 'Appointment schedule', sub: 'Today & upcoming' },
+                { href: '/doctor/queue', type: 'approval' as const, title: 'Appointment schedule', sub: 'Today & upcoming' },
               ].map((task, i) => {
                 const cfg = TASK_CONFIG[task.type];
                 const Icon = cfg.icon;
