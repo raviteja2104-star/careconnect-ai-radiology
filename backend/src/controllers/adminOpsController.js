@@ -22,6 +22,45 @@ const SEEDS = {
     { environment: 'PRODUCTION_CANARY', version: 'v1.1.1-canary', deployedAt: '2026-07-25T19:00:00Z', status: 'HEALTHY', activeTrafficPct: 10 },
     { environment: 'STAGING', version: 'v1.2.0-rc1', deployedAt: '2026-07-25T19:30:00Z', status: 'HEALTHY', activeTrafficPct: 0 },
   ],
+  workflow_form: [
+    {
+      id: 'form-triage-1', name: 'Nurse Station Vitals & Acuity Form',
+      fields: [
+        { id: 'f1', label: 'Patient Name', type: 'PATIENT_SEARCH', required: true },
+        { id: 'f2', label: 'Systolic BP (mmHg)', type: 'NUMBER', required: true, placeholder: '120' },
+        { id: 'f3', label: 'Heart Rate (bpm)', type: 'NUMBER', required: true, placeholder: '72' },
+        { id: 'f4', label: 'Oxygen Saturation (SpO2 %)', type: 'NUMBER', required: true, placeholder: '98' },
+        { id: 'f5', label: 'Chief Complaint', type: 'TEXT', required: true, placeholder: 'Describe symptoms...' },
+        { id: 'f6', label: 'Attending Doctor', type: 'DOCTOR_SEARCH', required: true },
+      ],
+    },
+  ],
+  workflow_rule: [
+    { id: 'r1', name: 'Paediatric EMR Trigger', ifCondition: 'patient.age < 5', thenAction: 'Load Paediatric EMR & Growth Charts' },
+    { id: 'r2', name: 'Cardiology ECG Auto-Load', ifCondition: 'consultation.specialty == "Cardiology"', thenAction: 'Load ECG Widget & CHA2DS2-VASc Calculator' },
+    { id: 'r3', name: 'High HbA1c Dietitian Alert', ifCondition: 'lab.hbA1c > 9.0', thenAction: 'Trigger Dietitian Auto-Referral & Diabetes Education PDF' },
+  ],
+  workflow_approval: [
+    {
+      id: 'app-rx-high-risk', name: 'High-Risk Controlled Drug Rx Approval',
+      stages: [
+        { stageNumber: 1, role: 'JUNIOR_DOCTOR', requiredApprovalCount: 1, slaMinutes: 15 },
+        { stageNumber: 2, role: 'SENIOR_CONSULTANT', requiredApprovalCount: 1, slaMinutes: 30 },
+        { stageNumber: 3, role: 'PHARMACY', requiredApprovalCount: 1, slaMinutes: 20 },
+      ],
+    },
+  ],
+  workflow_notification: [
+    {
+      id: 'notif-app-confirm', name: 'Appointment Confirmation WhatsApp & SMS',
+      channel: 'WHATSAPP',
+      bodyTemplate: 'Dear {{PatientName}}, your appointment with {{DoctorName}} at {{HospitalName}} is confirmed for {{AppointmentDate}}. Token #{{TokenNumber}}.',
+    },
+  ],
+  workflow_integration: [
+    { id: 'int-abdm', name: 'ABDM ABHA Health ID Gateway', protocol: 'ABDM_ABHA', endpointUrl: 'https://healthidsbx.abdm.gov.in/api/v1/registration', timeoutMs: 5000, retryPolicy: 'EXPONENTIAL_BACKOFF' },
+    { id: 'int-pacs', name: 'Orthanc DICOM Radiology PACS Server', protocol: 'PACS_DICOM', endpointUrl: 'http://pacs.careconnect.hospital:8042/dicom-web', timeoutMs: 10000, retryPolicy: 'EXPONENTIAL_BACKOFF' },
+  ],
   workflow_definition: [
     { id: 'tmpl-opd-01', key: 'opd-consultation', name: 'OPD Consultation & EMR Workflow', category: 'OPD', description: 'Standard outpatient workflow from registration token to multi-language e-prescription and billing checkout.', version: 1, status: 'PUBLISHED', updatedAt: '2026-07-25', nodes: [ { id: 'n1', type: 'START', label: 'Patient Arrival & Token Generated', position: { x: 50, y: 150 } }, { id: 'n2', type: 'USER_TASK', label: 'Reception Check-in & Insurance Verification', assignedRole: 'RECEPTIONIST', slaMinutes: 10, position: { x: 250, y: 150 } }, { id: 'n3', type: 'USER_TASK', label: 'Nurse Station Vitals Entry', assignedRole: 'NURSE', slaMinutes: 15, position: { x: 450, y: 150 } }, { id: 'n4', type: 'USER_TASK', label: 'Doctor Specialty Consultation', assignedRole: 'DOCTOR', slaMinutes: 30, position: { x: 650, y: 150 } }, { id: 'n5', type: 'AI_TASK', label: 'AI Scribe & Drug Interaction Check', assignedRole: 'AI_AGENT', aiTaskType: 'DRUG_INTERACTION', position: { x: 850, y: 150 } }, { id: 'n6', type: 'EXCLUSIVE_GATEWAY', label: 'Investigations Ordered?', position: { x: 1050, y: 150 } }, { id: 'n7', type: 'USER_TASK', label: 'Pharmacy Medicine Dispense', assignedRole: 'PHARMACY', slaMinutes: 20, position: { x: 1250, y: 80 } }, { id: 'n8', type: 'USER_TASK', label: 'Billing Counter Settlement', assignedRole: 'BILLING', slaMinutes: 15, position: { x: 1250, y: 220 } }, { id: 'n9', type: 'END', label: 'Consultation Completed', position: { x: 1450, y: 150 } } ], transitions: [ { id: 't1', sourceNodeId: 'n1', targetNodeId: 'n2' }, { id: 't2', sourceNodeId: 'n2', targetNodeId: 'n3' }, { id: 't3', sourceNodeId: 'n3', targetNodeId: 'n4' }, { id: 't4', sourceNodeId: 'n4', targetNodeId: 'n5' }, { id: 't5', sourceNodeId: 'n5', targetNodeId: 'n6' }, { id: 't6', sourceNodeId: 'n6', targetNodeId: 'n7', conditionLabel: 'No Labs / Prescribed Only' }, { id: 't7', sourceNodeId: 'n6', targetNodeId: 'n8', conditionLabel: 'Labs Required' }, { id: 't8', sourceNodeId: 'n7', targetNodeId: 'n9' }, { id: 't9', sourceNodeId: 'n8', targetNodeId: 'n9' } ] },
     { id: 'tmpl-er-02', key: 'emergency-trauma', name: 'Emergency Room (ER) & Sepsis Protocol', category: 'EMERGENCY', description: 'High-acuity triage (ESI Level 1-5), Sepsis 1-hour bundle execution, and rapid ICU bed allocation.', version: 1, status: 'PUBLISHED', updatedAt: '2026-07-25', nodes: [ { id: 'n10', type: 'START', label: 'Ambulance / Walk-in Trauma Triage', position: { x: 50, y: 150 } }, { id: 'n11', type: 'DECISION', label: 'Evaluate ESI Triage Level (1-5)', conditionExpression: 'patient.esiLevel <= 2', position: { x: 250, y: 150 } }, { id: 'n12', type: 'SLA_MONITOR', label: 'Sepsis 1-Hour Bundle Timer', slaMinutes: 60, position: { x: 450, y: 80 } }, { id: 'n13', type: 'USER_TASK', label: 'Resuscitation & STAT Blood Gas', assignedRole: 'DOCTOR', slaMinutes: 15, position: { x: 650, y: 150 } }, { id: 'n14', type: 'END', label: 'Admitted to ICU / OT', position: { x: 850, y: 150 } } ], transitions: [ { id: 't10', sourceNodeId: 'n10', targetNodeId: 'n11' }, { id: 't11', sourceNodeId: 'n11', targetNodeId: 'n12', conditionLabel: 'Emergent (ESI 1-2)' }, { id: 't12', sourceNodeId: 'n12', targetNodeId: 'n13' }, { id: 't13', sourceNodeId: 'n13', targetNodeId: 'n14' } ] },
@@ -94,6 +133,16 @@ exports.updateOpsRecord = async (req, res) => {
     ).lean();
     if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
     res.json({ success: true, data: toPayload(record) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.deleteOpsRecord = async (req, res) => {
+  try {
+    const record = await AdminOpsRecord.findOneAndDelete({ _id: req.params.id, recordType: req.params.type });
+    if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -13,7 +13,11 @@ import {
   WorkflowDefinition, WorkflowNode, WorkflowTransition, NodeType,
   AssigneeRole, WORKFLOW_TEMPLATES, lowCodeWorkflowService
 } from '@/services/lowCodeWorkflowService';
-import { bpmWorkflowStudioService, MARKETPLACE_TEMPLATES } from '@/services/bpmWorkflowStudioService';
+import {
+  MARKETPLACE_TEMPLATES,
+  type WorkflowForm, type WorkflowRule, type WorkflowApprovalChain,
+  type WorkflowNotificationTemplate, type WorkflowIntegrationConfig,
+} from '@/services/bpmWorkflowStudioService';
 import {
   PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button, Input, Select, Label,
@@ -79,12 +83,36 @@ export default function EnterpriseWorkflowStudioPage() {
     },
   });
 
-  // Studio Sub-State
-  const [formsList, setFormsList] = useState(bpmWorkflowStudioService.getForms());
-  const [rulesList, setRulesList] = useState(bpmWorkflowStudioService.getRules());
-  const [approvalsList, setApprovalsList] = useState(bpmWorkflowStudioService.getApprovalChains());
-  const [notificationsList, setNotificationsList] = useState(bpmWorkflowStudioService.getNotifications());
-  const [integrationsList, setIntegrationsList] = useState(bpmWorkflowStudioService.getIntegrations());
+  // Studio Sub-State — loaded from backend ops API
+  const { data: formsRes } = useQuery({ queryKey: ['ops', 'workflow_form'], queryFn: () => fetch(`${API}/api/admin/ops/workflow_form`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const { data: rulesRes } = useQuery({ queryKey: ['ops', 'workflow_rule'], queryFn: () => fetch(`${API}/api/admin/ops/workflow_rule`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const { data: approvalsRes } = useQuery({ queryKey: ['ops', 'workflow_approval'], queryFn: () => fetch(`${API}/api/admin/ops/workflow_approval`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const { data: notifsRes } = useQuery({ queryKey: ['ops', 'workflow_notification'], queryFn: () => fetch(`${API}/api/admin/ops/workflow_notification`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const { data: integrationsRes } = useQuery({ queryKey: ['ops', 'workflow_integration'], queryFn: () => fetch(`${API}/api/admin/ops/workflow_integration`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+
+  const formsList = (formsRes?.data ?? []) as (WorkflowForm & { _id: string })[];
+  const rulesList = (rulesRes?.data ?? []) as (WorkflowRule & { _id: string })[];
+  const approvalsList = (approvalsRes?.data ?? []) as (WorkflowApprovalChain & { _id: string })[];
+  const notificationsList = (notifsRes?.data ?? []) as (WorkflowNotificationTemplate & { _id: string })[];
+  const integrationsList = (integrationsRes?.data ?? []) as (WorkflowIntegrationConfig & { _id: string })[];
+
+  const createFormMutation = useMutation({
+    mutationFn: (form: Omit<WorkflowForm, 'id'>) =>
+      fetch(`${API}/api/admin/ops/workflow_form`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(form) }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'workflow_form'] }),
+  });
+
+  const createRuleMutation = useMutation({
+    mutationFn: (rule: Omit<WorkflowRule, 'id'>) =>
+      fetch(`${API}/api/admin/ops/workflow_rule`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(rule) }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'workflow_rule'] }),
+  });
+
+  const deleteRuleMutation = useMutation({
+    mutationFn: (ruleId: string) =>
+      fetch(`${API}/api/admin/ops/workflow_rule/${ruleId}`, { method: 'DELETE', headers: authHeaders() }).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'workflow_rule'] }),
+  });
 
   // Palette Node Types
   const NODE_TYPES: { type: NodeType; label: string; icon: React.ReactNode; color: string }[] = [
@@ -155,30 +183,22 @@ export default function EnterpriseWorkflowStudioPage() {
   };
 
   const handleCreateForm = () => {
-    setFormsList(prev => [
-      ...prev,
-      {
-        id: `form-${Date.now()}`,
-        name: 'Untitled Clinical Form',
-        fields: [{ id: `fld-${Date.now()}`, label: 'Untitled Field', type: 'TEXT' as const, required: false }],
-      },
-    ]);
+    createFormMutation.mutate({
+      name: 'Untitled Clinical Form',
+      fields: [{ id: `fld-${Date.now()}`, label: 'Untitled Field', type: 'TEXT' as const, required: false }],
+    });
   };
 
   const handleAddRule = () => {
-    setRulesList(prev => [
-      ...prev,
-      {
-        id: `rule-${Date.now()}`,
-        name: 'New Clinical Rule (configure condition)',
-        ifCondition: 'patient.condition == "…"',
-        thenAction: 'Define action',
-      },
-    ]);
+    createRuleMutation.mutate({
+      name: 'New Clinical Rule (configure condition)',
+      ifCondition: 'patient.condition == "…"',
+      thenAction: 'Define action',
+    });
   };
 
   const handleDeleteRule = (ruleId: string) => {
-    setRulesList(prev => prev.filter(r => r.id !== ruleId));
+    deleteRuleMutation.mutate(ruleId);
   };
 
   // Marketplace items map onto the built-in workflow definitions where one exists.
@@ -253,8 +273,7 @@ export default function EnterpriseWorkflowStudioPage() {
           <span className="inline-flex flex-wrap items-center gap-2">
             {activeWorkflow.name}
             <Badge tone="brand">v{activeWorkflow.version}.0 Published</Badge>
-            {saveToast && <Badge tone="success" dot>Saved</Badge>}
-            {saveToast && <span className="text-xs font-normal text-warning">Note: Workflow definitions are not yet persisted. This feature is in preview.</span>}
+            {saveToast && <Badge tone="success" dot>Saved to database</Badge>}
           </span>
         }
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Workflow Builder' }]}
@@ -273,9 +292,9 @@ export default function EnterpriseWorkflowStudioPage() {
         }
       />
 
-      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
-        <span>⚠</span>
-        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
+      <div className="rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm text-info flex items-center gap-2 mb-6">
+        <span>ℹ</span>
+        <span>Workflow Designer, Forms, and Rules are fully DB-backed. Approval chains, notification templates, and integrations are read-only in this release.</span>
       </div>
 
       {validationResult && (
@@ -569,7 +588,7 @@ export default function EnterpriseWorkflowStudioPage() {
                         <span className="rounded-lg bg-success-soft px-3 py-1 font-mono font-semibold text-success">THEN: {rule.thenAction}</span>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon-sm" aria-label={`Delete rule ${rule.name}`} className="text-muted-foreground hover:text-danger" onClick={() => handleDeleteRule(rule.id)}>
+                    <Button variant="ghost" size="icon-sm" aria-label={`Delete rule ${rule.name}`} className="text-muted-foreground hover:text-danger" onClick={() => handleDeleteRule(rule._id ?? rule.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </CardContent>
@@ -731,17 +750,51 @@ export default function EnterpriseWorkflowStudioPage() {
         <TabsContent value="VERSIONS" className="mt-6 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Workflow Version Control & Audit</h2>
-            <p className="text-sm text-muted-foreground">Manage published versions, view change logs, and perform 1-click rollbacks.</p>
+            <p className="text-sm text-muted-foreground">Published workflow definitions saved to the backend.</p>
           </div>
-          <Card>
-            <CardContent className="py-10">
-              <EmptyState
-                icon={History}
-                title="No version history"
-                description="Version history and rollback will be available once workflow definitions are persisted to the backend. Definitions are currently stored locally in this session."
-              />
-            </CardContent>
-          </Card>
+          {(workflowsRes?.data ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="py-10">
+                <EmptyState
+                  icon={History}
+                  title="No saved workflows"
+                  description="Save a workflow from the Designer tab to see it listed here."
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(workflowsRes?.data ?? []).map((wf: WorkflowDefinition & { _id: string }) => (
+                <Card key={wf._id}>
+                  <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground">{wf.name}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {wf.nodes?.length ?? 0} nodes · {wf.transitions?.length ?? 0} transitions
+                        {wf.updatedAt ? ` · Updated ${new Date(wf.updatedAt).toLocaleDateString()}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={wf.status === 'PUBLISHED' ? 'success' : 'neutral'}>{wf.status ?? 'DRAFT'}</Badge>
+                      <Badge tone="brand">v{wf.version ?? 1}.0</Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setActiveWorkflow(wf);
+                          setActiveWorkflowDbId(wf._id);
+                          setSelectedNode(wf.nodes?.[0] ?? null);
+                          setActiveTab('BUILDER');
+                        }}
+                      >
+                        <CornerDownLeft className="h-3.5 w-3.5" aria-hidden /> Load
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

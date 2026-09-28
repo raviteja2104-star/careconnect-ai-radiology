@@ -24,7 +24,7 @@ const {
 } = require('../controllers/formTemplateController');
 
 const {
-  listOpsRecords, createOpsRecord, updateOpsRecord,
+  listOpsRecords, createOpsRecord, updateOpsRecord, deleteOpsRecord,
 } = require('../controllers/adminOpsController');
 
 router.get('/command-center', protect, permit('ADMIN.VIEW_DASHBOARD'), getCommandCenter);
@@ -46,9 +46,10 @@ router.patch('/form-templates/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTI
 router.patch('/form-templates/:id/publish', protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), publishTemplate);
 
 // Enterprise ops records (projects, devices, lms_course, releases)
-router.get('/ops/:type',         protect, permit('ADMIN.VIEW_ANALYTICS'),          listOpsRecords);
-router.post('/ops/:type',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  createOpsRecord);
-router.patch('/ops/:type/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  updateOpsRecord);
+router.get('/ops/:type',          protect, permit('ADMIN.VIEW_ANALYTICS'),          listOpsRecords);
+router.post('/ops/:type',         protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  createOpsRecord);
+router.patch('/ops/:type/:id',    protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  updateOpsRecord);
+router.delete('/ops/:type/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  deleteOpsRecord);
 
 // User approval (Google Sign-In pending accounts)
 router.get('/pending-approvals',          protect, permit('ADMIN.VIEW_USERS'),          getPendingApprovals);
