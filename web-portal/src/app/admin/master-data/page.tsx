@@ -542,8 +542,8 @@ export default function MasterDataManagementPage() {
           ) : (
             <div className="space-y-2">
               {auditEntries.map((entry, i) => {
-                const actionTone: Record<string, 'success' | 'info' | 'error'> = {
-                  CREATED: 'success', UPDATED: 'info', DELETED: 'error',
+                const actionTone: Record<string, 'success' | 'info' | 'danger'> = {
+                  CREATED: 'success', UPDATED: 'info', DELETED: 'danger',
                 };
                 const timeAgo = (iso: string) => {
                   const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
