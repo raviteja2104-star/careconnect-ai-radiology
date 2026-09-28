@@ -18,7 +18,7 @@ import { SUPPORTED_LANGUAGES } from '@/services/prescriptionTranslationService';
 import {
   PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter,
   Tabs, TabsList, TabsTrigger, TabsContent, Input, Select, Label, FieldHint,
-  Button, Badge, Switch, Skeleton,
+  Button, Badge, Switch, Skeleton, EmptyState,
 } from '@/components/ui';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
