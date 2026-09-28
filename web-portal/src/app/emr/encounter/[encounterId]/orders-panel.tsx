@@ -34,8 +34,10 @@ interface OrdersPanelProps {
     diagnoses?: string[];
     patientMeta?: { age?: number; gender?: string };
     onChanged: () => void;
-    /** Called with the submitted drugs after a medication order is successfully placed — use to trigger print. */
+    /** Called with the submitted drugs after a medication order is successfully placed — use to trigger preview/print. */
     onMedicationPlaced?: (drugs: DrugLine[]) => void;
+    /** Called after a lab order is successfully placed — use to trigger preview/print. */
+    onLabPlaced?: (tests: string[], priority: string, notes: string) => void;
 }
 
 const COMMON_LAB_TESTS = [
@@ -59,7 +61,7 @@ const STATUS_TONE: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'n
 
 export function OrdersPanel({
     encounterId, serverOrders, initialTab, allergies, currentMedications,
-    diagnoses = [], patientMeta = {}, onChanged, onMedicationPlaced,
+    diagnoses = [], patientMeta = {}, onChanged, onMedicationPlaced, onLabPlaced,
 }: OrdersPanelProps) {
     const { toast } = useToast();
     const [tab, setTab] = React.useState<OrderPanelTab>(initialTab && initialTab !== 'list' ? initialTab : 'lab');
@@ -238,13 +240,19 @@ export function OrdersPanel({
     const submitLab = async () => {
         const tests = [...labTests, ...(labCustom.trim() ? [labCustom.trim()] : [])];
         if (!tests.length) return;
+        const placedTests = tests;
+        const placedPriority = labPriority;
+        const placedNotes = labNotes.trim();
         const ok = await submitOrder({
             category: 'lab',
             priority: labPriority,
             department: 'Laboratory',
             details: { tests, notes: labNotes.trim() || undefined },
         }, 'lab');
-        if (ok) { setLabTests([]); setLabCustom(''); setLabNotes(''); setLabPriority('routine'); }
+        if (ok) {
+            setLabTests([]); setLabCustom(''); setLabNotes(''); setLabPriority('routine');
+            onLabPlaced?.(placedTests, placedPriority, placedNotes);
+        }
     };
 
     const submitRadiology = async () => {

@@ -370,18 +370,20 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         </span>
     );
 
-    const buildAndPrint = (drugList: { name: string; dose?: string; frequency?: string; duration?: string; instructions?: string; route?: string }[]) => {
+    const [printPreview, setPrintPreview] = React.useState<{ html: string; title: string } | null>(null);
+
+    const patientSheetBase = () => {
         const patient = p360?.patient;
         const ageYears = patient?.dateOfBirth
             ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / 31557600000)
             : undefined;
         const pid = (p360 as unknown as Record<string, unknown>)?.patientId;
-        const html = buildPrescriptionHtml({
+        return {
             settings: {
                 hospitalName: 'CareConnect Medical Centre',
                 doctorName: 'Dr. Raj Kumar',
                 doctorTitle: 'MBBS, MD — General Medicine',
-                primaryColor: 'indigo',
+                primaryColor: 'indigo' as const,
                 showDiagnosis: true,
                 showVitals: false,
                 showFooter: true,
@@ -395,10 +397,21 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             diagnosis: diagnoses.map((d: any) => d.term).join(', ') || undefined,
-            drugs: drugList,
+        };
+    };
+
+    const buildAndPrint = (drugList: { name: string; dose?: string; frequency?: string; duration?: string; instructions?: string; route?: string }[]) => {
+        const html = buildPrescriptionHtml({ ...patientSheetBase(), drugs: drugList });
+        setPrintPreview({ html, title: 'Prescription Preview' });
+    };
+
+    const buildLabRequisitionHtml = (tests: string[], priority: string, notes: string) => {
+        return buildPrescriptionHtml({
+            ...patientSheetBase(),
+            drugs: [],
+            investigations: tests.map((name) => ({ name, instructions: notes || undefined })),
+            treatmentPlanText: `Priority: ${priority.toUpperCase()}`,
         });
-        const opened = openPrescriptionPrintWindow(html);
-        if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print prescriptions.');
     };
 
     const printRx = () => {
@@ -428,6 +441,11 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             instructions: [d.instructions, d.foodTiming].filter(Boolean).join('; ') || undefined,
             route: d.route,
         })));
+    };
+
+    const handleLabPlaced = (tests: string[], priority: string, notes: string) => {
+        const html = buildLabRequisitionHtml(tests, priority, notes);
+        setPrintPreview({ html, title: 'Lab Requisition' });
     };
 
     return (
@@ -642,6 +660,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                         }}
                         onChanged={() => queryClient.invalidateQueries({ queryKey: ['emr', 'encounter', encounterId] })}
                         onMedicationPlaced={handleMedicationPlaced}
+                        onLabPlaced={handleLabPlaced}
                     />
                     </div>
                 </div>
@@ -709,6 +728,40 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                     onChange={(e) => setAmendReason(e.target.value)}
                     placeholder="e.g. Correcting the documented dosage of Metformin after pharmacy clarification."
                 />
+            </Dialog>
+
+            {/* ── Print preview modal (medication & lab) ── */}
+            <Dialog
+                open={!!printPreview}
+                onClose={() => setPrintPreview(null)}
+                title={printPreview?.title ?? 'Preview'}
+                description="Review the document below, then print or save as PDF."
+                size="xl"
+                footer={
+                    <>
+                        <Button variant="outline" onClick={() => setPrintPreview(null)}>Close</Button>
+                        <Button
+                            onClick={() => {
+                                if (!printPreview) return;
+                                const opened = openPrescriptionPrintWindow(printPreview.html);
+                                if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print.');
+                                else setPrintPreview(null);
+                            }}
+                        >
+                            <Printer className="h-4 w-4" aria-hidden /> Print / Save PDF
+                        </Button>
+                    </>
+                }
+            >
+                {printPreview && (
+                    <iframe
+                        srcDoc={printPreview.html}
+                        title={printPreview.title}
+                        className="w-full rounded-lg border border-border"
+                        style={{ height: '60vh', minHeight: 320 }}
+                        sandbox="allow-same-origin"
+                    />
+                )}
             </Dialog>
         </div>
     );
