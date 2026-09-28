@@ -18,7 +18,7 @@ import {
 import { useToast } from '@/components/ui/toast';
 import {
     fetchPatient360, fetchEncounters, createEncounter, patientDisplayName, ageOf,
-    formatWhen, formatINR, ApiOfflineError, DEMO_ENCOUNTER_ID,
+    formatWhen, formatINR, ApiOfflineError, DEMO_ENCOUNTER_ID, DEMO_PATIENT_ID,
     type TimelineEvent, type EncounterRecord,
 } from '../../_lib/api';
 
@@ -81,11 +81,22 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
     const name = patientDisplayName(patient);
     const age = ageOf(patient?.dateOfBirth);
 
+    const isDemoPatient = patientId === DEMO_PATIENT_ID || patientId.startsWith('demo-');
+
     /** Reuse the latest still-open encounter, else create one; degrade to the demo encounter offline. */
     const openWorkspace = React.useCallback(
         async (panel: 'note' | 'medication' | 'lab' | 'radiology', forceNew = false) => {
             setStarting(panel);
             const suffix = panel === 'note' ? '' : `?panel=${panel}`;
+
+            // Demo patient IDs are not persisted — go straight to the demo encounter.
+            if (isDemoPatient) {
+                const pid = suffix ? `${suffix}&patientId=${patientId}` : `?patientId=${patientId}`;
+                router.push(`/emr/encounter/${DEMO_ENCOUNTER_ID}${pid}`);
+                setStarting(null);
+                return;
+            }
+
             try {
                 if (!forceNew) {
                     const existing = (qEncounters.data?.data || []).find(
@@ -116,7 +127,7 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                 setStarting(null);
             }
         },
-        [patientId, qEncounters.data, queryClient, router, toast]
+        [patientId, isDemoPatient, qEncounters.data, queryClient, router, toast]
     );
 
     /* ── Timeline filtering ── */

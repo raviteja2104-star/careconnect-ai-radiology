@@ -235,6 +235,11 @@ exports.createEncounter = async (req, res) => {
         const { patientId, appointmentId, type, specialty, chiefComplaint } = req.body;
         if (!patientId) return res.status(400).json({ message: 'patientId is required' });
 
+        const mongoose = require('mongoose');
+        if (!isDBConnected() || !mongoose.Types.ObjectId.isValid(patientId)) {
+            return res.status(503).json({ message: 'Database unavailable or demo session — encounter cannot be persisted.' });
+        }
+
         const encounter = await Encounter.create({
             patientId,
             doctorId: req.user._id,
