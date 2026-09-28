@@ -6,6 +6,7 @@ const {
     getAppointments,
     checkinAppointment,
     registerWalkIn,
+    getActivityFeed,
 } = require('../controllers/receptionController');
 const { protect } = require('../middleware/auth');
 const { permit, permitAny } = require('../middleware/permit');
@@ -31,6 +32,12 @@ router.get(
     '/appointments',
     permitAny('STAFF.RECEPTION', 'STAFF.VIEW_APPOINTMENTS'),
     getAppointments
+);
+
+router.get(
+    '/activity',
+    permitAny('STAFF.RECEPTION', 'STAFF.VIEW_APPOINTMENTS', 'ADMIN.VIEW_DASHBOARD'),
+    getActivityFeed
 );
 
 // Mutations: require explicit check-in permission

@@ -146,6 +146,73 @@ exports.checkinAppointment = async (req, res) => {
   }
 };
 
+// @desc    Live activity feed — recent front-desk events from QueueTokens + Invoices
+// @route   GET /api/reception/activity
+exports.getActivityFeed = async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ success: true, data: [] });
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [tokens, invoices] = await Promise.all([
+      QueueToken.find({ updatedAt: { $gte: today } })
+        .sort({ updatedAt: -1 })
+        .limit(60)
+        .lean(),
+      Invoice.find({ issuedAt: { $gte: today }, status: { $in: ['PAID', 'PARTIALLY_PAID'] } })
+        .sort({ issuedAt: -1 })
+        .limit(20)
+        .lean(),
+    ]);
+
+    const STATUS_META = {
+      COMPLETED:   { kind: 'completed',  verb: 'Visit completed' },
+      CALLED:      { kind: 'called',     verb: 'Token called' },
+      IN_PROGRESS: { kind: 'in_progress',verb: 'Consultation started' },
+      MISSED:      { kind: 'missed',     verb: 'Token missed' },
+      CANCELLED:   { kind: 'cancelled',  verb: 'Token cancelled' },
+      WAITING:     { kind: 'checkin',    verb: 'Checked in' },
+      CHECKED_IN:  { kind: 'checkin',    verb: 'Checked in' },
+      CREATED:     { kind: 'checkin',    verb: 'Token issued' },
+      TRANSFERRED: { kind: 'transferred',verb: 'Transferred' },
+    };
+
+    const tokenEvents = tokens.map((t) => {
+      const meta = STATUS_META[t.status] || { kind: 'checkin', verb: 'Token updated' };
+      const isWalkIn = !t.appointment;
+      return {
+        id: String(t._id),
+        kind: isWalkIn && ['WAITING', 'CHECKED_IN', 'CREATED'].includes(t.status) ? 'walkin' : meta.kind,
+        title: isWalkIn && ['WAITING', 'CHECKED_IN', 'CREATED'].includes(t.status)
+          ? `Walk-in registered — ${t.patientName}`
+          : `${meta.verb} — ${t.patientName}`,
+        detail: `Token #${t.tokenNumber} · ${t.department}`,
+        at: t.updatedAt || t.createdAt,
+        priorityReason: t.priorityReason !== 'Normal' ? t.priorityReason : null,
+      };
+    });
+
+    const invoiceEvents = invoices.map((inv) => ({
+      id: String(inv._id),
+      kind: 'payment',
+      title: `₹${(inv.amountPaid || inv.totalAmount || 0).toLocaleString('en-IN')} received`,
+      detail: `Invoice #${inv.invoiceNumber || '—'} · ${inv.patientName || 'Patient'}`,
+      at: inv.issuedAt || inv.createdAt,
+      priorityReason: null,
+    }));
+
+    const feed = [...tokenEvents, ...invoiceEvents]
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+      .slice(0, 40);
+
+    res.json({ success: true, data: feed });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // @desc    Register walk-in patient and generate token
 // @route   POST /api/reception/walkin
 exports.registerWalkIn = async (req, res) => {
