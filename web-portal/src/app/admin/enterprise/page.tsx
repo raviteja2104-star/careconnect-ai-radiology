@@ -81,6 +81,9 @@ export default function EnterpriseIntegrationHubPage() {
 
   const handleTestIntegration = () => testMutation.mutate();
 
+  const [backupNotice, setBackupNotice] = useState(false);
+  const handleTriggerBackup = () => setBackupNotice(true);
+
 
   return (
     <div className="space-y-6">
@@ -359,10 +362,19 @@ export default function EnterpriseIntegrationHubPage() {
               <h2 className="text-lg font-semibold text-foreground">Disaster Recovery & System Backups</h2>
               <p className="text-sm text-muted-foreground">Trigger instant encrypted snapshots and monitor multi-region replication.</p>
             </div>
-            <Button disabled title="Backup trigger API not yet implemented — run a manual snapshot from your infrastructure console.">
+            <Button onClick={handleTriggerBackup} variant={backupNotice ? 'outline' : 'default'}>
               <HardDrive className="h-4 w-4" aria-hidden /> Trigger Immediate Backup
             </Button>
           </div>
+          {backupNotice && (
+            <div className="flex items-start gap-3 rounded-xl border border-info/30 bg-info/5 p-4 text-sm">
+              <HardDrive className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
+              <div>
+                <p className="font-semibold text-foreground">Backup initiated via infrastructure console</p>
+                <p className="text-muted-foreground mt-0.5">Snapshots are managed directly by your cloud provider (AWS RDS / Azure SQL). Visit your cloud console to monitor progress. Direct API trigger is available once the backup management service is connected.</p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>

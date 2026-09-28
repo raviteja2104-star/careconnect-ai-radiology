@@ -418,11 +418,32 @@ export default function EnterpriseDataPlatformPage() {
             </CardContent>
           </Card>
 
-          <EmptyState
-            icon={FileText}
-            title="Research cohort extraction requires Data Lakehouse"
-            description="Cohort queries run against the de-identified Data Lakehouse. Configure the lakehouse backend to enable research exports."
-          />
+          <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-info/10 text-info">
+                <Database className="h-5 w-5" aria-hidden />
+              </span>
+              <div>
+                <p className="font-semibold text-foreground">Data Lakehouse connection required</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Cohort extraction runs against the de-identified Iceberg + ClickHouse lakehouse. Complete setup to enable research queries and ML feature exports.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { step: '1', label: 'Provision Lakehouse', detail: 'Deploy ClickHouse cluster and configure Apache Iceberg storage in Admin › Data Platform › Lakehouse.' },
+                { step: '2', label: 'Configure de-identification', detail: 'Apply HIPAA Safe Harbour or Expert Determination ruleset to PHI fields before research access.' },
+                { step: '3', label: 'Run cohort query', detail: 'Define ICD-10 / SNOMED inclusion/exclusion criteria, set date window and export to ML feature store.' },
+              ].map((item) => (
+                <div key={item.step} className="flex gap-3 rounded-lg border border-border bg-card p-3">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">{item.step}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -344,14 +344,30 @@ export default function EnterpriseProgramPage() {
                   className="font-mono"
                 />
               </div>
-              <Button onClick={handleRunAiCopilot} disabled title="AI copilot backend integration is not yet connected.">
+              <Button onClick={handleRunAiCopilot} disabled>
                 <Sparkles className="h-4 w-4" aria-hidden /> Execute AI Copilot
               </Button>
-              <EmptyState
-                icon={Sparkles}
-                title="AI copilot not yet connected"
-                description="When the engineering copilot service is integrated, it will generate release notes, impact analyses, and review summaries from your live telemetry."
-              />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2">
+                {[
+                  { icon: GitCommitHorizontal, title: 'Release notes', detail: 'Auto-generates versioned release notes from merged PRs, linked tickets and CI metrics for the selected sprint.' },
+                  { icon: BarChart2, title: 'Impact analysis', detail: 'Traces blast radius of a code change across modules, surfaces dependent services and flags high-risk paths.' },
+                  { icon: FileCode, title: 'Code review summary', detail: 'Condenses PR diff into a risk-scored summary with security, performance and test-coverage observations.' },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-4">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                      <item.icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                Requires engineering telemetry backend — connect your CI/CD pipeline to enable live generation.
+              </p>
             </CardContent>
           </Card>
 
