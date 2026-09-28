@@ -448,7 +448,7 @@ export default function MasterDataManagementPage() {
                 const catMeta = {
                   IDENTITY:     { label: 'Identity',                  tone: 'brand' as const },
                   REGISTRATION: { label: 'Legal & Accreditation',     tone: 'info' as const },
-                  PRESCRIPTION: { label: 'Prescription Header',       tone: 'violet' as const },
+                  PRESCRIPTION: { label: 'Prescription Header',       tone: 'neutral' as const },
                   COLORS:       { label: 'Brand Colors',              tone: 'warning' as const },
                 };
                 return (
