@@ -362,7 +362,7 @@ export default function EnterpriseIntegrationHubPage() {
               <h2 className="text-lg font-semibold text-foreground">Disaster Recovery & System Backups</h2>
               <p className="text-sm text-muted-foreground">Trigger instant encrypted snapshots and monitor multi-region replication.</p>
             </div>
-            <Button onClick={handleTriggerBackup} variant={backupNotice ? 'outline' : 'default'}>
+            <Button onClick={handleTriggerBackup} variant={backupNotice ? 'outline' : 'primary'}>
               <HardDrive className="h-4 w-4" aria-hidden /> Trigger Immediate Backup
             </Button>
           </div>
