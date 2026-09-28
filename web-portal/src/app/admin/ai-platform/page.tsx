@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles, Bot, ShieldCheck, Cpu, Mic, FileText,
   UserCheck, BookOpen, Database, FileSearch, Lock, Fingerprint, Gauge, Construction,
-  Activity, Clock, CheckCircle2, AlertCircle, Server,
+  Activity, Clock, CheckCircle2, AlertCircle, Server, ThumbsUp, ThumbsDown, Filter,
 } from 'lucide-react';
 import {
   PageHeader, Tabs, TabsList, TabsTrigger, TabsContent,
@@ -102,6 +102,19 @@ type AiModel = {
   region: string;
 };
 
+type AiReview = {
+  _id: string;
+  id: string;
+  type: 'SOAP_NOTE' | 'DRUG_INTERACTION' | 'ICD_CODING' | 'DISCHARGE_SUMMARY' | 'IMAGING';
+  patientDisplay: string;
+  summary: string;
+  generatedBy: string;
+  assignedTo: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+};
+
 type ScribeOutput = {
   soap: { subjective: string; objective: string; assessment: string; plan: string };
   generatedAt: string;
@@ -117,6 +130,32 @@ export default function EnterpriseAIPlatformPage() {
   const [scribeOutput, setScribeOutput] = useState<ScribeOutput | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [scribeError, setScribeError] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
+
+  const { data: reviewRes, isLoading: reviewLoading } = useQuery({
+    queryKey: ['ops', 'ai_review'],
+    queryFn: () => {
+      const token = getToken();
+      return fetch(`${API_BASE}/api/admin/ops/ai_review`, {
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      }).then(r => r.json());
+    },
+    staleTime: 30_000,
+  });
+  const reviewList = (reviewRes?.data ?? []) as AiReview[];
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) => {
+      const token = getToken();
+      return fetch(`${API_BASE}/api/admin/ops/ai_review/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ status }),
+      }).then(r => r.json());
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ops', 'ai_review'] }),
+  });
 
   const { data: agentsRes, isLoading: agentsLoading } = useQuery({
     queryKey: ['ops', 'ai_agent'],
@@ -356,13 +395,126 @@ export default function EnterpriseAIPlatformPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 3: HUMAN REVIEW QUEUE — no backend endpoint */}
-        <TabsContent value="REVIEW" className="mt-6">
-          <EmptyState
-            icon={Construction}
-            title="Clinician review queue not yet available"
-            description="The AI review queue API is not yet implemented. AI outputs requiring clinician sign-off will appear here once the backend review workflow is ready."
-          />
+        {/* TAB 3: HUMAN REVIEW QUEUE — real backend: GET/PATCH /api/admin/ops/ai_review */}
+        <TabsContent value="REVIEW" className="mt-6 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Clinician Review Queue</h2>
+              <p className="text-sm text-muted-foreground">AI-generated outputs awaiting physician or specialist sign-off before being actioned.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Filter className="h-3.5 w-3.5" aria-hidden />
+              <span className="tabular-nums font-medium text-foreground">
+                {reviewList.filter(r => r.status === 'PENDING').length}
+              </span> pending
+            </div>
+          </div>
+
+          {reviewLoading && (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}><CardContent className="p-5"><div className="space-y-2"><Skeleton className="h-4 w-64" /><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-4/5" /></div></CardContent></Card>
+              ))}
+            </div>
+          )}
+
+          {!reviewLoading && reviewList.length === 0 && (
+            <EmptyState icon={UserCheck} title="Queue is clear" description="No AI outputs are awaiting clinician review." />
+          )}
+
+          {!reviewLoading && reviewList.length > 0 && (
+            <div className="space-y-3">
+              {(() => {
+                const REVIEW_TYPE_LABELS: Record<string, string> = {
+                  SOAP_NOTE: 'SOAP Note',
+                  DRUG_INTERACTION: 'Drug Interaction',
+                  ICD_CODING: 'ICD Coding',
+                  DISCHARGE_SUMMARY: 'Discharge Summary',
+                  IMAGING: 'Imaging',
+                };
+                const PRIORITY_COLORS: Record<string, string> = {
+                  HIGH: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400',
+                  MEDIUM: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+                  LOW: 'bg-slate-100 text-slate-500 dark:bg-slate-500/15 dark:text-slate-400',
+                };
+                const sorted = [...reviewList].sort((a, b) => {
+                  const p = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+                  if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+                  if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+                  return (p[a.priority] ?? 2) - (p[b.priority] ?? 2);
+                });
+
+                return sorted.map((item, i) => {
+                  const isPending = item.status === 'PENDING';
+                  const minutesAgo = Math.round((Date.now() - new Date(item.createdAt).getTime()) / 60000);
+                  const isMutating = reviewMutation.isPending && (reviewMutation.variables as { id: string })?.id === (item._id ?? item.id);
+
+                  return (
+                    <motion.div
+                      key={item._id ?? item.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <Card className={isPending ? '' : 'opacity-60'}>
+                        <CardContent className="p-5">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            {/* Left: identity */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_COLORS[item.priority]}`}>
+                                  {item.priority}
+                                </span>
+                                <Badge tone="neutral">{REVIEW_TYPE_LABELS[item.type] ?? item.type}</Badge>
+                                <Badge tone={item.status === 'APPROVED' ? 'success' : item.status === 'REJECTED' ? 'danger' : 'warning'}>
+                                  {item.status}
+                                </Badge>
+                              </div>
+                              <p className="mt-1.5 text-sm font-medium text-foreground">{item.patientDisplay}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
+                            </div>
+
+                            {/* Right: actions */}
+                            {isPending && (
+                              <div className="flex shrink-0 gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isMutating}
+                                  onClick={() => reviewMutation.mutate({ id: item._id ?? item.id, status: 'REJECTED' })}
+                                  className="gap-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                >
+                                  <ThumbsDown className="h-3.5 w-3.5" aria-hidden /> Reject
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isMutating}
+                                  onClick={() => reviewMutation.mutate({ id: item._id ?? item.id, status: 'APPROVED' })}
+                                  className="gap-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                                >
+                                  <ThumbsUp className="h-3.5 w-3.5" aria-hidden /> Approve
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-[11px] text-muted-foreground">
+                            <span>Generated by <span className="font-medium text-foreground">{item.generatedBy}</span></span>
+                            <span className="flex items-center gap-3">
+                              <span>Assigned: <span className="font-medium text-foreground">{item.assignedTo}</span></span>
+                              <span>{minutesAgo < 60 ? `${minutesAgo} min ago` : `${Math.round(minutesAgo / 60)}h ago`}</span>
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                });
+              })()}
+            </div>
+          )}
         </TabsContent>
 
         {/* TAB 4: RAG KNOWLEDGE HUB — static informational panel */}
