@@ -14,6 +14,9 @@ const {
   createMigrationJob,
   getSupportTickets,
   createSupportTicket,
+  getPendingApprovals,
+  approveUser,
+  rejectUser,
 } = require('../controllers/adminController');
 
 const {
@@ -46,5 +49,10 @@ router.patch('/form-templates/:id/publish', protect, permit('ADMIN.MANAGE_SYSTEM
 router.get('/ops/:type',         protect, permit('ADMIN.VIEW_ANALYTICS'),          listOpsRecords);
 router.post('/ops/:type',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  createOpsRecord);
 router.patch('/ops/:type/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),  updateOpsRecord);
+
+// User approval (Google Sign-In pending accounts)
+router.get('/pending-approvals',          protect, permit('ADMIN.VIEW_USERS'),          getPendingApprovals);
+router.patch('/users/:id/approve',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), approveUser);
+router.patch('/users/:id/reject',         protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), rejectUser);
 
 module.exports = router;

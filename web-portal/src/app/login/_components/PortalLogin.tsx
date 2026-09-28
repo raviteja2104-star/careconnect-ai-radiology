@@ -14,7 +14,7 @@ import {
 import { useSession } from '@/components/providers/SessionProvider';
 import { homeForRole } from '@/lib/navigation';
 import {
-    loginWithPassword, registerAccount, mapBackendRole, AuthApiError, type BackendRole,
+    loginWithPassword, registerAccount, googleSignIn, mapBackendRole, AuthApiError, type BackendRole,
 } from '@/services/authService';
 import { portalForRole, type LoginPortal } from '../_lib/portals';
 
@@ -56,6 +56,20 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
     const [regPassword, setRegPassword] = React.useState('');
     const [regErrors, setRegErrors] = React.useState<FieldErrors>({});
     const [registering, setRegistering] = React.useState(false);
+    const [googleLoading, setGoogleLoading] = React.useState(false);
+    const [pendingApproval, setPendingApproval] = React.useState<string | null>(null);
+
+    // Load Google Identity Services script once
+    React.useEffect(() => {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId || document.getElementById('google-gsi-script')) return;
+        const script = document.createElement('script');
+        script.id = 'google-gsi-script';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    }, []);
 
     const finishAuth = React.useCallback(
         (user: Parameters<typeof signIn>[0], token: string, permissions?: string[], workspaces?: string[]) => {
@@ -70,6 +84,54 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
         },
         [signIn, router, searchParams]
     );
+
+    const handleGoogleSignIn = React.useCallback(() => {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+            setLoginErrors({ form: 'Google Sign-In is not configured. Contact your administrator.' });
+            return;
+        }
+        setGoogleLoading(true);
+        setPendingApproval(null);
+        setLoginErrors({});
+
+        // Use Google Identity Services one-tap / popup
+        const google = (window as typeof window & { google?: { accounts: { id: { initialize: (c: object) => void; prompt: () => void } } } }).google;
+        if (!google?.accounts?.id) {
+            setLoginErrors({ form: 'Google Sign-In failed to load. Please refresh and try again.' });
+            setGoogleLoading(false);
+            return;
+        }
+
+        google.accounts.id.initialize({
+            client_id: clientId,
+            callback: async (response: { credential: string }) => {
+                try {
+                    // Pass the portal's primary role so backend can set the right role
+                    const role = portal.roles[0] as BackendRole;
+                    const result = await googleSignIn(response.credential, role);
+                    if ('pendingApproval' in result && result.pendingApproval) {
+                        setPendingApproval(result.message);
+                        setGoogleLoading(false);
+                        return;
+                    }
+                    const authResult = result as Awaited<ReturnType<typeof loginWithPassword>>;
+                    // Portal role check
+                    if (authResult.user && !portal.roles.includes(authResult.user.role as BackendRole)) {
+                        const { portalForRole } = await import('../_lib/portals');
+                        setWrongPortal({ portal: portalForRole(authResult.user.role as BackendRole) });
+                        setGoogleLoading(false);
+                        return;
+                    }
+                    finishAuth(authResult.user!, authResult.token!, authResult.permissions, authResult.workspaces);
+                } catch (err) {
+                    setLoginErrors({ form: err instanceof AuthApiError ? err.message : 'Google Sign-In failed. Please try again.' });
+                    setGoogleLoading(false);
+                }
+            },
+        });
+        google.accounts.id.prompt();
+    }, [portal, finishAuth]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -361,11 +423,44 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                             )}
                         </Tabs>
 
+                        {pendingApproval && (
+                            <div role="alert" className="mt-4 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning">
+                                <p className="font-semibold">Account pending approval</p>
+                                <p className="mt-0.5 text-warning/80">{pendingApproval}</p>
+                            </div>
+                        )}
+
                         <div className="my-6 flex items-center gap-3" aria-hidden>
                             <div className="h-px flex-1 bg-border" />
                             <span className="text-xs font-medium uppercase tracking-widest text-subtle-foreground">or</span>
                             <div className="h-px flex-1 bg-border" />
                         </div>
+
+                        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={handleGoogleSignIn}
+                                    loading={googleLoading}
+                                    disabled={googleLoading}
+                                >
+                                    {/* Google "G" logo */}
+                                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden>
+                                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                    </svg>
+                                    Continue with Google
+                                </Button>
+                                <div className="my-4 flex items-center gap-3" aria-hidden>
+                                    <div className="h-px flex-1 bg-border" />
+                                    <span className="text-xs font-medium uppercase tracking-widest text-subtle-foreground">or</span>
+                                    <div className="h-px flex-1 bg-border" />
+                                </div>
+                            </>
+                        )}
 
                         <Button variant="outline" className="w-full" onClick={() => router.push('/')}>
                             <Sparkles className="h-4 w-4 text-primary" aria-hidden />

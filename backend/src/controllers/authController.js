@@ -184,54 +184,93 @@ const verifyOtp = async (req, res, next) => {
     }
 };
 
-// ─── Social Login ────────────────────────────────────────────────────────────
+// ─── Social Login (Google Sign-In with server-side ID token verification) ────
 
 const socialLogin = async (req, res, next) => {
     try {
         await waitForDB();
-        const { provider, token, profile } = req.body;
-        // Expected profile: { email, firstName, lastName, googleId/appleId }
+        const { provider, token, role: requestedRole } = req.body;
 
-        // TODO: Proper fix — use google-auth-library's OAuth2Client.verifyIdToken() to verify
-        // the Google ID token server-side before trusting any profile data from the client.
-        // For Apple, use apple-signin-auth to verify the identity token server-side.
-        // Until server-side verification is wired up, social login is disabled for safety.
         if (provider === 'google') {
-            return res.status(501).json({ success: false, message: "Google OAuth must be verified server-side via googleapis library — not yet configured. Disable social login in frontend until configured." });
-        }
-        if (provider === 'apple') {
-            return res.status(501).json({ success: false, message: "Apple Sign In must be verified server-side via apple-signin-auth library — not yet configured. Disable social login in frontend until configured." });
-        }
-
-        if (!isDBConnected()) {
-            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
-        }
-
-        let user = await User.findOne({ email: profile.email });
-        let isNewUser = false;
-
-        if (!user) {
-            user = await User.create({
-                firstName: profile.firstName || 'Unknown',
-                lastName: profile.lastName || 'User',
-                email: profile.email,
-                role: 'patient',
-                isVerified: true,
-                authProviders: {
-                    [provider + 'Id']: profile.id
-                }
-            });
-            isNewUser = true;
-        } else {
-            // Link account if not linked
-            if (!user.authProviders[provider + 'Id']) {
-                user.authProviders[provider + 'Id'] = profile.id;
-                await user.save();
+            const clientId = process.env.GOOGLE_CLIENT_ID;
+            if (!clientId) {
+                return res.status(503).json({ success: false, message: 'Google Sign-In is not configured on this server. Set GOOGLE_CLIENT_ID.' });
             }
+
+            // Verify the Google ID token — never trust client-supplied profile data.
+            const { OAuth2Client } = require('google-auth-library');
+            const oauth2Client = new OAuth2Client(clientId);
+            let payload;
+            try {
+                const ticket = await oauth2Client.verifyIdToken({ idToken: token, audience: clientId });
+                payload = ticket.getPayload();
+            } catch {
+                return res.status(401).json({ success: false, message: 'Invalid Google token. Please try signing in again.' });
+            }
+
+            const { sub: googleId, email, given_name: firstName, family_name: lastName, picture: avatar } = payload;
+
+            if (!isDBConnected()) {
+                return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
+            }
+
+            // Find by googleId first, then fall back to email (links existing password accounts)
+            let user = await User.findOne({ 'authProviders.googleId': googleId });
+            if (!user && email) user = await User.findOne({ email });
+
+            if (user) {
+                // Link Google ID to existing account if not yet linked
+                if (!user.authProviders?.googleId) {
+                    user.authProviders = { ...user.authProviders?.toObject?.() || {}, googleId };
+                    await user.save();
+                }
+                if (user.approvalStatus === 'pending') {
+                    return res.status(403).json({ success: false, pendingApproval: true, message: 'Your account is awaiting admin approval. You will be notified once it is activated.' });
+                }
+                if (user.approvalStatus === 'rejected') {
+                    return res.status(403).json({ success: false, message: 'Your account registration was not approved. Please contact the administrator.' });
+                }
+                if (!user.isActive) {
+                    return res.status(401).json({ success: false, message: 'Account deactivated. Please contact the administrator.' });
+                }
+                const jwtToken = generateToken(user._id);
+                await ensureUserHasRole(user).catch(() => {});
+                const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
+                return res.json({ success: true, message: 'Login successful.', data: { user, token: jwtToken, permissions, workspaces } });
+            }
+
+            // New user — patient role is auto-approved; all other roles need admin approval
+            const role = requestedRole || 'patient';
+            const needsApproval = role !== 'patient';
+
+            const newUser = await User.create({
+                firstName: firstName || 'New',
+                lastName: lastName || 'User',
+                email,
+                role,
+                isVerified: true,
+                isActive: !needsApproval,
+                approvalStatus: needsApproval ? 'pending' : 'approved',
+                avatar: avatar || '',
+                tenantId: needsApproval ? undefined : 't-default',
+                authProviders: { googleId },
+            });
+
+            if (needsApproval) {
+                return res.status(202).json({ success: true, pendingApproval: true, message: 'Your account has been created and is awaiting admin approval. You will be notified once activated.' });
+            }
+
+            const jwtToken = generateToken(newUser._id);
+            await ensureUserHasRole(newUser).catch(() => {});
+            const { permissions, workspaces } = await getEffectivePermissions(newUser._id).catch(() => ({ permissions: [], workspaces: [] }));
+            return res.status(201).json({ success: true, isNewUser: true, data: { user: newUser, token: jwtToken, permissions, workspaces } });
         }
 
-        const authToken = generateToken(user._id);
-        res.json({ success: true, message: 'Social login successful.', isNewUser, data: { user, token: authToken } });
+        if (provider === 'apple') {
+            return res.status(501).json({ success: false, message: 'Apple Sign In is not yet configured.' });
+        }
+
+        return res.status(400).json({ success: false, message: 'Unsupported provider.' });
     } catch (error) {
         next(error);
     }

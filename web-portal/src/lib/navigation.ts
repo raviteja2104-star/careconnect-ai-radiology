@@ -121,6 +121,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Programs', path: '/admin/program', icon: Briefcase, keywords: 'initiatives' },
             { name: 'Nearby Directory', path: '/admin/nearby', icon: ShieldQuestion, keywords: 'providers verification claims duplicates nearby' },
             { name: 'Provider Import', path: '/admin/nearby/import', icon: Upload, keywords: 'excel csv import bulk providers upload' },
+            { name: 'Account Approvals', path: '/admin/approvals', icon: UserCheck, keywords: 'google sign-in pending approval activation' },
         ],
     },
     {

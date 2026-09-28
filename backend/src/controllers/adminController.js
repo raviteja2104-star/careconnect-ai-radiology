@@ -442,3 +442,49 @@ exports.getAdminAuditLogs = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// ─── User Approval (Google Sign-In pending accounts) ─────────────────────────
+
+const User = require('../models/User');
+
+exports.getPendingApprovals = async (req, res) => {
+    try {
+        const users = await User.find({ approvalStatus: 'pending' })
+            .select('firstName lastName email role createdAt avatar authProviders')
+            .sort({ createdAt: -1 })
+            .lean();
+        res.json({ success: true, data: users });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.approveUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByIdAndUpdate(
+            id,
+            { isActive: true, approvalStatus: 'approved', tenantId: 't-default' },
+            { new: true }
+        ).select('firstName lastName email role approvalStatus isActive');
+        if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+        res.json({ success: true, message: `${user.firstName} ${user.lastName}'s account has been approved.`, data: user });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.rejectUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByIdAndUpdate(
+            id,
+            { isActive: false, approvalStatus: 'rejected' },
+            { new: true }
+        ).select('firstName lastName email role approvalStatus isActive');
+        if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+        res.json({ success: true, message: `${user.firstName} ${user.lastName}'s account has been rejected.`, data: user });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};

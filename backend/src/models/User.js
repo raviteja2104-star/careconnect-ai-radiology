@@ -21,6 +21,11 @@ const userSchema = new mongoose.Schema(
         avatar: { type: String, default: '' },
         isActive: { type: Boolean, default: true },
         isVerified: { type: Boolean, default: false },
+        approvalStatus: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'approved',
+        },
 
         // Authentication & Security
         authProviders: {

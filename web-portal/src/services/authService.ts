@@ -275,6 +275,36 @@ export function registerAccount(input: RegisterInput): Promise<AuthApiResult> {
   return authRequest('/api/auth/register', { ...input });
 }
 
+export interface GoogleSignInResult {
+  pendingApproval: true;
+  message: string;
+}
+
+/**
+ * POST /api/auth/social-login with provider=google.
+ * Resolves with AuthApiResult on success, or GoogleSignInResult when the
+ * account was created but is pending admin approval.
+ * Throws AuthApiError on hard failures (invalid token, rejected, etc.).
+ */
+export async function googleSignIn(idToken: string, role?: BackendRole): Promise<AuthApiResult | GoogleSignInResult> {
+  const res = await fetch(`${AUTH_API_BASE}/api/auth/social-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'google', token: idToken, role }),
+  });
+  const payload = await res.json();
+  if (payload.pendingApproval) {
+    return { pendingApproval: true, message: payload.message } as GoogleSignInResult;
+  }
+  if (!res.ok) throw new AuthApiError(res.status, payload.message || 'Google Sign-In failed.');
+  return {
+    user: payload.data?.user,
+    token: payload.data?.token,
+    permissions: payload.data?.permissions,
+    workspaces: payload.data?.workspaces,
+  };
+}
+
 /* ─────────────────── Persisted credential helpers ─────────────────── */
 
 export function readStoredAuth(): StoredAuth | null {
