@@ -53,9 +53,23 @@ const getPatients = async (req, res, next) => {
             if (process.env.NODE_ENV === 'production') return res.status(503).json({ success: false, error: 'Database unavailable' });
             return res.json({ success: true, data: MOCK_PATIENTS });
         }
-        const doctorId = req.user._id;
-        const patientIds = await Appointment.distinct('patient', { doctor: doctorId });
-        const patients = await User.find({ _id: { $in: patientIds }, role: 'patient' }).select('firstName lastName email dateOfBirth gender bloodGroup allergies phone avatar');
+        const tenantId = req.user.tenantId || 't-default';
+        const search = req.query.search;
+        const filter = { role: 'patient', tenantId };
+        if (search) {
+            const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            filter.$or = [
+                { firstName: { $regex: safe, $options: 'i' } },
+                { lastName:  { $regex: safe, $options: 'i' } },
+                { phone:     { $regex: safe, $options: 'i' } },
+                { email:     { $regex: safe, $options: 'i' } },
+            ];
+        }
+        const patients = await User.find(filter)
+            .select('firstName lastName email dateOfBirth gender bloodGroup allergies phone avatar tenantId')
+            .sort({ createdAt: -1 })
+            .limit(200)
+            .lean();
         res.json({ success: true, data: patients });
     } catch (error) { next(error); }
 };
