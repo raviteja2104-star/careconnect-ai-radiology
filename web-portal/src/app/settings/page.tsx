@@ -3,15 +3,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
+
+type RbacRole = {
+  _id: string; id: string; name: string; description: string;
+  permissions: string[]; userCount: number; isSystemRole: boolean; color: string;
+};
+import Link from 'next/link';
 import {
-  Building, Globe, Shield, FileText, Save, CheckCircle2, Cpu, Mail,
-  MessageSquare, Sun, Moon, Monitor, Contrast, Palette, Loader2, Plug,
+  Building, Globe, Shield, FileText, Save, CheckCircle2, Cpu,
+  Sun, Moon, Monitor, Contrast, Palette, Loader2, Plug,
+  Users, Lock, Settings2, ArrowRight, ChevronRight,
 } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/services/prescriptionTranslationService';
 import {
   PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter,
   Tabs, TabsList, TabsTrigger, TabsContent, Input, Select, Label, FieldHint,
-  Button, Badge, Switch, EmptyState,
+  Button, Badge, Switch, Skeleton,
 } from '@/components/ui';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
@@ -40,6 +47,14 @@ export default function SettingsPage() {
     enabled: activeTab === 'integrations',
   });
   const liveIntegrations: { name: string; status: string; description: string }[] = integrationsRes?.data ?? [];
+
+  const { data: rbacRes, isLoading: rbacLoading } = useQuery({
+    queryKey: ['ops', 'rbac_role'],
+    queryFn: () => fetch(`${API}/api/admin/ops/rbac_role`, { headers: authHeaders() }).then(r => r.json()),
+    enabled: activeTab === 'security',
+    staleTime: 60000,
+  });
+  const rbacRoles: RbacRole[] = rbacRes?.data ?? [];
 
   // Form states
   const [hospitalInfo, setHospitalInfo] = useState({
@@ -274,11 +289,39 @@ export default function SettingsPage() {
 
         {/* PRESCRIPTION (RX) */}
         <TabsContent value="rx">
-          <EmptyState
-            icon={FileText}
-            title="Prescription customization coming soon"
-            description="Letterhead layout, digital signature blocks, and Rx template controls will appear here."
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>Prescription Template Settings</CardTitle>
+              <CardDescription>Letterhead layout, template management, digital signature blocks, columns and AI controls.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {[
+                  { icon: FileText, title: 'Multi-template editor', detail: 'Hospital, department, and doctor-level Rx templates with live A4 preview.' },
+                  { icon: Settings2, title: 'Letterhead & branding', detail: 'Upload logo, configure colors, header presets and signature blocks.' },
+                  { icon: Globe, title: 'Language & AI controls', detail: 'Bilingual print mode, drug interaction alerts and medication suggestions.' },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <item.icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter className="border-t border-border !pt-5">
+              <Link href="/settings/prescription">
+                <Button>
+                  <Settings2 className="h-4 w-4" aria-hidden /> Open Prescription Settings
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
         </TabsContent>
 
         {/* MULTI-LANGUAGE DEFAULTS */}
@@ -334,12 +377,71 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* ROLES & SECURITY */}
-        <TabsContent value="security">
-          <EmptyState
-            icon={Shield}
-            title="Role-based access controls coming soon"
-            description="Granular RBAC policies, session rules, and audit controls will be managed from this section."
-          />
+        <TabsContent value="security" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Roles & Permissions</h2>
+            <p className="text-sm text-muted-foreground">Platform roles and the permission sets granted to each staff category.</p>
+          </div>
+          {rbacLoading ? (
+            <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {rbacRoles.map((role, i) => {
+                const colorMap: Record<string, string> = {
+                  rose:    'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400',
+                  violet:  'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
+                  brand:   'bg-brand/10 text-brand dark:bg-brand/20',
+                  emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
+                  amber:   'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
+                  info:    'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
+                };
+                const iconColor = colorMap[role.color] ?? colorMap.info;
+                return (
+                  <motion.div
+                    key={role._id ?? role.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <Card className="h-full">
+                      <CardContent className="flex flex-col gap-3 pt-4 pb-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+                              {role.name === 'Doctor' ? <FileText className="h-4 w-4" aria-hidden /> :
+                               role.name === 'Nurse' ? <Settings2 className="h-4 w-4" aria-hidden /> :
+                               role.name === 'Receptionist' ? <Users className="h-4 w-4" aria-hidden /> :
+                               <Lock className="h-4 w-4" aria-hidden />}
+                            </span>
+                            <div>
+                              <p className="font-semibold text-foreground text-sm leading-tight">{role.name}</p>
+                              <p className="text-xs text-muted-foreground">{role.userCount} users</p>
+                            </div>
+                          </div>
+                          <Badge tone={role.isSystemRole ? 'neutral' : 'success'} className="shrink-0">
+                            {role.isSystemRole ? 'System' : 'Custom'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{role.description}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {role.permissions.slice(0, 5).map((perm) => (
+                            <span key={perm} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{perm}</span>
+                          ))}
+                          {role.permissions.length > 5 && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">+{role.permissions.length - 5} more</span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span>System roles cannot be deleted. Role assignment is managed per-user from the Admin &rsaquo; Users section. Custom role creation is available to Super Admins.</span>
+          </div>
         </TabsContent>
 
         {/* INTEGRATIONS */}

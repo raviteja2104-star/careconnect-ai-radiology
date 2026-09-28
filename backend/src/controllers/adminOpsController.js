@@ -314,6 +314,14 @@ const SEEDS = {
     { id: 'wh-101', targetUrl: 'https://api.apollohospitals.com/careconnect/webhooks/lab-results', events: ['lab.result.ready', 'prescription.signed'], signingSecret: 'whsec_88492019481029384710', status: 'ACTIVE', successPct: 99.8, lastDelivery: '2 mins ago' },
     { id: 'wh-102', targetUrl: 'https://integrations.starhealth.in/claims/notify', events: ['invoice.paid', 'patient.discharged'], signingSecret: 'whsec_99182374619283746192', status: 'ACTIVE', successPct: 99.4, lastDelivery: '14 mins ago' },
   ],
+  rbac_role: [
+    { id: 'role-super-admin', name: 'Super Admin', description: 'Full platform access including billing, system config and audit logs', permissions: ['ALL_PERMISSIONS'], userCount: 2, isSystemRole: true, color: 'rose' },
+    { id: 'role-admin', name: 'Admin', description: 'Hospital administration including patient management, appointments, staff and reports', permissions: ['PATIENTS.VIEW', 'PATIENTS.CREATE', 'APPOINTMENTS.VIEW', 'APPOINTMENTS.CREATE', 'REPORTS.VIEW', 'BILLING.VIEW', 'STAFF.VIEW', 'ADMIN.VIEW_DASHBOARD'], userCount: 5, isSystemRole: true, color: 'violet' },
+    { id: 'role-doctor', name: 'Doctor', description: 'Full EMR access to view and create encounters, prescribe, and order investigations', permissions: ['PATIENTS.VIEW', 'EMR.VIEW', 'EMR.CREATE', 'PRESCRIPTIONS.CREATE', 'LABS.ORDER', 'STAFF.VIEW_APPOINTMENTS'], userCount: 24, isSystemRole: true, color: 'brand' },
+    { id: 'role-nurse', name: 'Nurse', description: 'Nursing station access for vitals recording, eMAR administration and shift handover', permissions: ['PATIENTS.VIEW', 'VITALS.RECORD', 'MEDICATIONS.ADMINISTER', 'STAFF.VIEW_APPOINTMENTS', 'CHECKIN_PATIENTS'], userCount: 48, isSystemRole: true, color: 'emerald' },
+    { id: 'role-receptionist', name: 'Receptionist', description: 'Front desk operations including check-in, walk-ins, queue display and billing summary', permissions: ['PATIENTS.VIEW', 'PATIENTS.CREATE', 'APPOINTMENTS.VIEW', 'STAFF.RECEPTION', 'CHECKIN_PATIENTS', 'BILLING.VIEW'], userCount: 12, isSystemRole: true, color: 'amber' },
+    { id: 'role-pharmacist', name: 'Pharmacist', description: 'Pharmacy dispensing, drug inventory management and prescription fulfillment', permissions: ['PATIENTS.VIEW', 'PRESCRIPTIONS.VIEW', 'PHARMACY.DISPENSE', 'INVENTORY.MANAGE'], userCount: 8, isSystemRole: false, color: 'info' },
+  ],
   hospital_unit: [
     { id: 'hu-01', name: 'Apollo Super Specialty Hospital Main Campus', type: 'HOSPITAL', parentId: null, code: 'APL-MAIN', floor: null, bedCapacity: null, status: 'ACTIVE' },
     { id: 'hu-02', name: 'Internal Medicine and General OPD', type: 'DEPARTMENT', parentId: 'hu-01', code: 'APL-INTMED', floor: 'Ground', bedCapacity: null, status: 'ACTIVE' },
