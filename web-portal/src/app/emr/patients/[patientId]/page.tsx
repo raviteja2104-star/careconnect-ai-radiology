@@ -107,7 +107,8 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
             } catch (err) {
                 if (err instanceof ApiOfflineError) {
                     toast('info', 'Backend offline', 'Opening the demo encounter workspace instead.');
-                    router.push(`/emr/encounter/${DEMO_ENCOUNTER_ID}${suffix}`);
+                    const pid = suffix ? `${suffix}&patientId=${patientId}` : `?patientId=${patientId}`;
+                    router.push(`/emr/encounter/${DEMO_ENCOUNTER_ID}${pid}`);
                 } else {
                     toast('error', 'Could not start encounter', err instanceof Error ? err.message : undefined);
                 }

@@ -150,6 +150,7 @@ export const CHROMELESS_ROUTES = [
     '/', '/display', '/kiosk', '/login', '/home', '/business',
     '/patients', '/doctors', '/clinics', '/hospitals', '/labs', '/pharmacies',
     '/about', '/contact', '/join', '/provider',
+    '/emr/patients',
 ];
 
 export function isChromeless(pathname: string): boolean {

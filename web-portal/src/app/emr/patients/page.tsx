@@ -8,31 +8,7 @@ import {
     PageHeader, Badge, Card, CardContent, Avatar, EmptyState, ErrorState,
     Input, Skeleton, Button,
 } from '@/components/ui';
-import { API_BASE, getToken, ApiOfflineError, patientDisplayName, ageOf, type PatientRecord } from '../_lib/api';
-
-const DEMO_PATIENTS: PatientRecord[] = [
-    {
-        _id: 'demo-p1',
-        firstName: 'Priya', lastName: 'Sharma',
-        email: 'priya.sharma@example.com', phone: '+91 98765 43210',
-        dateOfBirth: '1985-06-12', gender: 'female', bloodGroup: 'B+',
-        uhid: 'UHID-2024-0001', allergies: ['Penicillin'],
-    },
-    {
-        _id: 'demo-p2',
-        firstName: 'Rahul', lastName: 'Verma',
-        email: 'rahul.verma@example.com', phone: '+91 99123 45678',
-        dateOfBirth: '1972-11-03', gender: 'male', bloodGroup: 'O+',
-        uhid: 'UHID-2024-0002', allergies: [],
-    },
-    {
-        _id: 'demo-p3',
-        firstName: 'Anjali', lastName: 'Patel',
-        email: 'anjali.patel@example.com', phone: '+91 87654 32109',
-        dateOfBirth: '1990-02-28', gender: 'female', bloodGroup: 'A+',
-        uhid: 'UHID-2024-0003', allergies: ['Aspirin', 'Sulfa drugs'],
-    },
-];
+import { API_BASE, getToken, ApiOfflineError, patientDisplayName, ageOf, DEMO_PATIENTS_LIST, type PatientRecord } from '../_lib/api';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -71,7 +47,7 @@ async function fetchPatients(): Promise<{ data: PatientRecord[]; demo: boolean }
         }
         throw new ApiOfflineError();
     } catch {
-        return { data: DEMO_PATIENTS, demo: true };
+        return { data: DEMO_PATIENTS_LIST, demo: true };
     }
 }
 

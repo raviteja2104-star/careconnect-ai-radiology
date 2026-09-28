@@ -81,6 +81,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const { encounterId } = React.use(params);
     const searchParams = useSearchParams();
     const initialPanel = (searchParams.get('panel') as OrderPanelTab | null) || undefined;
+    const queryPatientId = searchParams.get('patientId') || undefined;
     const queryClient = useQueryClient();
     const ordersRef = React.useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -95,7 +96,9 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const bundle = qBundle.data?.data;
     const demo = Boolean(qBundle.data?.demo);
     const encounter = bundle?.encounter;
-    const patientId = typeof encounter?.patientId === 'object' ? encounter.patientId._id : encounter?.patientId;
+    const encPatientId = typeof encounter?.patientId === 'object' ? encounter.patientId._id : encounter?.patientId;
+    // When the demo encounter is loaded offline, prefer the patientId from the query param
+    const patientId = (encPatientId === 'demo' && queryPatientId) ? queryPatientId : encPatientId;
 
     const q360 = useQuery({
         queryKey: ['emr', '360', patientId],
@@ -103,7 +106,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         enabled: Boolean(patientId),
     });
     const p360 = q360.data?.data;
-    const encPatient = typeof encounter?.patientId === 'object' ? encounter.patientId as PatientRecord : null;
+    const encPatient = typeof encounter?.patientId === 'object' && encounter.patientId._id !== 'demo' ? encounter.patientId as PatientRecord : null;
     const encPatientName = encPatient
         ? `${encPatient.firstName || ''} ${encPatient.lastName || ''}`.trim() || encPatient.name || undefined
         : undefined;

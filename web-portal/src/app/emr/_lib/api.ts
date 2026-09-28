@@ -273,6 +273,35 @@ const DEMO_PATIENT: PatientRecord = {
     primaryPhysicianName: 'Dr. Raj Sharma (Cardiology)',
 };
 
+/** Known demo patients from the patients list — used to show correct demographics offline. */
+export const DEMO_PATIENTS_LIST: PatientRecord[] = [
+    {
+        _id: 'demo-p1',
+        firstName: 'Priya', lastName: 'Sharma',
+        email: 'priya.sharma@example.com', phone: '+91 98765 43210',
+        dateOfBirth: '1985-06-12', gender: 'female', bloodGroup: 'B+',
+        uhid: 'UHID-2024-0001', allergies: ['Penicillin'],
+    },
+    {
+        _id: 'demo-p2',
+        firstName: 'Rahul', lastName: 'Verma',
+        email: 'rahul.verma@example.com', phone: '+91 99123 45678',
+        dateOfBirth: '1972-11-03', gender: 'male', bloodGroup: 'O+',
+        uhid: 'UHID-2024-0002', allergies: [],
+    },
+    {
+        _id: 'demo-p3',
+        firstName: 'Anjali', lastName: 'Patel',
+        email: 'anjali.patel@example.com', phone: '+91 87654 32109',
+        dateOfBirth: '1990-02-28', gender: 'female', bloodGroup: 'A+',
+        uhid: 'UHID-2024-0003', allergies: ['Aspirin', 'Sulfa drugs'],
+    },
+];
+
+const DEMO_PATIENTS_MAP: Record<string, PatientRecord> = Object.fromEntries(
+    DEMO_PATIENTS_LIST.map((p) => [p._id, p])
+);
+
 const DEMO_ACTIVE_MEDICATIONS: Partial<DrugLine>[] = [
     { name: 'Telmisartan', dose: '40 mg', frequency: '0-0-1 (OD)', route: 'Oral', duration: 'Ongoing', instructions: 'After dinner' },
     { name: 'Metformin', dose: '500 mg', frequency: '1-0-1 (BID)', route: 'Oral', duration: 'Ongoing', instructions: 'After meals' },
@@ -437,7 +466,11 @@ export async function fetchPatient360(patientId: string): Promise<WithDemo<Patie
         return { data, demo: false };
     } catch (err) {
         if (err instanceof ApiOfflineError || (err instanceof ApiHttpError && err.status === 404)) {
-            return { data: { ...DEMO_360, patient: { ...DEMO_360.patient, _id: patientId } }, demo: true };
+            const knownPatient = DEMO_PATIENTS_MAP[patientId];
+            const patient = knownPatient
+                ? { ...DEMO_PATIENT, ...knownPatient }
+                : { ...DEMO_PATIENT, _id: patientId };
+            return { data: { ...DEMO_360, patient }, demo: true };
         }
         throw err;
     }
