@@ -74,6 +74,7 @@ exports.createPatient = async (req, res) => {
             role: 'patient',
             isActive: true,
             isVerified: false,
+            tenantId: req.user.tenantId || 't-default',
         };
 
         if (phone?.trim()) patientData.phone = phone.trim();
