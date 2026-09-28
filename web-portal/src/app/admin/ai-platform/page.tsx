@@ -70,6 +70,21 @@ const guardrails = [
   },
 ];
 
+type AiAgent = {
+  _id: string;
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  model: string;
+  trigger: string;
+  status: 'ACTIVE' | 'STAGING' | 'PAUSED' | 'DRAFT';
+  totalRunsToday: number;
+  avgResponseMs: number;
+  successRatePct: number;
+  lastTriggeredAt: string | null;
+};
+
 type AiModel = {
   _id: string;
   id: string;
@@ -102,6 +117,18 @@ export default function EnterpriseAIPlatformPage() {
   const [scribeOutput, setScribeOutput] = useState<ScribeOutput | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [scribeError, setScribeError] = useState<string | null>(null);
+
+  const { data: agentsRes, isLoading: agentsLoading } = useQuery({
+    queryKey: ['ops', 'ai_agent'],
+    queryFn: () => {
+      const token = getToken();
+      return fetch(`${API_BASE}/api/admin/ops/ai_agent`, {
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      }).then(r => r.json());
+    },
+    staleTime: 60_000,
+  });
+  const agentsList = (agentsRes?.data ?? []) as AiAgent[];
 
   const { data: modelsRes, isLoading: modelsLoading } = useQuery({
     queryKey: ['ops', 'ai_model'],
@@ -159,13 +186,106 @@ export default function EnterpriseAIPlatformPage() {
           <TabsTrigger value="GOVERNANCE"><ShieldCheck className="h-4 w-4" aria-hidden /> Guardrails</TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: AI AGENT STUDIO — no backend endpoint */}
-        <TabsContent value="AGENTS" className="mt-6">
-          <EmptyState
-            icon={Construction}
-            title="AI Agent Studio not yet available"
-            description="The agent configuration API is not yet implemented. AI agents and their configurations will be manageable here once the backend agent registry is ready."
-          />
+        {/* TAB 1: AI AGENT STUDIO — real backend: GET /api/admin/ops/ai_agent */}
+        <TabsContent value="AGENTS" className="mt-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">AI Agent Studio</h2>
+            <p className="text-sm text-muted-foreground">Autonomous AI agents deployed across the clinical workflow — triggers, models, and live telemetry.</p>
+          </div>
+
+          {agentsLoading && (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}><CardContent className="p-5"><div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-xl" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-56" /><Skeleton className="h-3 w-96" /></div></div></CardContent></Card>
+              ))}
+            </div>
+          )}
+
+          {!agentsLoading && agentsList.length === 0 && (
+            <EmptyState icon={Bot} title="No agents registered" description="AI agents will appear here once seeded." />
+          )}
+
+          {!agentsLoading && agentsList.length > 0 && (
+            <div className="space-y-3">
+              {agentsList.map((agent, i) => {
+                const AGENT_TYPE_COLORS: Record<string, string> = {
+                  SAFETY_CHECK: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400',
+                  CODING: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
+                  ALERTING: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+                  SUMMARISATION: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
+                  IMAGING: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-400',
+                  TRANSLATION: 'bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400',
+                };
+                const typeColor = AGENT_TYPE_COLORS[agent.type] ?? 'bg-muted text-muted-foreground';
+                const minutesAgo = agent.lastTriggeredAt
+                  ? Math.round((Date.now() - new Date(agent.lastTriggeredAt).getTime()) / 60000)
+                  : null;
+
+                return (
+                  <motion.div
+                    key={agent._id ?? agent.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <Card>
+                      <CardContent className="p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          {/* Left: agent identity */}
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${typeColor}`}>
+                              <Bot className="h-5 w-5" aria-hidden />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-semibold text-foreground">{agent.name}</h3>
+                                <Badge tone={agent.status === 'ACTIVE' ? 'success' : agent.status === 'STAGING' ? 'warning' : 'neutral'} dot={agent.status === 'ACTIVE'}>
+                                  {agent.status}
+                                </Badge>
+                                <Badge tone="neutral">{agent.type.replace('_', ' ')}</Badge>
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted-foreground">{agent.description}</p>
+                              <p className="mt-1 inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                                <Sparkles className="h-3 w-3" aria-hidden /> {agent.model}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Right: metrics */}
+                          <div className="flex flex-wrap items-center gap-4 shrink-0 text-xs">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <Activity className="h-3.5 w-3.5" aria-hidden />
+                              <span className="tabular-nums"><span className="font-semibold text-foreground">{agent.totalRunsToday}</span> runs today</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" aria-hidden />
+                              <span className="tabular-nums"><span className="font-semibold text-foreground">{agent.avgResponseMs}</span> ms avg</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+                              <span className="tabular-nums"><span className="font-semibold text-foreground">{agent.successRatePct}%</span> success</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Trigger + last run */}
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" aria-hidden />
+                            <span>Trigger: <span className="font-medium text-foreground">{agent.trigger}</span></span>
+                          </span>
+                          {minutesAgo !== null
+                            ? <span>Last run <span className="font-medium text-foreground">{minutesAgo} min ago</span></span>
+                            : <span className="text-muted-foreground/60">Not yet triggered in staging</span>
+                          }
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         {/* TAB 2: AI SCRIBE LAB — real backend: POST /api/admin/ai-scribe */}
