@@ -2,14 +2,16 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Sparkles, Bot, ShieldCheck, Cpu, Mic, FileText,
   UserCheck, BookOpen, Database, FileSearch, Lock, Fingerprint, Gauge, Construction,
+  Activity, Clock, CheckCircle2, AlertCircle, Server,
 } from 'lucide-react';
 import {
   PageHeader, Tabs, TabsList, TabsTrigger, TabsContent,
   Card, CardHeader, CardTitle, CardDescription, CardContent,
-  Badge, Button, Textarea, Label, EmptyState,
+  Badge, Button, Textarea, Label, EmptyState, Skeleton,
 } from '@/components/ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
@@ -68,6 +70,23 @@ const guardrails = [
   },
 ];
 
+type AiModel = {
+  _id: string;
+  id: string;
+  name: string;
+  provider: string;
+  useCase: string;
+  status: 'ACTIVE' | 'STAGING' | 'DEPRECATED';
+  deployedAt: string;
+  avgLatencyMs: number;
+  p99LatencyMs: number;
+  successRatePct: number;
+  costPer1kTokens: number;
+  totalCallsToday: number;
+  maxTokens: number | null;
+  region: string;
+};
+
 type ScribeOutput = {
   soap: { subjective: string; objective: string; assessment: string; plan: string };
   generatedAt: string;
@@ -83,6 +102,18 @@ export default function EnterpriseAIPlatformPage() {
   const [scribeOutput, setScribeOutput] = useState<ScribeOutput | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [scribeError, setScribeError] = useState<string | null>(null);
+
+  const { data: modelsRes, isLoading: modelsLoading } = useQuery({
+    queryKey: ['ops', 'ai_model'],
+    queryFn: () => {
+      const token = getToken();
+      return fetch(`${API_BASE}/api/admin/ops/ai_model`, {
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      }).then(r => r.json());
+    },
+    staleTime: 60_000,
+  });
+  const modelsList = (modelsRes?.data ?? []) as AiModel[];
 
   const handleRunScribe = async () => {
     setIsGenerating(true);
@@ -242,13 +273,105 @@ export default function EnterpriseAIPlatformPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 5: MODEL REGISTRY — no backend endpoint */}
-        <TabsContent value="MODELS" className="mt-6">
-          <EmptyState
-            icon={Construction}
-            title="AI model registry not yet available"
-            description="The model registry API is not yet implemented. Registered AI models with latency and cost telemetry will appear here once the backend model registry is ready."
-          />
+        {/* TAB 5: MODEL REGISTRY — real backend: GET /api/admin/ops/ai_model */}
+        <TabsContent value="MODELS" className="mt-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">AI Model Registry</h2>
+            <p className="text-sm text-muted-foreground">All AI models deployed across the platform — latency, success rate, and cost telemetry.</p>
+          </div>
+
+          {modelsLoading && (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}><CardContent className="p-5"><div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-xl" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-56" /><Skeleton className="h-3 w-80" /></div></div></CardContent></Card>
+              ))}
+            </div>
+          )}
+
+          {!modelsLoading && modelsList.length === 0 && (
+            <EmptyState icon={Cpu} title="No models registered" description="AI models will appear here once seeded." />
+          )}
+
+          {!modelsLoading && modelsList.length > 0 && (
+            <div className="space-y-3">
+              {modelsList.map((model, i) => (
+                <motion.div
+                  key={model._id ?? model.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        {/* Left: model identity */}
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                            <Server className="h-5 w-5 text-primary" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-mono text-sm font-semibold text-foreground">{model.name}</h3>
+                              <Badge tone={model.status === 'ACTIVE' ? 'success' : model.status === 'STAGING' ? 'warning' : 'neutral'} dot={model.status === 'ACTIVE'}>
+                                {model.status}
+                              </Badge>
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{model.useCase}</p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground/70">{model.provider} · {model.region} · deployed {model.deployedAt}</p>
+                          </div>
+                        </div>
+
+                        {/* Right: metrics */}
+                        <div className="flex flex-wrap items-center gap-4 shrink-0 text-xs">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" aria-hidden />
+                            <span className="tabular-nums">
+                              <span className="font-semibold text-foreground">{model.avgLatencyMs}</span> ms avg
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+                            <span className="tabular-nums">
+                              <span className="font-semibold text-foreground">{model.successRatePct}%</span> success
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Activity className="h-3.5 w-3.5" aria-hidden />
+                            <span className="tabular-nums">
+                              <span className="font-semibold text-foreground">{model.totalCallsToday.toLocaleString()}</span> calls today
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Gauge className="h-3.5 w-3.5" aria-hidden />
+                            <span className="tabular-nums">
+                              {model.costPer1kTokens === 0
+                                ? <span className="font-semibold text-success">Free (on-premise)</span>
+                                : <><span className="font-semibold text-foreground">${model.costPer1kTokens}</span> /1k tokens</>
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* p99 latency bar */}
+                      <div className="mt-4 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>Latency distribution</span>
+                          <span className="tabular-nums">p99 {model.p99LatencyMs} ms</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary/60 transition-all"
+                            style={{ width: `${Math.min(100, (model.avgLatencyMs / model.p99LatencyMs) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* TAB 6: GOVERNANCE & GUARDRAILS — static informational panel */}
