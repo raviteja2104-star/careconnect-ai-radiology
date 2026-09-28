@@ -82,9 +82,11 @@ export default function EnterpriseAIPlatformPage() {
   );
   const [scribeOutput, setScribeOutput] = useState<ScribeOutput | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [scribeError, setScribeError] = useState<string | null>(null);
 
   const handleRunScribe = async () => {
     setIsGenerating(true);
+    setScribeError(null);
     try {
       const token = getToken();
       const res = await fetch(`${API_BASE}/api/admin/ai-scribe`, {
@@ -98,9 +100,11 @@ export default function EnterpriseAIPlatformPage() {
       const json = await res.json();
       if (json.success && json.data) {
         setScribeOutput(json.data as ScribeOutput);
+      } else {
+        setScribeError(json.message ?? 'Failed to generate SOAP note. Try again.');
       }
     } catch {
-      // Network error — silently ignore; user can retry
+      setScribeError('Network error — check your connection and try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -162,6 +166,11 @@ export default function EnterpriseAIPlatformPage() {
                   <Sparkles className="h-4 w-4" aria-hidden />
                   {isGenerating ? 'Generating SOAP notes…' : 'Run clinical AI scribe'}
                 </Button>
+                {scribeError && (
+                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+                    {scribeError}
+                  </p>
+                )}
               </CardContent>
             </Card>
 

@@ -145,15 +145,62 @@ exports.generateScribe = async (req, res) => {
     if (!dictationText) {
       return res.status(400).json({ success: false, message: 'dictationText is required.' });
     }
-    // Rule-based SOAP generation — AI service can enhance later
-    const soap = {
-      subjective: dictationText,
-      objective: 'Examination findings pending.',
-      assessment: 'Assessment pending clinical review.',
-      plan: 'Plan to be determined by attending physician.',
-    };
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({
+        success: false,
+        message: 'AI scribe service is not configured. Set ANTHROPIC_API_KEY in the environment.',
+      });
+    }
+
+    const axios = require('axios');
+    const systemPrompt = `You are a clinical documentation AI assistant. Given a doctor-patient consultation transcript or clinical dictation, generate a structured SOAP note. Return ONLY valid JSON with this exact shape:
+{
+  "subjective": "...",
+  "objective": "...",
+  "assessment": "...",
+  "plan": "..."
+}
+Keep each section concise (2-4 sentences). Use proper clinical terminology. Do not include any text outside the JSON object.`;
+
+    const aiResponse = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Clinical dictation:\n${dictationText}\n\nGenerate the SOAP note as JSON.` }],
+      },
+      {
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
+
+    const rawText = aiResponse.data.content[0].text;
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ success: false, message: 'AI returned an unexpected format.' });
+    }
+    const soap = JSON.parse(jsonMatch[0]);
+
+    if (!soap.subjective || !soap.objective || !soap.assessment || !soap.plan) {
+      return res.status(500).json({ success: false, message: 'AI response missing required SOAP sections.' });
+    }
+
     res.json({ success: true, data: { soap, generatedAt: new Date() } });
   } catch (err) {
+    if (err.response?.status === 401) {
+      return res.status(503).json({ success: false, message: 'AI service authentication failed. Check ANTHROPIC_API_KEY.' });
+    }
+    if (err.response?.status === 429) {
+      return res.status(429).json({ success: false, message: 'AI service rate limit exceeded. Try again shortly.' });
+    }
     res.status(500).json({ success: false, error: err.message });
   }
 };
