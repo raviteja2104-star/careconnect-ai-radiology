@@ -125,10 +125,17 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     // Must be declared before early returns — React 19 enforces hooks order strictly.
     const [printData, setPrintData] = React.useState<{ data: PrescriptionSheetData; title: string } | null>(null);
     const [rxLang, setRxLang] = React.useState('en');
+    const [printAdvice, setPrintAdvice] = React.useState('');
+    const [printFollowUpDate, setPrintFollowUpDate] = React.useState('');
     const printHtml = React.useMemo(() => {
         if (!printData) return null;
-        return buildPrescriptionHtml({ ...printData.data, settings: { ...printData.data.settings, language: rxLang } });
-    }, [printData, rxLang]);
+        return buildPrescriptionHtml({
+            ...printData.data,
+            advice: printAdvice || undefined,
+            followUpText: printFollowUpDate || undefined,
+            settings: { ...printData.data.settings, language: rxLang },
+        });
+    }, [printData, rxLang, printAdvice, printFollowUpDate]);
 
     // Hydrate the editor from the latest server note once per encounter.
     // useEffect required in React 19 — setState during render is forbidden.
@@ -757,19 +764,19 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             {/* ── Print preview modal (medication & lab) ── */}
             <Dialog
                 open={!!printData}
-                onClose={() => setPrintData(null)}
+                onClose={() => { setPrintData(null); setPrintAdvice(''); setPrintFollowUpDate(''); }}
                 title={printData?.title ?? 'Preview'}
                 description="Review the document below, then print or save as PDF."
                 size="xl"
                 footer={
                     <>
-                        <Button variant="outline" onClick={() => setPrintData(null)}>Close</Button>
+                        <Button variant="outline" onClick={() => { setPrintData(null); setPrintAdvice(''); setPrintFollowUpDate(''); }}>Close</Button>
                         <Button
                             onClick={() => {
                                 if (!printHtml) return;
                                 const opened = openPrescriptionPrintWindow(printHtml);
                                 if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print.');
-                                else setPrintData(null);
+                                else { setPrintData(null); setPrintAdvice(''); setPrintFollowUpDate(''); }
                             }}
                         >
                             <Printer className="h-4 w-4" aria-hidden /> Print / Save PDF
@@ -779,6 +786,33 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             >
                 {printData && (
                     <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="flex flex-col gap-1">
+                                <label htmlFor="rx-advice" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Advice
+                                </label>
+                                <textarea
+                                    id="rx-advice"
+                                    rows={2}
+                                    value={printAdvice}
+                                    onChange={(e) => setPrintAdvice(e.target.value)}
+                                    placeholder="e.g. Rest, avoid spicy food, stay hydrated…"
+                                    className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label htmlFor="rx-followup" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Follow-up Date
+                                </label>
+                                <input
+                                    id="rx-followup"
+                                    type="date"
+                                    value={printFollowUpDate}
+                                    onChange={(e) => setPrintFollowUpDate(e.target.value)}
+                                    className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                />
+                            </div>
+                        </div>
                         <div className="flex items-center gap-3">
                             <label htmlFor="rx-lang-select" className="text-sm font-medium text-foreground whitespace-nowrap">
                                 Print Language
