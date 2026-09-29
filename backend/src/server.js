@@ -139,15 +139,21 @@ app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) return next();
     helmet({ crossOriginResourcePolicy: false })(req, res, next);
 });
-const CORS_ORIGINS = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://www.careconnect.care', 'https://careconnect.care'];
+// Canonical production origins are always permitted regardless of the env var
+// (guards against ALLOWED_ORIGINS being set without www, or missing apex domain).
+const CORS_CANONICAL = ['https://careconnect.care', 'https://www.careconnect.care'];
+const CORS_ORIGINS = new Set([
+    ...CORS_CANONICAL,
+    ...(process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']),
+]);
 
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, Postman, server-to-server)
         if (!origin) return callback(null, true);
-        if (CORS_ORIGINS.includes(origin)) return callback(null, true);
+        if (CORS_ORIGINS.has(origin)) return callback(null, true);
         // Allow Vercel preview deployments for this project in non-production
         if (process.env.NODE_ENV !== 'production' && /\.vercel\.app$/.test(origin)) return callback(null, true);
         // NOTE: Removed unconditional *.vercel.app wildcard that applied in production.
@@ -394,9 +400,7 @@ app.use(errorHandler);
 if (!process.env.VERCEL) {
     const { Server } = require('socket.io');
     const server = http.createServer(app);
-    const wsOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://www.careconnect.care', 'https://careconnect.care'];
+    const wsOrigins = [...CORS_ORIGINS];
     const io = new Server(server, { cors: { origin: wsOrigins, methods: ['GET', 'POST'], credentials: true } });
     const { setupWebSocket } = require('./websocket/socketHandler');
     setupWebSocket(io);
