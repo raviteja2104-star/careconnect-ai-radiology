@@ -1,5 +1,7 @@
 'use client';
 
+import { getRxLabels, INDIAN_LANGUAGES } from './prescriptionI18n';
+
 /**
  * Self-contained prescription sheet renderer.
  * Produces a complete standalone HTML document (inline CSS only — no CDNs,
@@ -138,6 +140,8 @@ export interface PrescriptionSheetSettings {
     showContact?: boolean;
     showDisclaimer?: boolean;
     disclaimerText?: string;
+    /** BCP-47 language code — 'en' (default) or any Indian language code from prescriptionI18n. */
+    language?: string;
 
     /* ---------- Signature ---------- */
     signatureDataUrl?: string;
@@ -266,6 +270,9 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
         : '12mm';
     const sheetMax = SHEET_WIDTH[paper][orientation];
 
+    /* ---- Labels (i18n) ---- */
+    const L = getRxLabels(s.language);
+
     /* ---- Section visibility ---- */
     const sections = s.sections;
     const vis = (k: keyof RxSectionVisibility) => sections?.[k] !== false;
@@ -275,8 +282,13 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
             : '';
 
     /* ---- Medicine table (ordered, configurable columns) ---- */
+    const MED_COL_LABEL_L: Record<RxMedicineColumn, string> = {
+        index: '#', name: L.medication, generic: L.generic, strength: L.strength,
+        dosage: L.dose, route: L.route, frequency: L.frequency, duration: L.duration,
+        quantity: L.qty, instructions: L.notes, foodTiming: L.foodTiming,
+    };
     const medCols = (s.medicineColumns && s.medicineColumns.length ? s.medicineColumns : DEFAULT_MED_COLUMNS)
-        .filter((c) => MED_COL_LABEL[c]);
+        .filter((c) => MED_COL_LABEL_L[c]);
     const hasDoseColumn = medCols.includes('dosage');
     const drugList = data.drugs.filter((d) => d.name && d.name.trim());
     const medCell = (d: RxDrugLine, col: RxMedicineColumn, i: number): string => {
@@ -295,7 +307,7 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
         }
     };
     const medHead = medCols
-        .map((c) => `<th${MED_COL_CENTERED.has(c) ? ' class="c"' : ''}>${esc(MED_COL_LABEL[c])}</th>`)
+        .map((c) => `<th${MED_COL_CENTERED.has(c) ? ' class="c"' : ''}>${esc(MED_COL_LABEL_L[c])}</th>`)
         .join('');
     const rows = drugList
         .map((d, i) => `
@@ -308,13 +320,13 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
     const ic = s.investigationColumns;
     const invList = (data.investigations || []).filter((x) => x.name && x.name.trim());
     const invCols: Array<{ key: keyof RxInvestigation; label: string; center?: boolean }> = [
-        { key: 'name', label: 'Investigation' },
-        { key: 'indication', label: 'Indication' },
-        { key: 'priority', label: 'Priority', center: true },
-        { key: 'instructions', label: 'Instructions' },
+        { key: 'name', label: L.investigation },
+        { key: 'indication', label: L.indication },
+        { key: 'priority', label: L.priority, center: true },
+        { key: 'instructions', label: L.instructions },
     ].filter((c) => (ic ? ic[c.key as keyof typeof ic] !== false : true)) as Array<{ key: keyof RxInvestigation; label: string; center?: boolean }>;
     const investigationsHtml = invList.length && invCols.length
-        ? `<div class="sec"><div class="lbl">Investigations Advised</div></div>
+        ? `<div class="sec"><div class="lbl">${esc(L.investigationsAdvised)}</div></div>
   <table>
     <thead><tr><th class="c">#</th>${invCols.map((c) => `<th${c.center ? ' class="c"' : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
     <tbody>${invList.map((inv, i) => `
@@ -407,8 +419,10 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
         (sf?.regNo !== false) && s.doctorRegNo ? `<div class="reg">${esc(s.doctorRegNo)}</div>` : '',
     ].filter(Boolean).join('\n        ');
 
+    const dir = INDIAN_LANGUAGES.find((l) => l.code === (s.language || 'en'))?.dir ?? 'ltr';
+
     return `<!DOCTYPE html>
-<html>
+<html dir="${dir}">
 <head>
 <meta charset="utf-8">
 <title>Prescription — ${esc(data.patient.name)} — ${esc(s.hospitalName)}</title>
@@ -468,21 +482,21 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
   ${headerTextHtml}
 
   <div class="pinfo">
-    <span><b>Name:</b> ${esc(data.patient.name)}</span>
-    ${data.patient.ageSex ? `<span><b>Age/Sex:</b> ${esc(data.patient.ageSex)}</span>` : ''}
-    ${data.patient.id ? `<span><b>ID:</b> ${esc(data.patient.id)}</span>` : ''}
-    ${data.patient.mobile ? `<span><b>Mobile:</b> ${esc(data.patient.mobile)}</span>` : ''}
-    <span><b>Date:</b> ${esc(date)}</span>
+    <span><b>${esc(L.name)}:</b> ${esc(data.patient.name)}</span>
+    ${data.patient.ageSex ? `<span><b>${esc(L.ageSex)}:</b> ${esc(data.patient.ageSex)}</span>` : ''}
+    ${data.patient.id ? `<span><b>${esc(L.id)}:</b> ${esc(data.patient.id)}</span>` : ''}
+    ${data.patient.mobile ? `<span><b>${esc(L.mobile)}:</b> ${esc(data.patient.mobile)}</span>` : ''}
+    <span><b>${esc(L.date)}:</b> ${esc(date)}</span>
   </div>
 
-  ${sec('Chief Complaints', data.chiefComplaintsText, vis('chiefComplaints'))}
-  ${sec('Symptoms', data.symptoms, vis('symptoms'))}
-  ${sec('Clinical Findings', data.clinicalFindings, vis('clinicalFindings'))}
-  ${sec('Diagnosis', data.diagnosis, s.showDiagnosis !== false && vis('diagnosis'))}
-  ${sec('Allergies', data.allergiesText, vis('allergies'))}
-  ${sec('Medical History', data.medicalHistoryText, vis('medicalHistory'))}
-  ${sec('Current Medications', data.currentMedicationsText, vis('currentMedications'))}
-  ${sec('Vitals', data.vitals, !!s.showVitals && vis('vitals'))}
+  ${sec(L.chiefComplaints, data.chiefComplaintsText, vis('chiefComplaints'))}
+  ${sec(L.symptoms, data.symptoms, vis('symptoms'))}
+  ${sec(L.clinicalFindings, data.clinicalFindings, vis('clinicalFindings'))}
+  ${sec(L.diagnosis, data.diagnosis, s.showDiagnosis !== false && vis('diagnosis'))}
+  ${sec(L.allergies, data.allergiesText, vis('allergies'))}
+  ${sec(L.medicalHistory, data.medicalHistoryText, vis('medicalHistory'))}
+  ${sec(L.currentMedications, data.currentMedicationsText, vis('currentMedications'))}
+  ${sec(L.vitals, data.vitals, !!s.showVitals && vis('vitals'))}
 
   <div class="rxmark">℞</div>
   ${rows
@@ -490,14 +504,14 @@ export function buildPrescriptionHtml(data: PrescriptionSheetData): string {
     <thead><tr>${medHead}</tr></thead>
     <tbody>${rows}</tbody>
   </table>`
-        : '<div class="val" style="color:#64748B">No medications added.</div>'}
+        : `<div class="val" style="color:#64748B">${esc(L.noMedicationsAdded)}</div>`}
 
   ${investigationsHtml}
   ${resultsHtml}
 
-  ${sec('Treatment Plan', data.treatmentPlanText, vis('treatmentPlan'))}
-  ${sec('Advice / Plan', data.advice, vis('advice'))}
-  ${sec('Follow-up', data.followUpText, vis('followUp'))}
+  ${sec(L.treatmentPlan, data.treatmentPlanText, vis('treatmentPlan'))}
+  ${sec(L.advicePlan, data.advice, vis('advice'))}
+  ${sec(L.followUp, data.followUpText, vis('followUp'))}
 
   <div class="bottom">
     <div class="signrow">

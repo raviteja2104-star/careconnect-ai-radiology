@@ -7,7 +7,8 @@ import {
     CheckCircle2, Loader2, PenLine, ShieldCheck, FileSignature, Plus, WifiOff,
     Stethoscope, AlertCircle, Printer,
 } from 'lucide-react';
-import { buildPrescriptionHtml, openPrescriptionPrintWindow } from '@/components/prescriptionSheet';
+import { buildPrescriptionHtml, openPrescriptionPrintWindow, type PrescriptionSheetData } from '@/components/prescriptionSheet';
+import { INDIAN_LANGUAGES } from '@/components/prescriptionI18n';
 import {
     PageHeader, Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent,
     Tabs, TabsList, TabsTrigger, Input, Textarea, Select, Label, Switch, Dialog,
@@ -122,7 +123,12 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const [dirty, setDirty] = React.useState(false);
     const [hydratedFor, setHydratedFor] = React.useState<string | null>(null);
     // Must be declared before early returns — React 19 enforces hooks order strictly.
-    const [printPreview, setPrintPreview] = React.useState<{ html: string; title: string } | null>(null);
+    const [printData, setPrintData] = React.useState<{ data: PrescriptionSheetData; title: string } | null>(null);
+    const [rxLang, setRxLang] = React.useState('en');
+    const printHtml = React.useMemo(() => {
+        if (!printData) return null;
+        return buildPrescriptionHtml({ ...printData.data, settings: { ...printData.data.settings, language: rxLang } });
+    }, [printData, rxLang]);
 
     // Hydrate the editor from the latest server note once per encounter.
     // useEffect required in React 19 — setState during render is forbidden.
@@ -414,21 +420,14 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             latestVitals.heightCm ? `Ht: ${latestVitals.heightCm} cm` : null,
             latestVitals.bmi ? `BMI: ${latestVitals.bmi}` : null,
         ].filter(Boolean).join(' · ') : undefined;
-        const html = buildPrescriptionHtml({
-            ...patientSheetBase(),
-            drugs: drugList,
-            chiefComplaintsText: (sections.chiefComplaint as string) || encounter?.chiefComplaint || undefined,
-            vitals: vitalsStr,
-        });
-        setPrintPreview({ html, title: 'Prescription Preview' });
-    };
-
-    const buildLabRequisitionHtml = (tests: string[], priority: string, notes: string) => {
-        return buildPrescriptionHtml({
-            ...patientSheetBase(),
-            drugs: [],
-            investigations: tests.map((name) => ({ name, instructions: notes || undefined })),
-            treatmentPlanText: `Priority: ${priority.toUpperCase()}`,
+        setPrintData({
+            data: {
+                ...patientSheetBase(),
+                drugs: drugList,
+                chiefComplaintsText: (sections.chiefComplaint as string) || encounter?.chiefComplaint || undefined,
+                vitals: vitalsStr,
+            },
+            title: 'Prescription Preview',
         });
     };
 
@@ -462,8 +461,15 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     };
 
     const handleLabPlaced = (tests: string[], priority: string, notes: string) => {
-        const html = buildLabRequisitionHtml(tests, priority, notes);
-        setPrintPreview({ html, title: 'Lab Requisition' });
+        setPrintData({
+            data: {
+                ...patientSheetBase(),
+                drugs: [],
+                investigations: tests.map((name) => ({ name, instructions: notes || undefined })),
+                treatmentPlanText: `Priority: ${priority.toUpperCase()}`,
+            },
+            title: 'Lab Requisition',
+        });
     };
 
     return (
@@ -750,20 +756,20 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
 
             {/* ── Print preview modal (medication & lab) ── */}
             <Dialog
-                open={!!printPreview}
-                onClose={() => setPrintPreview(null)}
-                title={printPreview?.title ?? 'Preview'}
+                open={!!printData}
+                onClose={() => setPrintData(null)}
+                title={printData?.title ?? 'Preview'}
                 description="Review the document below, then print or save as PDF."
                 size="xl"
                 footer={
                     <>
-                        <Button variant="outline" onClick={() => setPrintPreview(null)}>Close</Button>
+                        <Button variant="outline" onClick={() => setPrintData(null)}>Close</Button>
                         <Button
                             onClick={() => {
-                                if (!printPreview) return;
-                                const opened = openPrescriptionPrintWindow(printPreview.html);
+                                if (!printHtml) return;
+                                const opened = openPrescriptionPrintWindow(printHtml);
                                 if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print.');
-                                else setPrintPreview(null);
+                                else setPrintData(null);
                             }}
                         >
                             <Printer className="h-4 w-4" aria-hidden /> Print / Save PDF
@@ -771,14 +777,33 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                     </>
                 }
             >
-                {printPreview && (
-                    <iframe
-                        srcDoc={printPreview.html}
-                        title={printPreview.title}
-                        className="w-full rounded-lg border border-border"
-                        style={{ height: '60vh', minHeight: 320 }}
-                        sandbox="allow-same-origin"
-                    />
+                {printData && (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <label htmlFor="rx-lang-select" className="text-sm font-medium text-foreground whitespace-nowrap">
+                                Print Language
+                            </label>
+                            <select
+                                id="rx-lang-select"
+                                value={rxLang}
+                                onChange={(e) => setRxLang(e.target.value)}
+                                className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            >
+                                {INDIAN_LANGUAGES.map((lang) => (
+                                    <option key={lang.code} value={lang.code}>
+                                        {lang.nativeName} — {lang.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <iframe
+                            srcDoc={printHtml ?? ''}
+                            title={printData.title}
+                            className="w-full rounded-lg border border-border"
+                            style={{ height: '60vh', minHeight: 320 }}
+                            sandbox="allow-same-origin"
+                        />
+                    </div>
                 )}
             </Dialog>
         </div>
