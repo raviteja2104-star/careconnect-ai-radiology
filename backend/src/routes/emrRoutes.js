@@ -37,6 +37,7 @@ router.get('/encounters/:id', permitAny('DOCTOR.VIEW_PATIENTS', 'PATIENT.VIEW_ME
 router.post('/encounters/:id/vitals',    permitAny('DOCTOR.EDIT_CLINICAL_NOTES', 'STAFF.MANAGE_RECORDS'), emr.addVitals);
 router.post('/encounters/:id/diagnoses', permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.addDiagnosis);
 router.put('/encounters/:id/note',       permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.saveNote);
+router.patch('/encounters/:id',          permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.patchEncounter);
 router.post('/notes/:noteId/sign',       permit('DOCTOR.SIGN_CLINICAL_NOTES'), emr.signNote);
 router.post('/notes/:noteId/amend',      permit('DOCTOR.EDIT_CLINICAL_NOTES'), emr.amendNote);
 

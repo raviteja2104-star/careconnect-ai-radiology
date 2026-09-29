@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/toast';
 import { usePermissions } from '@/contexts/PermissionContext';
 import {
     fetchEncounterBundle, fetchPatient360, putNote, signNote, amendNote, postDiagnosis,
-    postVitals, patientDisplayName, ApiOfflineError,
+    postVitals, patchEncounter, patientDisplayName, ApiOfflineError,
     type NoteFormat, type NoteSections, type ClinicalNoteRecord, type DiagnosisEntry,
     type VitalsEntry, type PatientRecord,
 } from '../../_lib/api';
@@ -415,6 +415,21 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         };
     };
 
+    const savePrintMeta = (advice: string, followUpDate: string) => {
+        if (demo) return;
+        const body: Parameters<typeof patchEncounter>[1] = {};
+        if (advice) body.advice = advice;
+        if (followUpDate) body.followUp = { date: followUpDate };
+        if (Object.keys(body).length) patchEncounter(encounterId, body).catch(() => {});
+    };
+
+    const closePrintDialog = (advice: string, followUpDate: string) => {
+        savePrintMeta(advice, followUpDate);
+        setPrintData(null);
+        setPrintAdvice('');
+        setPrintFollowUpDate('');
+    };
+
     const buildAndPrint = (drugList: { name: string; dose?: string; frequency?: string; duration?: string; instructions?: string; route?: string }[]) => {
         const latestVitals = vitals[0];
         const vitalsStr = latestVitals ? [
@@ -427,6 +442,12 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             latestVitals.heightCm ? `Ht: ${latestVitals.heightCm} cm` : null,
             latestVitals.bmi ? `BMI: ${latestVitals.bmi}` : null,
         ].filter(Boolean).join(' · ') : undefined;
+        setPrintAdvice(encounter?.advice || '');
+        setPrintFollowUpDate(
+            encounter?.followUp?.date
+                ? new Date(encounter.followUp.date).toISOString().split('T')[0]
+                : ''
+        );
         setPrintData({
             data: {
                 ...patientSheetBase(),
@@ -764,19 +785,19 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             {/* ── Print preview modal (medication & lab) ── */}
             <Dialog
                 open={!!printData}
-                onClose={() => { setPrintData(null); setPrintAdvice(''); setPrintFollowUpDate(''); }}
+                onClose={() => closePrintDialog(printAdvice, printFollowUpDate)}
                 title={printData?.title ?? 'Preview'}
                 description="Review the document below, then print or save as PDF."
                 size="xl"
                 footer={
                     <>
-                        <Button variant="outline" onClick={() => { setPrintData(null); setPrintAdvice(''); setPrintFollowUpDate(''); }}>Close</Button>
+                        <Button variant="outline" onClick={() => closePrintDialog(printAdvice, printFollowUpDate)}>Close</Button>
                         <Button
                             onClick={() => {
                                 if (!printHtml) return;
                                 const opened = openPrescriptionPrintWindow(printHtml);
                                 if (!opened) toast('error', 'Popup blocked', 'Allow popups for this site to print.');
-                                else { setPrintData(null); setPrintAdvice(''); setPrintFollowUpDate(''); }
+                                else closePrintDialog(printAdvice, printFollowUpDate);
                             }}
                         >
                             <Printer className="h-4 w-4" aria-hidden /> Print / Save PDF

@@ -104,6 +104,8 @@ export interface EncounterRecord {
     chiefComplaint?: string;
     vitals?: VitalsEntry[];
     diagnoses?: DiagnosisEntry[];
+    advice?: string;
+    followUp?: { requested?: boolean; date?: string; instructions?: string };
     createdAt?: string;
 }
 
@@ -364,6 +366,8 @@ export const DEMO_ENCOUNTER_BUNDLE: EncounterBundle = {
             },
         ],
         diagnoses: [DEMO_DIAGNOSES[2]],
+        advice: 'Rest for 2 days. Avoid exertion. Take medications as prescribed. Return immediately if chest pain worsens.',
+        followUp: { requested: true, date: daysAgo(-7), instructions: 'Repeat ECG and review results.' },
     },
     notes: [],
     orders: [
@@ -546,6 +550,13 @@ export function postOrder(encounterId: string, body: CreateOrderBody) {
 
 export function patchOrderStatus(orderId: string, body: { status: string; note?: string }) {
     return request<ClinicalOrderRecord>(`/api/emr/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export function patchEncounter(
+    encounterId: string,
+    body: { advice?: string; followUp?: { date?: string; instructions?: string } },
+) {
+    return request<{ encounter: EncounterRecord }>(`/api/emr/encounters/${encounterId}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 /* ───────────────────── Claude clinical AI (copilot) ───────────────── */

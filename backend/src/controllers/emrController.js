@@ -656,3 +656,37 @@ exports.updateOrderStatus = async (req, res) => {
         res.status(500).json({ message: 'Failed to update order', error: err.message });
     }
 };
+
+// PATCH /api/emr/encounters/:id — update advice and/or follow-up
+exports.patchEncounter = async (req, res) => {
+    try {
+        if (!isDBConnected()) {
+            return res.status(503).json({ message: 'Database unavailable. Please try again shortly.' });
+        }
+        const { advice, followUp } = req.body;
+        const update = {};
+        if (advice !== undefined) update.advice = advice;
+        if (followUp !== undefined) {
+            if (followUp.date !== undefined) {
+                update['followUp.date'] = followUp.date ? new Date(followUp.date) : null;
+                if (followUp.date) update['followUp.requested'] = true;
+            }
+            if (followUp.instructions !== undefined) update['followUp.instructions'] = followUp.instructions;
+        }
+        if (Object.keys(update).length === 0) {
+            return res.status(400).json({ message: 'Nothing to update.' });
+        }
+        const encounter = await Encounter.findByIdAndUpdate(
+            req.params.id,
+            { $set: update },
+            { new: true, runValidators: true }
+        ).lean();
+        if (!encounter) return res.status(404).json({ message: 'Encounter not found.' });
+        if (req.user.tenantId && encounter.tenantId && String(encounter.tenantId) !== String(req.user.tenantId)) {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+        res.json({ encounter });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update encounter', error: err.message });
+    }
+};

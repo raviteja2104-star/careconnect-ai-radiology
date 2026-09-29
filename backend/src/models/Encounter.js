@@ -55,6 +55,7 @@ const encounterSchema = new mongoose.Schema(
         chiefComplaint: String,
         vitals: [vitalsSchema],
         diagnoses: [diagnosisSchema],
+        advice: String,
         followUp: {
             requested: { type: Boolean, default: false },
             date: Date,
