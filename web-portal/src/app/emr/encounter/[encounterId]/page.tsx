@@ -121,6 +121,8 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const [savedAt, setSavedAt] = React.useState<Date | null>(null);
     const [dirty, setDirty] = React.useState(false);
     const [hydratedFor, setHydratedFor] = React.useState<string | null>(null);
+    // Must be declared before early returns — React 19 enforces hooks order strictly.
+    const [printPreview, setPrintPreview] = React.useState<{ html: string; title: string } | null>(null);
 
     // Hydrate the editor from the latest server note once per encounter.
     // useEffect required in React 19 — setState during render is forbidden.
@@ -371,8 +373,6 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             )}
         </span>
     );
-
-    const [printPreview, setPrintPreview] = React.useState<{ html: string; title: string } | null>(null);
 
     const patientSheetBase = () => {
         const patient = p360?.patient;
