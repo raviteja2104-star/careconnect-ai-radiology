@@ -122,10 +122,10 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     const [dirty, setDirty] = React.useState(false);
     const [hydratedFor, setHydratedFor] = React.useState<string | null>(null);
 
-    // Hydrate the editor from the latest server note, once per encounter
-    // (state adjustment during render — avoids an effect-driven double render).
-    if (bundle && hydratedFor !== encounterId) {
-        setHydratedFor(encounterId);
+    // Hydrate the editor from the latest server note once per encounter.
+    // useEffect required in React 19 — setState during render is forbidden.
+    React.useEffect(() => {
+        if (!bundle || hydratedFor === encounterId) return;
         const latest = bundle.notes[0] ?? null;
         if (latest) {
             setNote(latest);
@@ -134,7 +134,9 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         } else {
             setSections({ chiefComplaint: bundle.encounter.chiefComplaint || '' });
         }
-    }
+        setHydratedFor(encounterId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bundle, encounterId]);
 
     const isSigned = note?.status === 'signed';
 
