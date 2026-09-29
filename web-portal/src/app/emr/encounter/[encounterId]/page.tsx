@@ -387,7 +387,7 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
                 doctorTitle: 'MBBS, MD — General Medicine',
                 primaryColor: 'indigo' as const,
                 showDiagnosis: true,
-                showVitals: false,
+                showVitals: true,
                 showFooter: true,
                 footerTerms: 'This prescription is valid for 30 days from the date of issue.',
             },
@@ -403,7 +403,23 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
     };
 
     const buildAndPrint = (drugList: { name: string; dose?: string; frequency?: string; duration?: string; instructions?: string; route?: string }[]) => {
-        const html = buildPrescriptionHtml({ ...patientSheetBase(), drugs: drugList });
+        const latestVitals = vitals[0];
+        const vitalsStr = latestVitals ? [
+            latestVitals.systolicBp && latestVitals.diastolicBp ? `BP: ${latestVitals.systolicBp}/${latestVitals.diastolicBp} mmHg` : null,
+            latestVitals.pulse ? `Pulse: ${latestVitals.pulse}/min` : null,
+            latestVitals.temperatureC ? `Temp: ${latestVitals.temperatureC}°C` : null,
+            latestVitals.spo2 ? `SpO₂: ${latestVitals.spo2}%` : null,
+            latestVitals.respiratoryRate ? `RR: ${latestVitals.respiratoryRate}/min` : null,
+            latestVitals.weightKg ? `Wt: ${latestVitals.weightKg} kg` : null,
+            latestVitals.heightCm ? `Ht: ${latestVitals.heightCm} cm` : null,
+            latestVitals.bmi ? `BMI: ${latestVitals.bmi}` : null,
+        ].filter(Boolean).join(' · ') : undefined;
+        const html = buildPrescriptionHtml({
+            ...patientSheetBase(),
+            drugs: drugList,
+            chiefComplaintsText: (sections.chiefComplaint as string) || encounter?.chiefComplaint || undefined,
+            vitals: vitalsStr,
+        });
         setPrintPreview({ html, title: 'Prescription Preview' });
     };
 
