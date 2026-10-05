@@ -14,7 +14,7 @@ import {
 import { useSession } from '@/components/providers/SessionProvider';
 import { homeForRole } from '@/lib/navigation';
 import {
-    loginWithPassword, registerAccount, googleSignIn, mapBackendRole, AuthApiError, type BackendRole,
+    loginWithPassword, registerAccount, googleSignIn, mapBackendRole, AuthApiError, DEMO_USER_SESSION, type BackendRole,
 } from '@/services/authService';
 import { portalForRole, type LoginPortal } from '../_lib/portals';
 
@@ -462,7 +462,17 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                             </>
                         )}
 
-                        <Button variant="outline" className="w-full" onClick={() => router.push('/')}>
+                        <Button variant="outline" className="w-full" onClick={() => {
+                            signIn(
+                                { _id: DEMO_USER_SESSION.userId, role: 'admin', email: DEMO_USER_SESSION.email },
+                                DEMO_USER_SESSION.accessToken,
+                                DEMO_USER_SESSION.permissions,
+                                DEMO_USER_SESSION.workspaces,
+                            );
+                            const next = searchParams.get('next');
+                            const dest = next && next.startsWith('/') && !next.startsWith('/login') ? next : '/';
+                            router.push(dest);
+                        }}>
                             <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                             Continue in demo mode
                         </Button>
