@@ -36,6 +36,9 @@ type EMSResponse = {
   units: Array<{ id: string; type: string; status: string; crew: string }>;
 };
 
+type Transfer = { id: string; patientName: string; from: string; to: string; status: string; scheduledAt?: string; reason?: string };
+type MaintenanceJob = { id: string; unitId: string; type: string; status: string; scheduledAt?: string; technician?: string; notes?: string };
+
 function PriorityBadge({ priority }: { priority: string }) {
   switch (priority) {
     case 'Code 3': return <Badge tone="danger" pulse>{priority}</Badge>;
@@ -69,9 +72,36 @@ export default function EMSDashboard() {
     staleTime: 15_000,
   });
 
+  const interFacilityQuery = useQuery<{ data?: Transfer[]; transfers?: Transfer[] } | Transfer[]>({
+    queryKey: ['ems-inter-facility'],
+    queryFn: () => fetch(`${API_BASE}/api/ems/inter-facility`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
+  const maintenanceQuery = useQuery<{ data?: MaintenanceJob[]; jobs?: MaintenanceJob[] } | MaintenanceJob[]>({
+    queryKey: ['ems-maintenance'],
+    queryFn: () => fetch(`${API_BASE}/api/ems/maintenance`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
+  });
+
   const apiData = emsQuery.data?.data;
   const apiStats = apiData?.stats;
   const dispatchQueue: Incident[] = [...(apiData?.incidents ?? []), ...localIncidents];
+  const units = apiData?.units ?? [];
+
+  const interFacilityRaw = interFacilityQuery.data;
+  const transfers: Transfer[] = Array.isArray(interFacilityRaw)
+    ? interFacilityRaw
+    : (interFacilityRaw as { data?: Transfer[]; transfers?: Transfer[] } | undefined)?.data
+      ?? (interFacilityRaw as { data?: Transfer[]; transfers?: Transfer[] } | undefined)?.transfers
+      ?? [];
+
+  const maintenanceRaw = maintenanceQuery.data;
+  const maintenanceJobs: MaintenanceJob[] = Array.isArray(maintenanceRaw)
+    ? maintenanceRaw
+    : (maintenanceRaw as { data?: MaintenanceJob[]; jobs?: MaintenanceJob[] } | undefined)?.data
+      ?? (maintenanceRaw as { data?: MaintenanceJob[]; jobs?: MaintenanceJob[] } | undefined)?.jobs
+      ?? [];
 
   const stats = [
     { label: 'Active Incidents', value: apiStats ? String(apiStats.activeIncidents) : '—', icon: AlertTriangle, tone: 'rose'    as const, sub: 'Across the metro region' },
@@ -122,6 +152,33 @@ export default function EMSDashboard() {
         <Badge tone={row.status === 'Awaiting Dispatch' ? 'warning' : 'neutral'}>{row.status}</Badge>
       ),
     },
+  ];
+
+  const unitColumns: Column<{ id: string; type: string; status: string; crew: string }>[] = [
+    { key: 'id', header: 'Unit ID', cell: (r) => <span className="font-mono text-sm font-semibold text-foreground">{r.id}</span> },
+    { key: 'type', header: 'Type', cell: (r) => <span className="text-sm text-foreground">{r.type}</span> },
+    {
+      key: 'status', header: 'Status',
+      cell: (r) => <Badge tone={r.status === 'Available' ? 'success' : r.status === 'En Route' ? 'warning' : 'neutral'} dot>{r.status}</Badge>,
+    },
+    { key: 'crew', header: 'Crew', cell: (r) => <span className="text-sm text-foreground">{r.crew}</span> },
+  ];
+
+  const transferColumns: Column<Transfer>[] = [
+    { key: 'id', header: 'Transfer ID', cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r.id}</span> },
+    { key: 'patientName', header: 'Patient', cell: (r) => <span className="text-sm font-semibold text-foreground">{r.patientName}</span> },
+    { key: 'from', header: 'From', cell: (r) => <span className="text-sm text-foreground">{r.from}</span> },
+    { key: 'to', header: 'To', cell: (r) => <span className="text-sm text-foreground">{r.to}</span> },
+    { key: 'status', header: 'Status', cell: (r) => <Badge tone={r.status === 'Completed' ? 'success' : r.status === 'In Transit' ? 'warning' : 'neutral'} dot>{r.status}</Badge> },
+    { key: 'reason', header: 'Reason', cell: (r) => <span className="text-sm text-muted-foreground">{r.reason ?? '—'}</span> },
+  ];
+
+  const maintenanceColumns: Column<MaintenanceJob>[] = [
+    { key: 'unitId', header: 'Unit', cell: (r) => <span className="font-mono text-sm font-semibold text-foreground">{r.unitId}</span> },
+    { key: 'type', header: 'Job Type', cell: (r) => <span className="text-sm text-foreground">{r.type}</span> },
+    { key: 'status', header: 'Status', cell: (r) => <Badge tone={r.status === 'Completed' ? 'success' : r.status === 'In Progress' ? 'warning' : 'neutral'} dot>{r.status}</Badge> },
+    { key: 'technician', header: 'Technician', cell: (r) => <span className="text-sm text-muted-foreground">{r.technician ?? '—'}</span> },
+    { key: 'scheduledAt', header: 'Scheduled', cell: (r) => <span className="text-sm text-muted-foreground">{r.scheduledAt ?? '—'}</span> },
   ];
 
   return (
@@ -212,11 +269,30 @@ export default function EMSDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <EmptyState
-                  icon={Radio}
-                  title="No active dispatch recommendations"
-                  description="AI unit-assignment and hospital-routing recommendations will appear here when live incidents are connected to the dispatch engine."
-                />
+                {dispatchQueue.length === 0 ? (
+                  <EmptyState icon={Radio} title="No active incidents" description="Unit-assignment recommendations will appear here when live incidents are logged." />
+                ) : (
+                  <ul className="space-y-2">
+                    {dispatchQueue.slice(0, 5).map((incident) => (
+                      <li key={incident.id} className="rounded-xl border border-border bg-muted/30 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <PriorityBadge priority={incident.priority} />
+                          <span className="font-mono text-xs text-muted-foreground">{incident.eta}</span>
+                        </div>
+                        <p className="mt-1.5 text-sm font-semibold text-foreground">{incident.complaint}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{incident.location}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Unit: <span className="font-mono font-semibold text-foreground">{incident.unit}</span>
+                          {' · '}
+                          <Badge tone={incident.status === 'Awaiting Dispatch' ? 'warning' : 'neutral'}>{incident.status}</Badge>
+                        </p>
+                      </li>
+                    ))}
+                    {dispatchQueue.length > 5 && (
+                      <p className="text-center text-xs text-muted-foreground">+{dispatchQueue.length - 5} more incidents in queue</p>
+                    )}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -249,19 +325,86 @@ export default function EMSDashboard() {
           </Card>
         </TabsContent>
 
-        {['fleet tracking', 'inter-facility', 'maintenance'].map((tab) => (
-          <TabsContent key={tab} value={tab} className="mt-6">
-            <Card>
-              <CardContent className="py-10">
-                <EmptyState
-                  icon={Navigation}
-                  title={tab.replace(/\b\w/g, (c) => c.toUpperCase())}
-                  description={`The ${tab} view requires active GIS and fleet tracking integrations.`}
+        <TabsContent value="fleet tracking" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5 text-primary" aria-hidden /> Fleet Status
+              </CardTitle>
+              <CardDescription>Live status of all ambulance and response units.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {emsQuery.isLoading ? (
+                <SkeletonCard />
+              ) : units.length === 0 ? (
+                <EmptyState icon={Truck} title="No units registered" description="Fleet units will appear here once they are added to the system." />
+              ) : (
+                <DataTable<{ id: string; type: string; status: string; crew: string }>
+                  columns={unitColumns}
+                  data={units}
+                  rowKey={(r) => r.id}
+                  searchPlaceholder="Search unit ID, type, crew…"
+                  emptyTitle="No units found"
+                  emptyDescription="No matching units in the fleet."
                 />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="inter-facility" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Map className="h-5 w-5 text-primary" aria-hidden /> Inter-Facility Transfers
+              </CardTitle>
+              <CardDescription>Active and scheduled patient transfers between facilities.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {interFacilityQuery.isLoading ? (
+                <SkeletonCard />
+              ) : transfers.length === 0 ? (
+                <EmptyState icon={Map} title="No transfers recorded" description="Active and scheduled inter-facility transfers will appear here." />
+              ) : (
+                <DataTable<Transfer>
+                  columns={transferColumns}
+                  data={transfers}
+                  rowKey={(r) => r.id}
+                  searchPlaceholder="Search patient, facility…"
+                  emptyTitle="No transfers found"
+                  emptyDescription="No matching transfers."
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="maintenance" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Navigation className="h-5 w-5 text-primary" aria-hidden /> Vehicle Maintenance
+              </CardTitle>
+              <CardDescription>Scheduled and in-progress maintenance jobs for the fleet.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {maintenanceQuery.isLoading ? (
+                <SkeletonCard />
+              ) : maintenanceJobs.length === 0 ? (
+                <EmptyState icon={Navigation} title="No maintenance records" description="Scheduled and active vehicle maintenance jobs will appear here." />
+              ) : (
+                <DataTable<MaintenanceJob>
+                  columns={maintenanceColumns}
+                  data={maintenanceJobs}
+                  rowKey={(r) => r.id}
+                  searchPlaceholder="Search unit, job type…"
+                  emptyTitle="No jobs found"
+                  emptyDescription="No matching maintenance jobs."
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* ── New Emergency Call Modal ── */}

@@ -13,9 +13,10 @@ import {
 import { useToast } from '@/components/ui/toast';
 import {
     ApiOfflineError, demoApplyMerge, demoApplyProviderUpdate, demoApplyVerify, fetchAdminProviders,
-    fetchAllDoctors, findDuplicateCandidates, formatDate, mergeProviders, updateProviderCore, verifyProvider,
+    fetchAdminReports, fetchAllDoctors, findDuplicateCandidates, formatDate, mergeProviders,
+    updateProviderCore, verifyProvider,
     PROVIDER_TYPE_LABELS, VERIFICATION_LABELS, VERIFICATION_TONE,
-    type Doctor, type DuplicateCandidate, type Provider, type VerificationStatus,
+    type Doctor, type DuplicateCandidate, type Provider, type ProviderReport, type VerificationStatus,
 } from './_lib/api';
 import { EditProviderDialog } from './_components/edit-provider-dialog';
 
@@ -54,6 +55,19 @@ export default function NearbyAdminConsolePage() {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
 
     const [mergeKeepId, setMergeKeepId] = React.useState<Record<string, string>>({});
+
+    const [reports, setReports] = React.useState<ProviderReport[]>([]);
+    const [reportsLoading, setReportsLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        setReportsLoading(true);
+        fetchAdminReports()
+            .then((res) => { if (!cancelled) setReports(res.data); })
+            .catch(() => { if (!cancelled) setReports([]); })
+            .finally(() => { if (!cancelled) setReportsLoading(false); });
+        return () => { cancelled = true; };
+    }, []);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -376,11 +390,34 @@ export default function NearbyAdminConsolePage() {
                 </TabsContent>
 
                 <TabsContent value="reports">
-                    <EmptyState
-                        icon={MessageSquareWarning}
-                        title="No reporting pipeline yet"
-                        description="User-reported issues will appear here once reporting is enabled. This tab intentionally shows no sample data."
-                    />
+                    {reportsLoading ? (
+                        <SkeletonTable />
+                    ) : reports.length === 0 ? (
+                        <EmptyState
+                            icon={MessageSquareWarning}
+                            title="No reports submitted"
+                            description="User-reported issues about providers will appear here once they are submitted."
+                        />
+                    ) : (
+                        <DataTable<ProviderReport>
+                            columns={[
+                                { key: '_id', header: 'ID', cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r._id}</span> },
+                                { key: 'providerName', header: 'Provider', cell: (r) => <span className="text-sm font-semibold text-foreground">{r.providerName}</span> },
+                                { key: 'reason', header: 'Reason', cell: (r) => <span className="text-sm text-foreground">{r.reason}</span> },
+                                { key: 'status', header: 'Status', cell: (r) => (
+                                    <Badge tone={r.status === 'RESOLVED' ? 'success' : r.status === 'REVIEWING' ? 'warning' : r.status === 'DISMISSED' ? 'neutral' : 'danger'} dot>
+                                        {r.status}
+                                    </Badge>
+                                )},
+                                { key: 'createdAt', header: 'Reported', cell: (r) => <span className="text-sm text-muted-foreground">{formatDate(r.createdAt)}</span> },
+                            ] as Column<ProviderReport>[]}
+                            data={reports}
+                            rowKey={(r) => r._id}
+                            searchPlaceholder="Search provider, reason…"
+                            emptyTitle="No reports found"
+                            emptyDescription="No matching provider reports."
+                        />
+                    )}
                 </TabsContent>
             </Tabs>
 

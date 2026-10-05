@@ -263,6 +263,35 @@ export function findDuplicateCandidates(providers: Provider[]): DuplicateCandida
         .map(([key, arr]) => ({ key, providers: arr }));
 }
 
+/* ─────────────────────── Provider Reports ─────────────────────────── */
+
+export interface ProviderReport {
+    _id: string;
+    providerName: string;
+    reportedBy?: string;
+    reason: string;
+    details?: string;
+    status: 'OPEN' | 'REVIEWING' | 'RESOLVED' | 'DISMISSED';
+    createdAt?: string;
+}
+
+export async function fetchAdminReports(): Promise<WithDemo<ProviderReport[]>> {
+    try {
+        const data = await request<ProviderReport[] | { data?: ProviderReport[]; reports?: ProviderReport[] }>(
+            '/api/nearby/admin/reports'
+        );
+        const list = Array.isArray(data)
+            ? data
+            : (data as { data?: ProviderReport[]; reports?: ProviderReport[] })?.data
+                ?? (data as { data?: ProviderReport[]; reports?: ProviderReport[] })?.reports
+                ?? [];
+        return { data: list, demo: false };
+    } catch (err) {
+        if (isMissingEndpoint(err)) return { data: [], demo: true };
+        throw err;
+    }
+}
+
 /* ─────────────────────────────── Utils ────────────────────────────── */
 
 export function formatDate(iso?: string): string {

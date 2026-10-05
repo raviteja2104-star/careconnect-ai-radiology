@@ -557,7 +557,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {auditItems.length === 0 ? (
-                <EmptyState icon={FileText} title="No audit records" description="Platform audit events will appear here once the audit logging API is connected." />
+                <EmptyState icon={FileText} title="No audit records" description="No platform activity has been logged yet. Events will appear here as users interact with the system." />
               ) : (
                 <Timeline>
                   {auditItems.map((a) => (
@@ -591,7 +591,7 @@ export default function AdminDashboard() {
                   {[0,1,2,3,4].map(i => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}
                 </div>
               ) : healthItems.length === 0 ? (
-                <EmptyState icon={Monitor} title="Health data unavailable" description="System health metrics will appear here once the monitoring API is connected." />
+                <EmptyState icon={Monitor} title="Health data unavailable" description="No service health data returned yet. Metrics will appear here once services report their status." />
               ) : healthItems.map((h) => {
                 const isOp = h.status === 'Operational';
                 const detail = h.detail ?? h.message;
@@ -656,7 +656,7 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="space-y-3">
               {complianceItems.length === 0 ? (
-                <EmptyState icon={Shield} title="No compliance data" description="Compliance audit results will appear here once the audit module is connected." />
+                <EmptyState icon={Shield} title="No compliance records" description="No compliance controls have been recorded yet. Results will appear here once the audit runs." />
               ) : complianceItems.map((c) => (
                 <div key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
                   <div className="min-w-0 flex-1">

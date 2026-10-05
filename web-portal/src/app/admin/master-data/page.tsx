@@ -493,7 +493,7 @@ export default function MasterDataManagementPage() {
             <EmptyState
               icon={Construction}
               title="No feature flags configured"
-              description="Feature flags will appear here once configured in the backend. Contact the platform team to set up feature flags."
+              description="No feature flags are configured yet. Flags will appear here once they are set up in the backend."
             />
           ) : (
             <div className="space-y-3">

@@ -163,7 +163,7 @@ export default function HospitalCommandCenterPage() {
                   <Bed className="h-5 w-5 shrink-0 text-muted-foreground/50" aria-hidden />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-foreground">ICU Occupancy</p>
-                    <p className="text-xs text-muted-foreground">Bed management not connected — configure in Integration Hub.</p>
+                    <p className="text-xs text-muted-foreground">ICU bed data not yet available from the ward management system.</p>
                   </div>
                 </div>
               ) : (
@@ -179,7 +179,7 @@ export default function HospitalCommandCenterPage() {
                   <Activity className="h-5 w-5 shrink-0 text-muted-foreground/50" aria-hidden />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-foreground">OT Utilisation</p>
-                    <p className="text-xs text-muted-foreground">OT scheduling not connected — configure in Integration Hub.</p>
+                    <p className="text-xs text-muted-foreground">OT utilisation data not yet available from the scheduling system.</p>
                   </div>
                 </div>
               ) : (

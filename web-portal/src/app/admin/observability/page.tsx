@@ -174,97 +174,33 @@ export default function ObservabilityDashboard() {
   const [replaying, setReplaying] = useState(false);
   const [replayStep, setReplayStep] = useState(-1);
 
-  const [activeTrace, setActiveTrace] = useState<string>('9c1f-4b2a-8d3e');
-  const [traces] = useState<{ id: string; workflow: string; status: string; events: { time: string; source: string; name: string }[] }[]>([
-    {
-      id: '9c1f-4b2a-8d3e',
-      workflow: 'Telemedicine Journey',
-      status: 'Completed',
-      events: [
-        { time: '09:00:01', source: 'Backend', name: 'AppointmentCreated' },
-        { time: '09:00:01', source: 'Outbox', name: 'OutboxCreated' },
-        { time: '09:00:02', source: 'Worker', name: 'EventPublished' },
-        { time: '09:00:02', source: 'TeleSaga', name: 'SagaStarted' },
-        { time: '09:00:03', source: 'TeleSaga', name: 'MeetingCreated' },
-        { time: '09:00:04', source: 'CommService', name: 'NotificationSent' },
-        { time: '09:00:10', source: 'TeleSaga', name: 'PatientCheckedIn' },
-        { time: '09:01:00', source: 'TeleSaga', name: 'ConsultationStarted' },
-        { time: '09:18:32', source: 'TeleSaga', name: 'ConsultationEnded' },
-        { time: '09:18:40', source: 'AIService', name: 'AISummaryGenerated' },
-        { time: '09:19:15', source: 'Billing', name: 'InvoiceGenerated' },
-        { time: '09:19:18', source: 'Payment', name: 'PaymentSucceeded' },
-        { time: '09:19:19', source: 'CommService', name: 'ReceiptSent' }
-      ]
-    },
-    {
-      id: '7b2a-1c9f-3e8d',
-      workflow: 'OPD Journey',
-      status: 'Active',
-      events: [
-        { time: '10:15:00', source: 'Backend', name: 'PatientRegistered' },
-        { time: '10:15:05', source: 'Backend', name: 'AppointmentBooking' },
-        { time: '10:15:10', source: 'QueueService', name: 'QueueTokenGenerated' },
-        { time: '10:20:00', source: 'Backend', name: 'ConsultationStarted' }
-      ]
-    },
-    {
-      id: 'f8e2-9d1a-4c5b',
-      workflow: 'ABDM Interoperability Journey',
-      status: 'Completed',
-      events: [
-        { time: '11:00:05', source: 'ABDM', name: 'ConsentRequested' },
-        { time: '11:05:12', source: 'ABDM', name: 'ConsentApproved (Scope: ALL)' },
-        { time: '11:05:15', source: 'FHIR', name: 'Patient Exported (R4)' },
-        { time: '11:05:16', source: 'FHIR', name: 'Encounter Exported (R4)' },
-        { time: '11:05:18', source: 'FHIR', name: 'Observation Exported (R4)' },
-        { time: '11:05:20', source: 'Audit', name: 'Exchange Recorded' }
-      ]
-    },
-    {
-      id: 'b8c3-4d5e-6f7a',
-      workflow: 'Outbox Event Replay (Load Test)',
-      status: 'Completed',
-      events: [
-        { time: '15:00:00', source: 'Outbox', name: 'WorkerStopped' },
-        { time: '15:00:05', source: 'Outbox', name: 'BacklogGrowing (127 events)' },
-        { time: '15:02:00', source: 'Outbox', name: 'WorkerRestarted' },
-        { time: '15:02:01', source: 'Outbox', name: 'ReplayStarted' },
-        { time: '15:02:08', source: 'Outbox', name: 'ReplayCompleted (500/500 events)' }
-      ]
-    },
-    {
-      id: 'd9e4-5f6a-7b8c',
-      workflow: 'Infrastructure Event: DB Election',
-      status: 'Recovered',
-      events: [
-        { time: '16:30:00', source: 'MongoDB', name: 'PrimaryLost' },
-        { time: '16:30:01', source: 'MongoDB', name: 'ElectionStarted' },
-        { time: '16:30:02', source: 'Backend', name: 'PersistenceUnavailable (503)' },
-        { time: '16:30:08', source: 'MongoDB', name: 'PrimaryRecovered (New Node)' },
-        { time: '16:30:10', source: 'Backend', name: 'Reconnected' },
-        { time: '16:30:12', source: 'Outbox', name: 'ReplayStarted' },
-        { time: '16:30:15', source: 'Outbox', name: 'ReplayCompleted' }
-      ]
-    },
-    {
-      id: 'gday-9x8y-7z6w',
-      workflow: 'GameDay: Mixed-Failure Incident',
-      status: 'Recovered',
-      events: [
-        { time: '09:00:00', source: 'System', name: 'Load Test Started (100 CCU)' },
-        { time: '09:01:00', source: 'Chaos', name: 'ABDM Latency Injected (5s)' },
-        { time: '09:03:00', source: 'Chaos', name: 'Payment Service Restarted' },
-        { time: '09:05:00', source: 'Chaos', name: 'MongoDB Election Started' },
-        { time: '09:06:15', source: 'Backend', name: 'Circuit Breaker OPEN (ABDM)' },
-        { time: '09:07:00', source: 'MongoDB', name: 'Primary Recovered' },
-        { time: '09:08:00', source: 'Payment', name: 'Webhook Replay Completed' },
-        { time: '09:09:00', source: 'System', name: 'Communication Service Restored' },
-        { time: '09:10:00', source: 'Outbox', name: 'Replay Completed' },
-        { time: '09:11:00', source: 'Backend', name: 'Circuit Breaker CLOSED' },
-        { time: '09:12:00', source: 'System', name: 'System Healthy' }
-      ]
-    }
-  ]);
+  type TraceShape = { id: string; workflow: string; status: string; events: { time: string; source: string; name: string }[] };
+  const [activeTrace, setActiveTrace] = useState<string>('');
+  const [traces, setTraces] = useState<TraceShape[]>([]);
+  const [tracesLoading, setTracesLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(`${API_BASE}/api/admin/observability/traces`, { headers, signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        clearTimeout(timer);
+        if (cancelled) return;
+        const list: TraceShape[] =
+          data?.data ?? data?.traces ?? (Array.isArray(data) ? data : []);
+        if (list.length > 0) {
+          setTraces(list);
+          setActiveTrace(list[0].id);
+        }
+      })
+      .catch(() => { clearTimeout(timer); })
+      .finally(() => { if (!cancelled) setTracesLoading(false); });
+    return () => { cancelled = true; controller.abort(); };
+  }, []);
 
   // Real data: poll /api/system/slo every 15s. Falls back to demo mode when
   // the backend is unreachable or the caller lacks an admin token.
@@ -693,10 +629,12 @@ export default function ObservabilityDashboard() {
                   <Search className="h-5 w-5 text-primary" aria-hidden />
                   Execution Trace Viewer
                 </CardTitle>
-                <CardDescription className="mt-1.5">Sample traces — tracing integration pending</CardDescription>
+                <CardDescription className="mt-1.5">Live execution traces — select a trace to explore the event lifecycle</CardDescription>
               </div>
               <div className="flex max-w-full gap-2 overflow-x-auto no-scrollbar sm:max-w-sm">
-                {traces.map(trace => (
+                {tracesLoading ? (
+                  <div className="h-8 w-48 animate-pulse rounded-xl bg-muted" />
+                ) : traces.map(trace => (
                   <button
                     key={trace.id}
                     onClick={() => setActiveTrace(trace.id)}
@@ -716,7 +654,13 @@ export default function ObservabilityDashboard() {
             <CardContent>
               {/* Forced-dark console so the trace log reads like a terminal in both themes */}
               <div className="dark rounded-2xl border border-border bg-background p-6 font-mono text-sm text-foreground">
-                {selectedTrace ? (
+                {tracesLoading ? (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <span className="inline-block animate-pulse">Loading traces…</span>
+                  </div>
+                ) : !selectedTrace && traces.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">No execution traces available from the API yet.</div>
+                ) : selectedTrace ? (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
                       <div className="flex items-center gap-2 text-muted-foreground">
