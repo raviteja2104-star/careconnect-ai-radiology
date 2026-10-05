@@ -83,6 +83,7 @@ export default function PatientPortal() {
   const patientId = session.userId;
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [aiQuestion, setAiQuestion] = useState('');
   const [wellnessGoals, setWellnessGoals] = useState<Array<{ id: string; label: string; done: boolean }>>([]);
   const [wellnessTips, setWellnessTips] = useState<string[]>([]);
 
@@ -104,7 +105,22 @@ export default function PatientPortal() {
         const tips = json?.data ?? json?.tips;
         if (Array.isArray(tips) && tips.length > 0) setWellnessTips(tips);
       })
-      .catch(() => {/* endpoint not yet available */});
+      .catch(() => {});
+    const logTypes = ['activity', 'sleep', 'meal', 'vitals'] as const;
+    logTypes.forEach(type => {
+      fetch(`${API_BASE}/health-records/patients/${patientId}/wellness-logs?type=${type}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (cancelled) return;
+          const logs = json?.data ?? json?.logs;
+          if (!Array.isArray(logs) || !logs.length) return;
+          if (type === 'activity') setActivityLog(logs);
+          else if (type === 'sleep') setSleepLog(logs);
+          else if (type === 'meal') setMealLog(logs);
+          else if (type === 'vitals') setVitalsLog(logs);
+        })
+        .catch(() => {});
+    });
     return () => { cancelled = true; };
   }, [patientId]);
   const [activityDraft, setActivityDraft] = useState('');
@@ -799,8 +815,8 @@ export default function PatientPortal() {
         description="Understand your labs, medications, and health questions."
         footer={
           <div className="relative w-full">
-            <Input placeholder="Type a question…" aria-label="Ask the AI assistant" className="pr-11" />
-            <Button size="icon-sm" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full" aria-label="Send question" onClick={() => router.push('/ai-assistant')}>
+            <Input placeholder="Type a question…" aria-label="Ask the AI assistant" className="pr-11" value={aiQuestion} onChange={e => setAiQuestion(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && aiQuestion.trim()) { router.push(`/ai-assistant?q=${encodeURIComponent(aiQuestion.trim())}`); setAiQuestion(''); } }} />
+            <Button size="icon-sm" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full" aria-label="Send question" onClick={() => { router.push(aiQuestion.trim() ? `/ai-assistant?q=${encodeURIComponent(aiQuestion.trim())}` : '/ai-assistant'); setAiQuestion(''); }}>
               <Send className="h-3.5 w-3.5" />
             </Button>
           </div>

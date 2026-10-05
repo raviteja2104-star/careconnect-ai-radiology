@@ -228,10 +228,10 @@ export default function SupportPage() {
                 </div>
               </div>
               <a
-                href="tel:18001234567"
+                href={`tel:${(process.env.NEXT_PUBLIC_HELPLINE_NUMBER ?? '').replace(/[^0-9]/g, '') || '18001234567'}`}
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Phone className="h-4 w-4" aria-hidden /> 1800-123-4567
+                <Phone className="h-4 w-4" aria-hidden /> {process.env.NEXT_PUBLIC_HELPLINE_NUMBER ?? '1800-123-4567'}
               </a>
             </CardContent>
           </Card>

@@ -406,7 +406,7 @@ export default function KioskApp() {
             <p className="mb-8 text-xl text-muted-foreground">{t('helpDesc')}</p>
             <div className="mb-10 rounded-2xl bg-muted p-8">
               <p className="mb-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">{t('helpline')}</p>
-              <p className="font-mono text-4xl font-black text-foreground">1800-XXX-XXXX</p>
+              <p className="font-mono text-4xl font-black text-foreground">{process.env.NEXT_PUBLIC_HELPLINE_NUMBER ?? 'Contact Reception'}</p>
               <p className="mt-2 text-sm text-muted-foreground">{t('helplineAvail')}</p>
             </div>
             <button

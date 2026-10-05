@@ -1,12 +1,17 @@
-import React from 'react';
+'use client';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { 
-  ActivitySquare, LayoutDashboard, Map, Users, 
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  ActivitySquare, LayoutDashboard, Map, Users,
   Stethoscope, AlertOctagon, LineChart, ShieldAlert,
   Search, Bell, Settings
 } from 'lucide-react';
 
 export default function CommandCenterLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [searchQ, setSearchQ] = useState('');
   return (
     <div className="flex h-screen bg-zinc-950 overflow-hidden font-sans text-white">
       
@@ -55,7 +60,7 @@ export default function CommandCenterLayout({ children }: { children: React.Reac
         <header className="h-16 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-8 flex-shrink-0">
           <div className="relative w-96">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input type="text" placeholder="Search patients, doctors, or rooms..." className="w-full pl-10 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm font-medium text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all" />
+            <input type="text" placeholder="Search patients, doctors, or rooms..." value={searchQ} onChange={e => setSearchQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && searchQ.trim()) router.push(`${pathname}?q=${encodeURIComponent(searchQ.trim())}`); }} className="w-full pl-10 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm font-medium text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all" />
           </div>
           
           <div className="flex items-center gap-6">

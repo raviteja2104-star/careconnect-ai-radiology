@@ -1,11 +1,16 @@
-import React from 'react';
+'use client';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { 
-  CreditCard, LayoutDashboard, FileText, Briefcase, 
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  CreditCard, LayoutDashboard, FileText, Briefcase,
   Receipt, BarChart3, Settings, Search, Bell, Landmark
 } from 'lucide-react';
 
 export default function BillingLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [searchQ, setSearchQ] = useState('');
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden font-sans">
       
@@ -61,7 +66,7 @@ export default function BillingLayout({ children }: { children: React.ReactNode 
         <header className="h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 flex-shrink-0">
           <div className="relative w-96">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input type="text" placeholder="Search invoice numbers, UHID, or claims..." className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" />
+            <input type="text" placeholder="Search invoice numbers, UHID, or claims..." value={searchQ} onChange={e => setSearchQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && searchQ.trim()) router.push(`${pathname}?q=${encodeURIComponent(searchQ.trim())}`); }} className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" />
           </div>
           
           <div className="flex items-center gap-6">

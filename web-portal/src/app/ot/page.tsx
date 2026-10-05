@@ -19,7 +19,7 @@ import {
   Timer, User, Check, X,
 } from 'lucide-react';
 import {
-  PageHeader, Button, Badge, StatCard, StatGrid,
+  PageHeader, Button, Badge, StatCard, StatGrid, EmptyState,
   Card, CardHeader, CardTitle, CardDescription, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DataTable, type Column, ProgressRing, SkeletonCard,
@@ -154,7 +154,7 @@ export default function OTDashboard() {
   ];
   // Use API data when available, fall back to demo
   const asaClass    = anesthesiaQuery.data?.asaClass ?? 'II';
-  const anesthesiaDrugs: AnesthesiaDrug[] = (anesthesiaQuery.data?.drugs ?? DEMO_DRUGS) as AnesthesiaDrug[];
+  const anesthesiaDrugs: AnesthesiaDrug[] = activeCaseId ? (anesthesiaQuery.data?.drugs ?? []) as AnesthesiaDrug[] : [];
   const [newDrug, setNewDrug] = useState<Omit<AnesthesiaDrug, 'time'>>({ agent: '', dose: '', route: 'IV', category: 'Induction' });
   const addDrug = () => {
     if (!newDrug.agent.trim()) return;
@@ -172,7 +172,7 @@ export default function OTDashboard() {
     { type: 'Key Step',   note: 'Port insertion ×4, pneumoperitoneum 12 mmHg',          time: '08:28' },
     { type: 'Key Step',   note: 'Gallbladder dissected — Calot triangle clear',         time: '08:55' },
   ];
-  const intraopEvents: IntraopEvent[] = (eventsQuery.data ?? DEMO_EVENTS) as IntraopEvent[];
+  const intraopEvents: IntraopEvent[] = activeCaseId ? (eventsQuery.data ?? []) as IntraopEvent[] : [];
   const [newEvent, setNewEvent] = useState({ type: 'Key Step', note: '' });
   const logEvent = () => {
     if (!newEvent.note.trim()) return;
@@ -197,7 +197,7 @@ export default function OTDashboard() {
     { name: 'Blade #22',             category: 'Blades',      initial: 1,  count1: 1,    final: null },
   ];
   // Local editable state — synced from API when instrumentsQuery loads
-  const [instrumentCounts, setInstrumentCounts] = useState<CountRow[]>(DEMO_COUNTS);
+  const [instrumentCounts, setInstrumentCounts] = useState<CountRow[]>([]);
   const syncedCaseRef = useRef<string | null>(null);
   useEffect(() => {
     if (instrumentsQuery.data && activeCaseId !== syncedCaseRef.current) {
@@ -467,26 +467,25 @@ export default function OTDashboard() {
         {/* ── CALENDAR ───────────────────────────────────────────── */}
         <TabsContent value="calendar" className="mt-6 space-y-4">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-            {/* Use API schedule when available, fall back to DEMO_SCHEDULE */}
-            {(() => {
-              const display = scheduleFromApi.length ? scheduleFromApi : DEMO_SCHEDULE;
-              const isLive  = scheduleFromApi.length > 0;
-              return (<>
+            {otQuery.isLoading ? (
+              <SkeletonCard />
+            ) : !scheduleFromApi.length ? (
+              <EmptyState icon={Calendar} title="No cases scheduled today" description="No OT cases have been added to today's list. Check back after the schedule is confirmed by the OT coordinator." />
+            ) : (
+            <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Calendar className="h-5 w-5 text-primary" aria-hidden /> Today&apos;s OT List
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {display.length} cases
+                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {scheduleFromApi.length} cases
                 </p>
               </div>
-              <Badge tone={isLive ? 'success' : 'warning'} dot pulse={isLive}>
-                {isLive ? 'Live' : 'Demo — no cases today'}
-              </Badge>
+              <Badge tone="success" dot pulse>Live</Badge>
             </div>
             <div className="space-y-2">
-              {display.map((c, idx) => (
+              {scheduleFromApi.map((c, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -8 }}
@@ -520,8 +519,8 @@ export default function OTDashboard() {
                 </motion.div>
               ))}
             </div>
-            </>);
-            })()}
+            </>
+            )}
           </motion.div>
         </TabsContent>
 
@@ -535,10 +534,10 @@ export default function OTDashboard() {
                   <div className="flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Active Case</p>
                     <p className="text-lg font-bold text-foreground">
-                      {runningProcedures[0]?.patient ?? 'Smita J. (F/45)'}
+                      {runningProcedures[0]?.patient ?? '—'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {runningProcedures[0]?.procedure ?? 'Total Knee Replacement (R)'} · {runningProcedures[0]?.room ?? 'OR-2'}
+                      {runningProcedures[0]?.procedure ?? '—'} · {runningProcedures[0]?.room ?? '—'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -568,7 +567,9 @@ export default function OTDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  {[
+                  {!activeCaseId ? (
+                    <EmptyState icon={ClipboardList} title="No active case" description="Pre-operative assessment data will appear here once a procedure is in progress." />
+                  ) : [
                     { label: 'Weight',          value: '72 kg'               },
                     { label: 'Height',          value: '163 cm'              },
                     { label: 'BMI',             value: '27.1'                },
@@ -589,6 +590,7 @@ export default function OTDashboard() {
               </Card>
 
               {/* Drug Chart */}
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -596,6 +598,9 @@ export default function OTDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {!activeCaseId ? (
+                    <EmptyState icon={Syringe} title="No active case" description="Select a running procedure from the Dashboard to view and manage the drug chart." />
+                  ) : (<>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -652,6 +657,7 @@ export default function OTDashboard() {
                     <Plus className="h-4 w-4" aria-hidden />
                     {addDrugMut.isPending ? 'Saving…' : 'Add Drug'}
                   </Button>
+                  </>)}
                 </CardContent>
               </Card>
             </div>
@@ -665,9 +671,9 @@ export default function OTDashboard() {
             <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-muted/40 p-4">
               <Timer className="h-8 w-8 shrink-0 text-primary" aria-hidden />
               <div className="flex-1">
-                <p className="font-bold text-foreground">{runningProcedures[0]?.patient ?? 'Smita J. (F/45)'}</p>
+                <p className="font-bold text-foreground">{runningProcedures[0]?.patient ?? '—'}</p>
                 <p className="text-sm text-muted-foreground">
-                  {runningProcedures[0]?.procedure ?? 'Total Knee Replacement (R)'} · {runningProcedures[0]?.surgeon ?? 'Dr. P. Nair'}
+                  {runningProcedures[0]?.procedure ?? '—'} · {runningProcedures[0]?.surgeon ?? '—'}
                 </p>
               </div>
               <div className="flex gap-6">
@@ -691,6 +697,9 @@ export default function OTDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {!activeCaseId ? (
+                  <EmptyState icon={Activity} title="No active case" description="Intraoperative events are recorded here once a procedure is in progress." />
+                ) : (<>
                 <div className="space-y-0">
                   {intraopEvents.map((ev, idx) => (
                     <div key={idx} className="flex gap-4">
@@ -733,6 +742,7 @@ export default function OTDashboard() {
                     </Button>
                   </div>
                 </div>
+                </>)}
               </CardContent>
             </Card>
           </motion.div>
@@ -748,7 +758,7 @@ export default function OTDashboard() {
                     <Layers className="h-4 w-4 text-primary" aria-hidden /> Instrument Count Sheet
                   </CardTitle>
                   <CardDescription className="mt-1">
-                    {runningProcedures[0]?.patient ?? 'Smita J. (F/45)'} · {runningProcedures[0]?.procedure ?? 'TKR (R)'} · {runningProcedures[0]?.room ?? 'OR-2'}
+                    {runningProcedures[0]?.patient ?? '—'} · {runningProcedures[0]?.procedure ?? '—'} · {runningProcedures[0]?.room ?? '—'}
                   </CardDescription>
                 </div>
                 {instrumentCounts.filter(r => r.final !== null).every(r => r.final === r.initial) && instrumentCounts.some(r => r.final !== null) ? (
@@ -760,6 +770,9 @@ export default function OTDashboard() {
                 )}
               </CardHeader>
               <CardContent>
+                {!activeCaseId ? (
+                  <EmptyState icon={Layers} title="No active case" description="Instrument count tracking starts once a procedure is in progress." />
+                ) : (<>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -855,6 +868,7 @@ export default function OTDashboard() {
                     </Button>
                   </div>
                 </div>
+                </>)}
               </CardContent>
             </Card>
           </motion.div>
