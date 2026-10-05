@@ -10,9 +10,19 @@
  */
 const { getClient, isReady } = require('../services/RedisClient');
 
-function rateLimit({ windowMs = 60 * 1000, max = 300 } = {}) {
+let _redisWarnedAt = 0;
+
+function rateLimit({ windowMs = 60 * 1000, max = 100 } = {}) {
     return async (req, res, next) => {
-        if (!isReady()) return next();
+        if (!isReady()) {
+            // Warn at most once per minute so logs don't flood
+            const now = Date.now();
+            if (now - _redisWarnedAt > 60000) {
+                _redisWarnedAt = now;
+                console.warn('[rateLimit] Redis unavailable — rate limiting is inactive');
+            }
+            return next();
+        }
 
         const ip = req.ip || req.socket.remoteAddress || 'unknown';
         const bucket = Math.floor(Date.now() / windowMs);
@@ -20,11 +30,11 @@ function rateLimit({ windowMs = 60 * 1000, max = 300 } = {}) {
 
         try {
             const redis = getClient();
+            const ttlSec = Math.ceil(windowMs / 1000) + 1;
+            // SET NX EX initialises the counter atomically on the first hit so
+            // the key always has a TTL and can never get stuck without one.
+            await redis.set(key, 0, 'EX', ttlSec, 'NX');
             const count = await redis.incr(key);
-            if (count === 1) {
-                // First hit in this window — set the window expiry (+1s slack).
-                await redis.expire(key, Math.ceil(windowMs / 1000) + 1);
-            }
 
             if (count > max) {
                 const retryAfterSec = Math.ceil(((bucket + 1) * windowMs - Date.now()) / 1000);

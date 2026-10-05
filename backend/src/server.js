@@ -23,6 +23,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const path = require('path');
 
+const mongoSanitize = require('express-mongo-sanitize');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const { rateLimit } = require('./middleware/rateLimit');
@@ -110,19 +111,28 @@ OutboxWorker.start(5000);
     if (conn) {
         const mongoose = require('mongoose');
         const User = require('./models/User');
-        // Seed only when DB was empty (memory-server dev fallback)
-        const count = await User.countDocuments({ role: { $in: ['admin', 'doctor'] } }).catch(() => -1);
-        if (count === 0) {
-            console.log('🌱  Seeding initial staff accounts...');
-            const bcrypt = require('bcryptjs');
-            const hash = await bcrypt.hash('Admin@123', 10);
-            await User.insertMany([
-                { firstName: 'Admin', lastName: 'CareConnect', email: 'admin@careconnect.com', password: hash, role: 'admin', isActive: true, isVerified: true },
-                { firstName: 'Dr. Raj', lastName: 'Sharma', email: 'dr.raj@careconnect.com', password: hash, role: 'doctor', isActive: true, isVerified: true, specialization: 'General Medicine' },
-                { firstName: 'Nurse', lastName: 'Priya', email: 'nurse@careconnect.com', password: hash, role: 'nurse', isActive: true, isVerified: true },
-                { firstName: 'Reception', lastName: 'Staff', email: 'reception@careconnect.com', password: hash, role: 'reception', isActive: true, isVerified: true },
-            ]);
-            console.log('✅  Admin accounts seeded');
+        // Seed only in non-production (dev/test memory-server fallback) or when
+        // SEED_ADMIN_PASSWORD is explicitly set — never with a hardcoded password.
+        const seedPassword = process.env.SEED_ADMIN_PASSWORD;
+        const canSeed = process.env.NODE_ENV !== 'production' || seedPassword;
+        if (canSeed) {
+            const count = await User.countDocuments({ role: { $in: ['admin', 'doctor'] } }).catch(() => -1);
+            if (count === 0) {
+                const seedPass = seedPassword || 'Admin@123';
+                if (!seedPassword) {
+                    console.warn('⚠️  Seeding with default password Admin@123 — set SEED_ADMIN_PASSWORD in .env to override');
+                }
+                console.log('🌱  Seeding initial staff accounts...');
+                const bcrypt = require('bcryptjs');
+                const hash = await bcrypt.hash(seedPass, 12);
+                await User.insertMany([
+                    { firstName: 'Admin', lastName: 'CareConnect', email: 'admin@careconnect.com', password: hash, role: 'admin', isActive: true, isVerified: true },
+                    { firstName: 'Dr. Raj', lastName: 'Sharma', email: 'dr.raj@careconnect.com', password: hash, role: 'doctor', isActive: true, isVerified: true, specialization: 'General Medicine' },
+                    { firstName: 'Nurse', lastName: 'Priya', email: 'nurse@careconnect.com', password: hash, role: 'nurse', isActive: true, isVerified: true },
+                    { firstName: 'Reception', lastName: 'Staff', email: 'reception@careconnect.com', password: hash, role: 'reception', isActive: true, isVerified: true },
+                ]);
+                console.log('✅  Staff accounts seeded');
+            }
         }
         // Seed RBAC roles after DB is connected (was previously called before connect)
         await require('./seeds/rbacSeed').init();
@@ -135,10 +145,15 @@ app.use('/ohif', ohifRoutes);
 
 app.set('trust proxy', 1);
 
-// Middleware — skip helmet CSP for /ohif paths (already handled above).
+// Security headers — viewer/OHIF routes need crossOriginResourcePolicy off for
+// DICOM image loading; all other routes get the full default Helmet config.
+const helmetDefault = helmet();
+const helmetViewer = helmet({ crossOriginResourcePolicy: false });
 app.use((req, res, next) => {
-    if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) return next();
-    helmet({ crossOriginResourcePolicy: false })(req, res, next);
+    if (req.originalUrl.startsWith('/ohif') || req.originalUrl.startsWith('/viewer')) {
+        return helmetViewer(req, res, next);
+    }
+    helmetDefault(req, res, next);
 });
 // Canonical production origins are always permitted regardless of the env var
 // (guards against ALLOWED_ORIGINS being set without www, or missing apex domain).
@@ -163,17 +178,19 @@ app.use(cors({
     credentials: true,
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+// Strip MongoDB query operators ($where, $gt, etc.) from request bodies/params
+app.use(mongoSanitize());
 
 // Telemetry — mounted after body parsers but BEFORE the rate limiter so that
 // rate-limited responses (429) are still counted and measured; only the
 // (negligible) body-parsing time is excluded from latency. Never throws.
 app.use(telemetryMiddleware);
 
-// Global rate limit — 300 req/min per IP via Redis; pass-through when Redis
+// Global rate limit — 100 req/min per IP via Redis; pass-through when Redis
 // is unavailable. Mounted after body parsers, before all routes.
-app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
+app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
 // Prometheus scrape endpoint. Secured via METRICS_TOKEN env var when set.
 // Configure your Prometheus scraper with: Authorization: Bearer <METRICS_TOKEN>
@@ -205,11 +222,9 @@ app.get('/api/health', async (req, res) => {
         message: 'CareConnect API is running',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        mongoUri: (process.env.MONGODB_URI || '').replace(/:([^@]+)@/, ':***@'),
         services: {
             database: dbStatus,
-            dbError: dbError || undefined,
-            ai: process.env.AI_SERVICE_URL ? 'connected' : 'not_configured',
+            ai: process.env.AI_SERVICE_URL ? 'configured' : 'not_configured',
         },
     });
 });
