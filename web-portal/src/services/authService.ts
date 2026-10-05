@@ -121,6 +121,8 @@ export interface BackendUser {
   hospital?: string;
   permissions?: string[];
   workspaces?: string[];
+  twoFactorEnabled?: boolean;
+  recoveryEmail?: string;
   [key: string]: unknown;
 }
 
@@ -319,6 +321,30 @@ export async function updateProfile(data: ProfileUpdateInput): Promise<void> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
     res = await fetch(`${AUTH_API_BASE}/api/auth/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+  } catch {
+    throw new AuthApiError(0, 'Cannot reach the server. Check your connection and try again.');
+  }
+  let payload: { success?: boolean; message?: string } = {};
+  try { payload = await res.json(); } catch { /* non-JSON */ }
+  if (!res.ok) throw new AuthApiError(res.status, payload?.message || `Request failed (${res.status})`);
+}
+
+/** PUT /api/auth/setup-security — enable/disable 2FA and set a recovery email. */
+export async function setupSecurity(data: { twoFactorEnabled?: boolean; recoveryEmail?: string }): Promise<void> {
+  if (typeof window === 'undefined') throw new AuthApiError(0, 'Cannot run on the server.');
+  const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (!token) throw new AuthApiError(401, 'Not authenticated.');
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    res = await fetch(`${AUTH_API_BASE}/api/auth/setup-security`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(data),

@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
-import { changePassword, updateProfile } from '@/services/authService';
+import { changePassword, updateProfile, setupSecurity } from '@/services/authService';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 function authHeaders(): Record<string, string> {
@@ -63,7 +63,7 @@ export default function SettingsPage() {
     enabled: activeTab === 'account',
     staleTime: 30000,
   });
-  const meUser = meRes?.data as { firstName?: string; lastName?: string; email?: string; dateOfBirth?: string; gender?: string } | undefined;
+  const meUser = meRes?.data as { firstName?: string; lastName?: string; email?: string; dateOfBirth?: string; gender?: string; twoFactorEnabled?: boolean; recoveryEmail?: string } | undefined;
 
   // Form states
   const [hospitalInfo, setHospitalInfo] = useState({
@@ -88,13 +88,22 @@ export default function SettingsPage() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState(false);
 
-  // Pre-populate profile form once the /me query resolves
+  // 2FA state
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [twoFaSaving, setTwoFaSaving] = useState(false);
+  const [twoFaError, setTwoFaError] = useState('');
+  const [twoFaSuccess, setTwoFaSuccess] = useState(false);
+
+  // Pre-populate profile + 2FA forms once the /me query resolves
   useEffect(() => {
     if (!meUser) return;
     if (meUser.firstName) setProfileFirstName(meUser.firstName);
     if (meUser.lastName) setProfileLastName(meUser.lastName);
     if (meUser.dateOfBirth) setProfileDob(meUser.dateOfBirth.slice(0, 10));
     if (meUser.gender) setProfileGender(meUser.gender);
+    setTwoFaEnabled(meUser.twoFactorEnabled ?? false);
+    if (meUser.recoveryEmail) setRecoveryEmail(meUser.recoveryEmail);
   }, [meUser]);
 
   // Change-password form state
@@ -618,6 +627,87 @@ export default function SettingsPage() {
                   {profileSaving
                     ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…</>
                     : <><User className="h-4 w-4" aria-hidden /> Save Profile</>}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+
+          {/* TWO-FACTOR AUTHENTICATION */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Two-Factor Authentication</CardTitle>
+              <CardDescription>Add an extra layer of security. When enabled, you&apos;ll be prompted for a one-time code at each sign-in.</CardDescription>
+            </CardHeader>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setTwoFaError('');
+                if (twoFaEnabled && recoveryEmail && !/\S+@\S+\.\S+/.test(recoveryEmail)) {
+                  setTwoFaError('Enter a valid recovery email address.');
+                  return;
+                }
+                setTwoFaSaving(true);
+                try {
+                  await setupSecurity({
+                    twoFactorEnabled: twoFaEnabled,
+                    recoveryEmail: recoveryEmail.trim() || undefined,
+                  });
+                  setTwoFaSuccess(true);
+                  setTimeout(() => setTwoFaSuccess(false), 5000);
+                } catch (err: unknown) {
+                  setTwoFaError((err as Error).message ?? '2FA update failed.');
+                } finally {
+                  setTwoFaSaving(false);
+                }
+              }}
+            >
+              <CardContent className="space-y-4 max-w-lg">
+                <div className="flex items-start justify-between rounded-2xl border border-border bg-muted/40 p-4 gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${twoFaEnabled ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+                      <Shield className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Two-factor authentication</p>
+                      <p className="text-xs text-muted-foreground">
+                        {twoFaEnabled ? 'Enabled — a one-time code will be required at sign-in.' : 'Disabled — only your password is required at sign-in.'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={twoFaEnabled}
+                    onCheckedChange={setTwoFaEnabled}
+                    label="Enable two-factor authentication"
+                  />
+                </div>
+
+                {twoFaEnabled && (
+                  <div>
+                    <Label htmlFor="recovery-email">Recovery Email</Label>
+                    <Input
+                      id="recovery-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="backup@example.com"
+                      value={recoveryEmail}
+                      onChange={(e) => setRecoveryEmail(e.target.value)}
+                    />
+                    <FieldHint>Used to recover access if you lose your primary email. Leave blank to skip.</FieldHint>
+                  </div>
+                )}
+
+                {twoFaError && <p role="alert" className="text-sm text-destructive">{twoFaError}</p>}
+                {twoFaSuccess && (
+                  <p role="status" className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Two-factor settings saved.
+                  </p>
+                )}
+              </CardContent>
+              <CardFooter className="justify-end border-t border-border !pt-5">
+                <Button type="submit" disabled={twoFaSaving} loading={twoFaSaving}>
+                  {twoFaSaving
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…</>
+                    : <><Shield className="h-4 w-4" aria-hidden /> Save 2FA Settings</>}
                 </Button>
               </CardFooter>
             </form>
