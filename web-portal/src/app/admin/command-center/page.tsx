@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Activity, ShieldAlert, HeartPulse, Bed, Clock,
@@ -26,6 +27,7 @@ function authHeaders(): Record<string, string> {
 }
 
 export default function HospitalCommandCenterPage() {
+  const router = useRouter();
   const { data: res, isFetching, refetch } = useQuery({
     queryKey: ['command-center'],
     queryFn: () =>
@@ -93,7 +95,7 @@ export default function HospitalCommandCenterPage() {
             <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
               <RefreshCcw className="h-4 w-4" aria-hidden /> Refresh Telemetry
             </Button>
-            <Button size="sm" onClick={() => { window.location.href = '/admin/enterprise'; }}>
+            <Button size="sm" onClick={() => router.push('/admin/enterprise')}>
               <Server className="h-4 w-4" aria-hidden /> Integration Hub
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Button>

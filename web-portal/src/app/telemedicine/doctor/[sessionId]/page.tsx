@@ -6,6 +6,7 @@ import { Mic, MicOff, Camera, CameraOff, PhoneOff, Sparkles, MessageSquare, File
 import { cn } from '@/lib/utils';
 import { use } from 'react';
 import { Badge, Button, EmptyState, Textarea } from '@/components/ui';
+import { useRouter } from 'next/navigation';
 import { useWebRTC } from '@/app/telemedicine/_lib/useWebRTC';
 
 type PanelTab = 'SCRIBE' | 'EMR' | 'CHAT';
@@ -20,6 +21,7 @@ export default function DoctorConsultationWorkspace({ params }: { params: Promis
   const resolvedParams = use(params);
   const sessionId = resolvedParams.sessionId;
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<'SCRIBE' | 'EMR' | 'CHAT'>('SCRIBE');
   const [aiSummary, setAiSummary] = useState('');
@@ -91,7 +93,7 @@ export default function DoctorConsultationWorkspace({ params }: { params: Promis
       }).then(res => res.json());
     },
     onSuccess: () => {
-      window.location.href = '/doctor/queue';
+      router.push('/doctor/queue');
     }
   });
 

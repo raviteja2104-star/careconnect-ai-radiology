@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, LifeBuoy, type LucideIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 
@@ -50,6 +51,7 @@ export function ErrorState({
     onRetry,
     className,
 }: ErrorStateProps) {
+    const router = useRouter();
     return (
         <div className={cn('flex flex-col items-center justify-center rounded-2xl border border-danger/30 bg-danger-soft px-6 py-12 text-center', className)} role="alert">
             <h3 className="text-base font-semibold text-danger">{title}</h3>
@@ -60,7 +62,7 @@ export function ErrorState({
                         <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Retry
                     </Button>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => (window.location.href = '/support')}>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/support')}>
                     <LifeBuoy className="h-3.5 w-3.5" aria-hidden /> Contact support
                 </Button>
             </div>

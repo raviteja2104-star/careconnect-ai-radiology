@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileText, CheckCircle2, AlertTriangle, Clock, Pill,
@@ -117,6 +118,7 @@ const FILTER_TABS: { value: FilterTab; label: string }[] = [
 
 export default function PrescriptionsPage() {
   const { session } = useSession();
+  const router = useRouter();
   const patientId = session.userId;
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
 
@@ -204,7 +206,7 @@ export default function PrescriptionsPage() {
               description="Upload a prescription document to have it read and indexed here."
               action={{
                 label: 'Capture a prescription',
-                onClick: () => { window.location.href = '/health-records/capture'; },
+                onClick: () => router.push('/health-records/capture'),
               }}
             />
           ) : (

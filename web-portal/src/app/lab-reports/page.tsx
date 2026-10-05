@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { FlaskConical, CheckCircle2, AlertTriangle, Clock, FileText, ExternalLink, WifiOff } from 'lucide-react';
 import {
@@ -92,6 +93,7 @@ const columns: Column<LabReportRecord>[] = [
 
 export default function LabReportsPage() {
   const { session } = useSession();
+  const router = useRouter();
   const patientId = session.userId;
 
   const { data: result, isLoading, isError, refetch } = useQuery({
@@ -157,7 +159,7 @@ export default function LabReportsPage() {
               icon={FlaskConical}
               title="No lab reports yet"
               description="Upload a lab report document to have it read and indexed here."
-              action={{ label: 'Capture a lab report', onClick: () => { window.location.href = '/health-records/capture?type=LAB_REPORT'; } }}
+              action={{ label: 'Capture a lab report', onClick: () => router.push('/health-records/capture?type=LAB_REPORT') }}
             />
           ) : (
             <DataTable<LabReportRecord>

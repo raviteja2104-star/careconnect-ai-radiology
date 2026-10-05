@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Pill, Search, CheckCircle2, AlertTriangle, Clock, FileText,
@@ -98,6 +99,7 @@ const columns: Column<FlatMedication>[] = [
 
 export default function MedicationsPage() {
   const { session } = useSession();
+  const router = useRouter();
   const patientId = session.userId;
   const [search, setSearch] = useState('');
 
@@ -205,7 +207,7 @@ export default function MedicationsPage() {
               description="Upload a prescription to have your medications extracted and indexed here."
               action={{
                 label: 'Capture a prescription',
-                onClick: () => { window.location.href = '/health-records/capture'; },
+                onClick: () => router.push('/health-records/capture'),
               }}
             />
           ) : (
