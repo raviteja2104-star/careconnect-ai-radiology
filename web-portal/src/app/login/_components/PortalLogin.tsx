@@ -72,8 +72,8 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
     }, []);
 
     const finishAuth = React.useCallback(
-        (user: Parameters<typeof signIn>[0], token: string, permissions?: string[], workspaces?: string[]) => {
-            signIn(user, token, permissions, workspaces);
+        (user: Parameters<typeof signIn>[0], token: string, permissions?: string[], workspaces?: string[], refreshToken?: string) => {
+            signIn(user, token, permissions, workspaces, refreshToken);
             const next = searchParams.get('next');
             // Validate next: must be an internal path, not another login page
             const destination =
@@ -123,7 +123,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                         setGoogleLoading(false);
                         return;
                     }
-                    finishAuth(authResult.user!, authResult.token!, authResult.permissions, authResult.workspaces);
+                    finishAuth(authResult.user!, authResult.token!, authResult.permissions, authResult.workspaces, authResult.refreshToken);
                 } catch (err) {
                     setLoginErrors({ form: err instanceof AuthApiError ? err.message : 'Google Sign-In failed. Please try again.' });
                     setGoogleLoading(false);
@@ -145,7 +145,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
 
         setLoggingIn(true);
         try {
-            const { user, token, permissions, workspaces } = await loginWithPassword(email.trim(), password);
+            const { user, token, permissions, workspaces, refreshToken } = await loginWithPassword(email.trim(), password);
             // Portal separation: only roles this door serves may pass. The
             // credentials were valid — we simply do not start the session here.
             if (!portal.roles.includes(user.role as BackendRole)) {
@@ -153,7 +153,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                 setLoggingIn(false);
                 return;
             }
-            finishAuth(user, token, permissions, workspaces);
+            finishAuth(user, token, permissions, workspaces, refreshToken);
         } catch (err) {
             setLoginErrors({ form: err instanceof AuthApiError ? err.message : 'Something went wrong. Please try again.' });
             setLoggingIn(false);
@@ -175,7 +175,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
         const [firstName, ...rest] = regName.trim().split(/\s+/);
         setRegistering(true);
         try {
-            const { user, token } = await registerAccount({
+            const { user, token, permissions, workspaces, refreshToken } = await registerAccount({
                 firstName,
                 lastName: rest.join(' ') || firstName,
                 email: regEmail.trim(),
@@ -183,7 +183,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                 password: regPassword,
                 role: 'patient' as BackendRole,
             });
-            finishAuth(user, token);
+            finishAuth(user, token, permissions, workspaces, refreshToken);
         } catch (err) {
             setRegErrors({ form: err instanceof AuthApiError ? err.message : 'Something went wrong. Please try again.' });
             setRegistering(false);

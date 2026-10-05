@@ -103,6 +103,7 @@ export const TOKEN_STORAGE_KEY = 'token';
 export const USER_STORAGE_KEY = 'cc-user';
 export const PERMISSIONS_STORAGE_KEY = 'cc-permissions';
 export const WORKSPACES_STORAGE_KEY = 'cc-workspaces-data';
+export const REFRESH_TOKEN_STORAGE_KEY = 'cc-refresh-token';
 
 /** Backend role strings (lowercase) as stored in MongoDB. */
 export type BackendRole =
@@ -159,6 +160,16 @@ const ROLE_PERMISSIONS: Record<AuthUserSession['role'], string[]> = {
   RECEPTIONIST: ['read:appointments', 'write:appointments', 'read:patients'],
 };
 
+function parseJwtExpiry(token: string): string {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64));
+    return payload.exp ? new Date(payload.exp * 1000).toISOString() : '';
+  } catch {
+    return '';
+  }
+}
+
 export function backendUserDisplayName(user: BackendUser): string {
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
   return name || user.email || 'CareConnect User';
@@ -184,13 +195,13 @@ export function sessionFromBackendUser(
     name: backendUserDisplayName(user),
     email: user.email || '',
     role,
-    tenantId: 'tenant-apollo-main',
+    tenantId: (user.tenantId as string | undefined) || 'tenant-default',
     hospitalName: (typeof user.hospital === 'string' && user.hospital) || 'Apollo CareConnect Super Specialty',
     permissions,
     workspaces,
-    mfaVerified: true,
+    mfaVerified: !(user.twoFactorEnabled as boolean | undefined),
     accessToken: token,
-    tokenExpiresAt: '',
+    tokenExpiresAt: parseJwtExpiry(token),
   };
 }
 
@@ -199,6 +210,7 @@ export interface StoredAuth {
   token: string;
   permissions?: string[];
   workspaces?: string[];
+  refreshToken?: string;
 }
 
 export interface AuthApiResult {
@@ -206,6 +218,7 @@ export interface AuthApiResult {
   token: string;
   permissions?: string[];
   workspaces?: string[];
+  refreshToken?: string;
 }
 
 /** Raised for auth failures that carry a user-facing message from the API. */
@@ -235,7 +248,7 @@ async function authRequest(path: string, body: Record<string, unknown>): Promise
   } catch {
     throw new AuthApiError(0, 'Cannot reach the CareConnect server. Check your internet connection or try again in a moment.');
   }
-  let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string; permissions?: string[]; workspaces?: string[] }, user?: BackendUser, tokens?: { accessToken?: string }, permissions?: string[], workspaces?: string[] } = {};
+  let payload: { success?: boolean; message?: string; data?: { user?: BackendUser; token?: string; refreshToken?: string; permissions?: string[]; workspaces?: string[] }, user?: BackendUser, tokens?: { accessToken?: string }, permissions?: string[], workspaces?: string[] } = {};
   try {
     payload = await res.json();
   } catch {
@@ -253,6 +266,7 @@ async function authRequest(path: string, body: Record<string, unknown>): Promise
     token: token,
     permissions: payload?.data?.permissions || payload?.permissions,
     workspaces: payload?.data?.workspaces || payload?.workspaces,
+    refreshToken: payload?.data?.refreshToken,
   };
 }
 
@@ -302,6 +316,7 @@ export async function googleSignIn(idToken: string, role?: BackendRole): Promise
     token: payload.data?.token,
     permissions: payload.data?.permissions,
     workspaces: payload.data?.workspaces,
+    refreshToken: payload.data?.refreshToken,
   };
 }
 
@@ -319,13 +334,14 @@ export function readStoredAuth(): StoredAuth | null {
     const rawWs = window.localStorage.getItem(WORKSPACES_STORAGE_KEY);
     const permissions = rawPerms ? JSON.parse(rawPerms) as string[] : undefined;
     const workspaces = rawWs ? JSON.parse(rawWs) as string[] : undefined;
-    return { user, token, permissions, workspaces };
+    const refreshToken = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ?? undefined;
+    return { user, token, permissions, workspaces, refreshToken };
   } catch {
     return null;
   }
 }
 
-export function persistAuth(user: BackendUser, token: string, workspaces?: string[], permissions?: string[]): void {
+export function persistAuth(user: BackendUser, token: string, workspaces?: string[], permissions?: string[], refreshToken?: string): void {
   try {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
@@ -334,6 +350,9 @@ export function persistAuth(user: BackendUser, token: string, workspaces?: strin
     }
     if (workspaces) {
       window.localStorage.setItem(WORKSPACES_STORAGE_KEY, JSON.stringify(workspaces));
+    }
+    if (refreshToken) {
+      window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
     }
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
     // cc-session: signals to Next.js middleware that a session exists
@@ -352,10 +371,40 @@ export function clearStoredAuth(): void {
     window.localStorage.removeItem(USER_STORAGE_KEY);
     window.localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
     window.localStorage.removeItem(WORKSPACES_STORAGE_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
     document.cookie = 'cc-session=; path=/; max-age=0; SameSite=Lax';
     document.cookie = 'cc-workspaces=; path=/; max-age=0; SameSite=Lax';
   } catch {
     /* storage unavailable */
+  }
+}
+
+/** Exchange a stored refresh token for a new access + refresh pair.
+ *  Stores the new tokens in localStorage. Returns them, or null on failure. */
+export async function refreshAccessToken(): Promise<{ token: string; refreshToken: string } | null> {
+  if (typeof window === 'undefined') return null;
+  const storedRefresh = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  if (!storedRefresh) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(`${AUTH_API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: storedRefresh }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const newToken = data?.data?.token as string | undefined;
+    const newRefreshToken = data?.data?.refreshToken as string | undefined;
+    if (!newToken || !newRefreshToken) return null;
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, newRefreshToken);
+    return { token: newToken, refreshToken: newRefreshToken };
+  } catch {
+    return null;
   }
 }
 

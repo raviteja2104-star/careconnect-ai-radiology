@@ -10,7 +10,9 @@ const {
     socialLogin,
     setupProfile,
     setupMedicalProfile,
-    setupSecurity
+    setupSecurity,
+    refresh,
+    logout,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { rateLimit } = require('../middleware/rateLimit');
@@ -30,6 +32,10 @@ router.post('/verify-otp', authRateLimit, verifyOtp);
 
 // Social Login
 router.post('/social-login', authRateLimit, socialLogin);
+
+// Token lifecycle
+router.post('/refresh', authRateLimit, refresh);
+router.post('/logout', protect, logout);
 
 // Profile & Setup
 router.get('/me', protect, getMe);

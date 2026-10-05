@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -65,4 +66,11 @@ const generateToken = (userId) => {
     });
 };
 
-module.exports = { protect, authorize, generateToken };
+// Generate a secure refresh token (raw hex returned to client; hash stored in DB)
+const generateRefreshToken = () => {
+    const token = crypto.randomBytes(40).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    return { token, expiresAt };
+};
+
+module.exports = { protect, authorize, generateToken, generateRefreshToken };

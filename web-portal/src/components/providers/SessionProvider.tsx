@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import {
     authService, PERSONAS, sessionFromBackendUser, readStoredAuth, persistAuth, clearStoredAuth,
+    refreshAccessToken, AUTH_API_BASE, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY,
     type AuthUserSession, type BackendUser,
 } from '@/services/authService';
 
@@ -21,7 +22,7 @@ interface SessionContextValue {
     /** True when the session is backed by a real backend JWT (not a demo persona). */
     isAuthenticated: boolean;
     /** Persist a real backend login and swap the session to it. */
-    signIn: (user: BackendUser, token: string, permissions?: string[], workspaces?: string[]) => AuthUserSession;
+    signIn: (user: BackendUser, token: string, permissions?: string[], workspaces?: string[], refreshToken?: string) => AuthUserSession;
     /** Clear the JWT + stored user, fall back to the demo persona, go to /login. */
     logout: () => void;
 }
@@ -85,8 +86,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setSession(persona);
     }, [isAuthenticated]);
 
-    const signIn = React.useCallback((user: BackendUser, token: string, permissions?: string[], workspaces?: string[]) => {
-        persistAuth(user, token, workspaces, permissions);
+    const signIn = React.useCallback((user: BackendUser, token: string, permissions?: string[], workspaces?: string[], refreshToken?: string) => {
+        persistAuth(user, token, workspaces, permissions, refreshToken);
         const real = sessionFromBackendUser(user, token, permissions, workspaces);
         authService.setActiveSession(real);
         setSession(real);
@@ -95,19 +96,56 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const logout = React.useCallback(() => {
+        // Best-effort: invalidate the refresh token on the backend
+        try {
+            const jwt = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+            if (jwt) {
+                fetch(`${AUTH_API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${jwt}` },
+                }).catch(() => {});
+            }
+        } catch { /* ignore */ }
         clearStoredAuth();
         try {
             localStorage.removeItem(ROLE_KEY);
             localStorage.removeItem(DEMO_STARTED_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
         } catch { /* storage unavailable */ }
         const persona = demoPersona();
         authService.setActiveSession(persona);
         setSession(persona);
         setIsAuthenticated(false);
-        // Patients go to the public home, clinical staff go to the workspace selector.
         const role = session.role;
         router.push(role === 'PATIENT' ? '/' : '/login');
     }, [router, session.role]);
+
+    // Proactive token refresh — schedule 5 minutes before JWT expiry
+    React.useEffect(() => {
+        if (!isAuthenticated) return;
+        let timer: ReturnType<typeof setTimeout>;
+        try {
+            const jwt = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+            if (!jwt) return;
+            const b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            const { exp } = JSON.parse(atob(b64)) as { exp?: number };
+            if (!exp) return;
+            const delay = exp * 1000 - 5 * 60 * 1000 - Date.now();
+            const doRefresh = () => {
+                refreshAccessToken().then(result => {
+                    if (!result) { logout(); return; }
+                    const stored = readStoredAuth();
+                    if (!stored) return;
+                    const newSess = sessionFromBackendUser(stored.user, result.token, stored.permissions, stored.workspaces);
+                    authService.setActiveSession(newSess);
+                    setSession(newSess);
+                });
+            };
+            if (delay <= 0) { doRefresh(); return; }
+            timer = setTimeout(doRefresh, delay);
+        } catch { /* ignore JWT parse errors */ }
+        return () => clearTimeout(timer);
+    }, [isAuthenticated, logout]);
 
     const value = React.useMemo<SessionContextValue>(
         () => ({

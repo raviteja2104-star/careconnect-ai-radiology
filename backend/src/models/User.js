@@ -141,6 +141,10 @@ const userSchema = new mongoose.Schema(
         // Multi-tenancy — optional, set on staff accounts
         organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', index: true },
         tenantId: { type: String, index: true },
+
+        // Session tokens — hashed; cleared on logout or password change
+        refreshToken: { type: String, select: false },
+        refreshTokenExpiresAt: { type: Date, select: false },
     },
     {
         timestamps: true,
@@ -186,6 +190,8 @@ userSchema.methods.toJSON = function () {
     delete obj.password;
     delete obj.pin;
     delete obj.biometricPublicKey;
+    delete obj.refreshToken;
+    delete obj.refreshTokenExpiresAt;
     return obj;
 };
 

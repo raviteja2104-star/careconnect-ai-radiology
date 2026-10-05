@@ -1,9 +1,21 @@
+const crypto = require('crypto');
 const User = require('../models/User');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, generateRefreshToken } = require('../middleware/auth');
 const connectDB = require('../config/database');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { ensureUserHasRole, getEffectivePermissions } = require('../services/PermissionService');
+
+// Issue access + refresh token pair, storing the hash on the user document.
+async function issueTokenPair(user) {
+    const accessToken = generateToken(user._id);
+    const { token: rawRefreshToken, expiresAt } = generateRefreshToken();
+    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    user.refreshToken = tokenHash;
+    user.refreshTokenExpiresAt = expiresAt;
+    await user.save({ validateBeforeSave: false });
+    return { accessToken, refreshToken: rawRefreshToken };
+}
 
 if (process.env.STATIC_OTP && process.env.NODE_ENV === 'production') {
     throw new Error('FATAL: STATIC_OTP must not be set in production');
@@ -72,10 +84,10 @@ const register = async (req, res, next) => {
         if (existingUser) return res.status(400).json({ success: false, message: 'Email already registered.' });
 
         const user = await User.create({ firstName, lastName, email, password, phone, role: 'patient' });
-        const token = generateToken(user._id);
         await ensureUserHasRole(user).catch(() => {});
         const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
-        res.status(201).json({ success: true, message: 'Registration successful.', data: { user, token, permissions, workspaces } });
+        const { accessToken: token, refreshToken } = await issueTokenPair(user);
+        res.status(201).json({ success: true, message: 'Registration successful.', data: { user, token, refreshToken, permissions, workspaces } });
     } catch (error) {
         next(error);
     }
@@ -100,13 +112,12 @@ const login = async (req, res, next) => {
         }
         if (!user.isActive) return res.status(401).json({ success: false, message: 'Account deactivated.' });
 
-        const token = generateToken(user._id);
-
         // Auto-assign RBAC role if user has none, then resolve effective permissions
         await ensureUserHasRole(user).catch(() => {});
         const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
+        const { accessToken: token, refreshToken } = await issueTokenPair(user);
 
-        res.json({ success: true, message: 'Login successful.', data: { user, token, permissions, workspaces } });
+        res.json({ success: true, message: 'Login successful.', data: { user, token, refreshToken, permissions, workspaces } });
     } catch (error) {
         next(error);
     }
@@ -177,8 +188,8 @@ const verifyOtp = async (req, res, next) => {
             isNewUser = true;
         }
 
-        const token = generateToken(user._id);
-        res.json({ success: true, message: 'Authentication successful.', isNewUser, data: { user, token } });
+        const { accessToken: token, refreshToken } = await issueTokenPair(user);
+        res.json({ success: true, message: 'Authentication successful.', isNewUser, data: { user, token, refreshToken } });
     } catch (error) {
         next(error);
     }
@@ -233,10 +244,10 @@ const socialLogin = async (req, res, next) => {
                 if (!user.isActive) {
                     return res.status(401).json({ success: false, message: 'Account deactivated. Please contact the administrator.' });
                 }
-                const jwtToken = generateToken(user._id);
                 await ensureUserHasRole(user).catch(() => {});
                 const { permissions, workspaces } = await getEffectivePermissions(user._id).catch(() => ({ permissions: [], workspaces: [] }));
-                return res.json({ success: true, message: 'Login successful.', data: { user, token: jwtToken, permissions, workspaces } });
+                const { accessToken: jwtToken, refreshToken } = await issueTokenPair(user);
+                return res.json({ success: true, message: 'Login successful.', data: { user, token: jwtToken, refreshToken, permissions, workspaces } });
             }
 
             // New user — patient role is auto-approved; all other roles need admin approval
@@ -260,10 +271,10 @@ const socialLogin = async (req, res, next) => {
                 return res.status(202).json({ success: true, pendingApproval: true, message: 'Your account has been created and is awaiting admin approval. You will be notified once activated.' });
             }
 
-            const jwtToken = generateToken(newUser._id);
             await ensureUserHasRole(newUser).catch(() => {});
-            const { permissions, workspaces } = await getEffectivePermissions(newUser._id).catch(() => ({ permissions: [], workspaces: [] }));
-            return res.status(201).json({ success: true, isNewUser: true, data: { user: newUser, token: jwtToken, permissions, workspaces } });
+            const { permissions: newPermissions, workspaces: newWorkspaces } = await getEffectivePermissions(newUser._id).catch(() => ({ permissions: [], workspaces: [] }));
+            const { accessToken: jwtToken, refreshToken } = await issueTokenPair(newUser);
+            return res.status(201).json({ success: true, isNewUser: true, data: { user: newUser, token: jwtToken, refreshToken, permissions: newPermissions, workspaces: newWorkspaces } });
         }
 
         if (provider === 'apple') {
@@ -365,7 +376,54 @@ const changePassword = async (req, res, next) => {
     }
 };
 
-module.exports = { 
+// ─── Token Refresh ────────────────────────────────────────────────────────────
+
+const refresh = async (req, res, next) => {
+    try {
+        await waitForDB();
+        const { refreshToken } = req.body;
+        if (!refreshToken) {
+            return res.status(400).json({ success: false, message: 'Refresh token required.' });
+        }
+        if (!isDBConnected()) {
+            return res.status(503).json({ success: false, message: 'Database unavailable. Please try again shortly.' });
+        }
+        const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+        const user = await User.findOne({
+            refreshToken: tokenHash,
+            refreshTokenExpiresAt: { $gt: new Date() },
+        }).select('+refreshToken +refreshTokenExpiresAt');
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Invalid or expired refresh token. Please log in again.' });
+        }
+        if (!user.isActive) {
+            return res.status(401).json({ success: false, message: 'Account deactivated.' });
+        }
+        const { accessToken: token, refreshToken: newRawRefreshToken } = await issueTokenPair(user);
+        res.json({ success: true, message: 'Token refreshed.', data: { token, refreshToken: newRawRefreshToken } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+
+const logout = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id).select('+refreshToken +refreshTokenExpiresAt');
+        if (user) {
+            user.refreshToken = undefined;
+            user.refreshTokenExpiresAt = undefined;
+            await user.save({ validateBeforeSave: false });
+        }
+        res.json({ success: true, message: 'Logged out successfully.' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = {
     register, login, getMe, updateProfile, changePassword,
-    sendOtp, verifyOtp, socialLogin, setupProfile, setupMedicalProfile, setupSecurity
+    sendOtp, verifyOtp, socialLogin, setupProfile, setupMedicalProfile, setupSecurity,
+    refresh, logout,
 };

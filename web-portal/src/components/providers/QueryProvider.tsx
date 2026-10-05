@@ -2,6 +2,7 @@
 
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { refreshAccessToken } from '@/services/authService';
 
 function isAuthError(error: unknown): boolean {
     const msg = (error as Error)?.message ?? '';
@@ -11,7 +12,9 @@ function isAuthError(error: unknown): boolean {
 }
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
-    const [queryClient] = useState(() => new QueryClient({
+    const [queryClient] = useState(() => {
+        let client: QueryClient;
+        client = new QueryClient({
         queryCache: new QueryCache({
             onError(error) {
                 // Only redirect to login when a real JWT is present and the server
@@ -20,8 +23,16 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
                 if (isAuthError(error) && typeof window !== 'undefined') {
                     const token = window.localStorage.getItem('token');
                     if (!token) return;
-                    const next = encodeURIComponent(window.location.pathname);
-                    window.location.replace(`/login?reason=session_expired&next=${next}`);
+                    // Try to silently refresh before sending the user to /login
+                    refreshAccessToken().then(result => {
+                        if (result) {
+                            // New token stored; re-run stale queries with the fresh token
+                            client.invalidateQueries();
+                        } else {
+                            const next = encodeURIComponent(window.location.pathname);
+                            window.location.replace(`/login?reason=session_expired&next=${next}`);
+                        }
+                    });
                 }
             },
         }),
@@ -36,7 +47,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
                 },
             },
         },
-    }));
+        });
+        return client;
+    });
 
     return (
         <QueryClientProvider client={queryClient}>
