@@ -65,9 +65,32 @@ export default function EnterpriseProgramPage() {
   // Interactive AI Assistant State
   const [aiPrompt, setAiPrompt] = useState('Generate release notes for v1.1.0-hardened detailing OAuth 2.1, PHI scanner, & k6 load test results.');
   const [aiOutput, setAiOutput] = useState<string>('');
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
-  const handleRunAiCopilot = () => {
-    // AI copilot backend integration not yet implemented
+  const handleRunAiCopilot = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiRunning(true);
+    setAiOutput('');
+    setAiError(null);
+    try {
+      const res = await fetch(`${API}/api/admin/ops/ai-copilot`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      });
+      const json = await res.json();
+      if (json.success !== false && (json.data || json.text)) {
+        const raw = json.data ?? json.text;
+        setAiOutput(typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2));
+      } else {
+        setAiError(json.message ?? 'Backend did not return output. Ensure the AI copilot endpoint is configured.');
+      }
+    } catch {
+      setAiError('Could not reach the AI copilot backend. Verify the API server is running and the endpoint is registered.');
+    } finally {
+      setAiRunning(false);
+    }
   };
 
   const initiativeColumns: Column<PortfolioInitiative>[] = [
@@ -344,9 +367,19 @@ export default function EnterpriseProgramPage() {
                   className="font-mono"
                 />
               </div>
-              <Button onClick={handleRunAiCopilot} disabled={!aiPrompt.trim()}>
+              <Button onClick={handleRunAiCopilot} disabled={!aiPrompt.trim() || aiRunning} loading={aiRunning}>
                 <Sparkles className="h-4 w-4" aria-hidden /> Execute AI Copilot
               </Button>
+              {aiError && (
+                <div className="rounded-xl border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+                  {aiError}
+                </div>
+              )}
+              {aiOutput && (
+                <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-muted/40 p-4 font-mono text-sm text-foreground whitespace-pre-wrap">
+                  {aiOutput}
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2">
                 {[
                   { icon: GitCommitHorizontal, title: 'Release notes', detail: 'Auto-generates versioned release notes from merged PRs, linked tickets and CI metrics for the selected sprint.' },

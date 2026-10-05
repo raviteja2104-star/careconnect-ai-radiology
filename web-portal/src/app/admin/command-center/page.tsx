@@ -159,7 +159,13 @@ export default function HospitalCommandCenterPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               {hospital.icuOccupancyPct === null ? (
-                <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">ICU Occupancy — <span className="font-semibold">Not yet available</span> (bed management not implemented)</div>
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3">
+                  <Bed className="h-5 w-5 shrink-0 text-muted-foreground/50" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground">ICU Occupancy</p>
+                    <p className="text-xs text-muted-foreground">Bed management not connected — configure in Integration Hub.</p>
+                  </div>
+                </div>
               ) : (
                 <Progress
                   value={hospital.icuOccupancyPct}
@@ -169,7 +175,13 @@ export default function HospitalCommandCenterPage() {
                 />
               )}
               {hospital.otUtilisationPct === null ? (
-                <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">OT Utilisation — <span className="font-semibold">Not yet available</span> (OT scheduling not implemented)</div>
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3">
+                  <Activity className="h-5 w-5 shrink-0 text-muted-foreground/50" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground">OT Utilisation</p>
+                    <p className="text-xs text-muted-foreground">OT scheduling not connected — configure in Integration Hub.</p>
+                  </div>
+                </div>
               ) : (
                 <Progress
                   value={hospital.otUtilisationPct}

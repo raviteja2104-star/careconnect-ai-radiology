@@ -37,6 +37,10 @@ const MODULES: { href: string; label: string; tag: string; icon: LucideIcon; til
 ];
 
 interface Org { _id?: string; name: string; region: string; plan: string; users: string; status: string }
+interface User { _id?: string; name: string; email: string; role: string; org?: string; status: 'Active' | 'Suspended' | 'Invited'; lastLogin?: string; }
+interface ComplianceControl { id: string; category: string; control: string; status: 'COMPLIANT' | 'AT_RISK' | 'NON_COMPLIANT' | 'PENDING'; lastAudit?: string; owner?: string; }
+interface Integration { id: string; name: string; type: string; status: 'CONNECTED' | 'DISCONNECTED' | 'ERROR'; lastSync?: string; endpoint?: string; }
+interface PlatformSetting { key: string; label: string; description: string; value: string | boolean; type: 'toggle' | 'text'; }
 
 const ROLES: { title: string; type: string; users: string | number; desc: string }[] = [
   { title: 'System Administrator', type: 'Global', users: '—', desc: 'Full access to all platform settings, infrastructure, and all tenant organizations.' },
@@ -188,6 +192,58 @@ export default function AdminDashboard() {
     }
   };
 
+  // Invite User
+  const [inviteUserOpen, setInviteUserOpen] = useState(false);
+  const [userDraft, setUserDraft] = useState<{ name: string; email: string; role: string; org: string }>({ name: '', email: '', role: 'Attending Physician', org: '' });
+  const [userSubmitting, setUserSubmitting] = useState(false);
+
+  const handleInviteUser = async () => {
+    if (!userDraft.email.trim()) return;
+    setUserSubmitting(true);
+    try {
+      await fetch(`${API}/api/admin/users/invite`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(userDraft),
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+      setInviteUserOpen(false);
+      setUserDraft({ name: '', email: '', role: 'Attending Physician', org: '' });
+    } catch (err) {
+      console.error('Failed to invite user:', err);
+    } finally {
+      setUserSubmitting(false);
+    }
+  };
+
+  const handleSuspendUser = async (user: User) => {
+    const action = user.status === 'Suspended' ? 'reactivate' : 'suspend';
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${user.name || user.email}"?`)) return;
+    try {
+      const id = user._id ?? user.email;
+      await fetch(`${API}/api/admin/users/${encodeURIComponent(id)}/${action}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+    } catch (err) {
+      console.error(`Failed to ${action} user:`, err);
+    }
+  };
+
+  const handleToggleSetting = async (key: string, value: boolean) => {
+    try {
+      await fetch(`${API}/api/admin/platform-settings/${encodeURIComponent(key)}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin_platform_settings_list'] });
+    } catch (err) {
+      console.error('Failed to update setting:', err);
+    }
+  };
+
   const { data: statsRes } = useQuery({
     queryKey: ['admin_platform_stats'],
     queryFn: () => fetch(`${API}/api/admin/platform-stats`, { headers: authHeaders() }).then(r => r.json()),
@@ -213,9 +269,37 @@ export default function AdminDashboard() {
     staleTime: 30000,
   });
 
+  const { data: usersRes } = useQuery({
+    queryKey: ['admin_users'],
+    queryFn: () => fetch(`${API}/api/admin/users`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const { data: complianceRes } = useQuery({
+    queryKey: ['admin_compliance'],
+    queryFn: () => fetch(`${API}/api/admin/compliance`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60000,
+  });
+
+  const { data: integrationsRes } = useQuery({
+    queryKey: ['admin_integrations'],
+    queryFn: () => fetch(`${API}/api/admin/integrations`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60000,
+  });
+
+  const { data: settingsRes } = useQuery({
+    queryKey: ['admin_platform_settings_list'],
+    queryFn: () => fetch(`${API}/api/admin/platform-settings/list`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30000,
+  });
+
   const healthItems: { service: string; status: string; message?: string; detail?: string }[] = healthRes?.data ?? [];
   const orgItems: Org[] = orgsRes?.data ?? [];
   const auditItems: { time: string; user: string; action: string; resource: string; ip: string }[] = auditRes?.data ?? [];
+  const userItems: User[] = usersRes?.data ?? [];
+  const complianceItems: ComplianceControl[] = complianceRes?.data ?? [];
+  const integrationItems: Integration[] = integrationsRes?.data ?? [];
+  const platformSettingItems: PlatformSetting[] = settingsRes?.data ?? [];
 
   const orgColumns: Column<Org>[] = [
     {
@@ -232,6 +316,32 @@ export default function AdminDashboard() {
           {row.status}
         </Badge>
       ),
+    },
+  ];
+
+  const userColumns: Column<User>[] = [
+    {
+      key: 'name', header: 'User', sortable: true,
+      cell: (row) => (
+        <div className="min-w-0">
+          <p className="font-semibold text-foreground">{row.name || '—'}</p>
+          <p className="text-xs text-muted-foreground">{row.email}</p>
+        </div>
+      ),
+    },
+    { key: 'role', header: 'Role', sortable: true, cell: (row) => <Badge tone="outline">{row.role}</Badge> },
+    { key: 'org', header: 'Organization', sortable: true, cell: (row) => <span className="text-muted-foreground">{row.org ?? '—'}</span> },
+    {
+      key: 'status', header: 'Status', sortable: true,
+      cell: (row) => (
+        <Badge tone={row.status === 'Active' ? 'success' : row.status === 'Invited' ? 'info' : 'danger'} dot>
+          {row.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'lastLogin', header: 'Last Login',
+      cell: (row) => <span className="font-mono text-xs text-muted-foreground">{row.lastLogin ?? '—'}</span>,
     },
   ];
 
@@ -506,16 +616,147 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* ---------------- Placeholder modules ---------------- */}
-        {['Users', 'Compliance', 'Integrations', 'Settings'].map((tab) => (
-          <TabsContent key={tab} value={tab}>
-            <EmptyState
-              icon={Settings}
-              title={`${TAB_ITEMS.find((t) => t.value === tab)?.label ?? tab} module`}
-              description={`The ${tab} module will be rendered here dynamically.`}
-            />
-          </TabsContent>
-        ))}
+        {/* ---------------- Users & Teams ---------------- */}
+        <TabsContent value="Users" className="space-y-4">
+          <DataTable<User>
+            columns={userColumns}
+            data={userItems}
+            rowKey={(row) => row._id ?? row.email}
+            searchPlaceholder="Search users…"
+            exportName="platform-users"
+            emptyTitle="No users found"
+            emptyDescription="Invited users will appear here once they accept."
+            toolbar={
+              <Button size="sm" onClick={() => setInviteUserOpen(true)}>
+                <Plus className="h-4 w-4" aria-hidden /> Invite User
+              </Button>
+            }
+            rowActions={(row: User) => (
+              <Dropdown
+                trigger={
+                  <Button variant="ghost" size="icon-sm" aria-label="User actions">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                }
+              >
+                <DropdownItem onClick={() => handleSuspendUser(row)}>
+                  {row.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+                </DropdownItem>
+              </Dropdown>
+            )}
+          />
+        </TabsContent>
+
+        {/* ---------------- Compliance ---------------- */}
+        <TabsContent value="Compliance" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Compliance Controls</CardTitle>
+              <CardDescription>HIPAA, SOC 2 and ISO 27001 posture across the platform.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {complianceItems.length === 0 ? (
+                <EmptyState icon={Shield} title="No compliance data" description="Compliance audit results will appear here once the audit module is connected." />
+              ) : complianceItems.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <Badge tone="outline" className="text-[10px] uppercase tracking-wider">{c.category}</Badge>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{c.control}</p>
+                    {c.owner && <p className="text-xs text-muted-foreground">Owner: {c.owner}</p>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-4">
+                    {c.lastAudit && <span className="font-mono text-xs text-muted-foreground">{c.lastAudit}</span>}
+                    <Badge
+                      tone={c.status === 'COMPLIANT' ? 'success' : c.status === 'NON_COMPLIANT' ? 'danger' : c.status === 'AT_RISK' ? 'warning' : 'neutral'}
+                      dot
+                    >
+                      {c.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------------- Integrations ---------------- */}
+        <TabsContent value="Integrations" className="space-y-4">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-lg">Platform Integrations</CardTitle>
+                <CardDescription>FHIR, HL7, third-party EMRs, payment gateways and data sources.</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => router.push('/admin/enterprise')}>
+                <Server className="h-4 w-4" aria-hidden /> Integration Hub
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {integrationItems.length === 0 ? (
+                <EmptyState icon={Server} title="No integrations configured" description="Connect your EHR, lab, pharmacy and payment systems from the Enterprise Integration Hub." />
+              ) : integrationItems.map((int) => (
+                <div key={int.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{int.name}</p>
+                      <Badge tone="outline" className="text-[10px]">{int.type}</Badge>
+                    </div>
+                    {int.endpoint && <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{int.endpoint}</p>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-4">
+                    {int.lastSync && <span className="text-xs text-muted-foreground">{int.lastSync}</span>}
+                    <Badge
+                      tone={int.status === 'CONNECTED' ? 'success' : int.status === 'ERROR' ? 'danger' : 'neutral'}
+                      dot pulse={int.status === 'ERROR'}
+                    >
+                      {int.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------------- Platform Settings ---------------- */}
+        <TabsContent value="Settings" className="space-y-4">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-lg">Platform Settings</CardTitle>
+                <CardDescription>Global feature flags, security policies and platform configuration.</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => router.push('/admin/master-data')}>
+                <Database className="h-4 w-4" aria-hidden /> Master Data Hub
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {platformSettingItems.length === 0 ? (
+                <EmptyState icon={Settings} title="No platform settings" description="Platform configuration settings will appear once the settings API is connected. Manage global feature flags in the Master Data Hub." />
+              ) : platformSettingItems.map((s) => (
+                <div key={s.key} className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">{s.label}</p>
+                    <p className="text-xs text-muted-foreground">{s.description}</p>
+                  </div>
+                  {s.type === 'toggle' ? (
+                    <button
+                      onClick={() => handleToggleSetting(s.key, !(s.value as boolean))}
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${s.value ? 'bg-primary' : 'bg-border'}`}
+                      aria-label={`Toggle ${s.label}`}
+                    >
+                      <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${s.value ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  ) : (
+                    <span className="shrink-0 font-mono text-sm text-foreground">{String(s.value)}</span>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Add Organization modal */}
@@ -697,6 +938,51 @@ export default function AdminDashboard() {
           <div className="space-y-1.5">
             <Label htmlFor="edit-role-desc">Description</Label>
             <Input id="edit-role-desc" value={editRoleDraft.desc} onChange={e => setEditRoleDraft(p => ({ ...p, desc: e.target.value }))} />
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Invite User modal */}
+      <Dialog
+        open={inviteUserOpen}
+        onClose={() => setInviteUserOpen(false)}
+        title="Invite User"
+        description="Send an invitation to a new user to join the platform."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setInviteUserOpen(false)}>Cancel</Button>
+            <Button onClick={handleInviteUser} loading={userSubmitting} disabled={!userDraft.email.trim()}>
+              Send Invitation
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="user-name">Full Name</Label>
+            <Input id="user-name" value={userDraft.name} onChange={e => setUserDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Dr. Priya Nair" autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="user-email">Email Address</Label>
+            <Input id="user-email" type="email" value={userDraft.email} onChange={e => setUserDraft(p => ({ ...p, email: e.target.value }))} placeholder="e.g. priya@apollodelhi.in" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="user-role">Role</Label>
+            <Select id="user-role" value={userDraft.role} onChange={e => setUserDraft(p => ({ ...p, role: e.target.value }))}>
+              <option value="Attending Physician">Attending Physician</option>
+              <option value="Nurse">Nurse</option>
+              <option value="Organization Admin">Organization Admin</option>
+              <option value="Billing Specialist">Billing Specialist</option>
+              <option value="Lab Technician">Lab Technician</option>
+              <option value="Radiologist">Radiologist</option>
+              <option value="Pharmacist">Pharmacist</option>
+              <option value="System Administrator">System Administrator</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="user-org">Organization (optional)</Label>
+            <Input id="user-org" value={userDraft.org} onChange={e => setUserDraft(p => ({ ...p, org: e.target.value }))} placeholder="e.g. Apollo Hospitals Delhi" />
           </div>
         </div>
       </Dialog>
