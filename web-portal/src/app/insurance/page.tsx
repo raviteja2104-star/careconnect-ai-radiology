@@ -48,6 +48,38 @@ interface InsuranceSummary {
 }
 
 
+function downloadCard(cov: InsuranceCoverage) {
+  const validThru = cov.validTill
+    ? new Date(cov.validTill).toLocaleDateString('en-GB', { month: '2-digit', year: 'numeric' })
+    : '—';
+  const win = window.open('', '_blank', 'width=500,height=320');
+  if (!win) return;
+  win.document.write(`<!doctype html><html><head><title>Insurance Card</title>
+    <style>
+      body{margin:0;padding:24px;background:#f4f4f8;font-family:system-ui,sans-serif}
+      .card{max-width:420px;background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);
+            border-radius:18px;padding:28px 32px;color:#fff;box-shadow:0 8px 32px rgba(79,70,229,.35)}
+      h2{margin:0 0 4px;font-size:20px;font-weight:700}
+      .provider{font-size:13px;opacity:.8;margin-bottom:20px}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px}
+      .label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.65;margin-bottom:2px}
+      .value{font-size:15px;font-weight:600}
+      @media print{body{background:#fff;padding:0}.card{box-shadow:none}}
+    </style></head><body>
+    <div class="card">
+      <h2>Health Insurance</h2>
+      <div class="provider">${cov.providerName ?? 'Insurance Provider'}</div>
+      <div class="grid">
+        <div><div class="label">Policy No.</div><div class="value">${cov.policyNumber ?? '—'}</div></div>
+        <div><div class="label">Valid Thru</div><div class="value">${validThru}</div></div>
+      </div>
+    </div>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
 export default function InsurancePage() {
   const router = useRouter();
 
@@ -188,7 +220,7 @@ export default function InsurancePage() {
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Insurance' }]}
         actions={
           <>
-            <Button variant="outline" disabled title="Coming soon">
+            <Button variant="outline" onClick={() => downloadCard(coverage)}>
               <Download className="h-4 w-4" aria-hidden /> Download Card
             </Button>
             <Button onClick={() => router.push('/support')}>

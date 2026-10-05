@@ -83,6 +83,21 @@ export default function PatientPortal() {
   const patientId = session.userId;
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [wellnessGoals, setWellnessGoals] = useState([
+    { id: 'g1', label: 'Walk 8,000 steps daily', done: false },
+    { id: 'g2', label: 'Sleep 7+ hours each night', done: false },
+    { id: 'g3', label: 'Drink 2L of water', done: false },
+    { id: 'g4', label: 'Take medications on time', done: false },
+    { id: 'g5', label: 'Monitor blood pressure weekly', done: false },
+  ]);
+  const [activityDraft, setActivityDraft] = useState('');
+  const [activityLog, setActivityLog] = useState<Array<{ text: string; at: string }>>([]);
+  const [sleepDraft, setSleepDraft] = useState('');
+  const [sleepLog, setSleepLog] = useState<Array<{ text: string; at: string }>>([]);
+  const [mealDraft, setMealDraft] = useState('');
+  const [mealLog, setMealLog] = useState<Array<{ text: string; at: string }>>([]);
+  const [vitalsDraft, setVitalsDraft] = useState({ bp: '', hr: '', spo2: '' });
+  const [vitalsLog, setVitalsLog] = useState<Array<{ bp: string; hr: string; spo2: string; at: string }>>([]);
 
   const tabs = [
     { value: 'Dashboard',     label: 'Dashboard',          icon: Activity },
@@ -615,23 +630,127 @@ export default function PatientPortal() {
         {/* ── Wellness ── */}
         <TabsContent value="Wellness" className="mt-6">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {[
-              { icon: Activity, title: 'Activity Tracker', desc: 'Daily steps, calories burned, and workout logs will sync here from your wearable or health app.', tone: 'emerald' },
-              { icon: Moon, title: 'Sleep Analysis', desc: 'Sleep duration, quality scores, and REM cycle trends tracked over time.', tone: 'violet' },
-              { icon: Heart, title: 'Vitals Monitoring', desc: 'Blood pressure, heart rate, SpO₂, and glucose readings from connected devices.', tone: 'rose' },
-              { icon: Zap, title: 'Nutrition Log', desc: 'Macro and micro nutrient tracking, meal history, and dietary recommendations from your care team.', tone: 'amber' },
-              { icon: CheckCircle, title: 'Wellness Goals', desc: 'Set and track personal health goals with your provider — weight, exercise, diet, and stress.', tone: 'brand' },
-              { icon: Sparkles, title: 'AI Wellness Coach', desc: 'Personalized daily health tips and nudges powered by your actual health data and care plan.', tone: 'violet' },
-            ].map((item) => (
-              <Card key={item.title} className="p-5">
-                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-${item.tone}-50 text-${item.tone}-600 dark:bg-${item.tone}-500/15 dark:text-${item.tone}-400 mb-4`}>
-                  <item.icon className="h-6 w-6" aria-hidden />
+            {/* Activity Tracker */}
+            <Card className="p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+                <Activity className="h-6 w-6" aria-hidden />
+              </div>
+              <h4 className="font-semibold text-foreground">Activity Tracker</h4>
+              <p className="mb-3 mt-1 text-sm text-muted-foreground">Log today&apos;s activities manually.</p>
+              <div className="flex gap-2">
+                <Input placeholder="e.g. 45 min walk" value={activityDraft} onChange={e => setActivityDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && activityDraft.trim()) { setActivityLog(l => [{ text: activityDraft.trim(), at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...l]); setActivityDraft(''); } }} className="text-sm" />
+                <Button size="sm" onClick={() => { if (activityDraft.trim()) { setActivityLog(l => [{ text: activityDraft.trim(), at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...l]); setActivityDraft(''); } }}>Log</Button>
+              </div>
+              {activityLog.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {activityLog.slice(0, 3).map((a, i) => (
+                    <li key={i} className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
+                      <span className="font-medium text-foreground">{a.text}</span>
+                      <span className="text-muted-foreground">{a.at}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            {/* Sleep Analysis */}
+            <Card className="p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
+                <Moon className="h-6 w-6" aria-hidden />
+              </div>
+              <h4 className="font-semibold text-foreground">Sleep Analysis</h4>
+              <p className="mb-3 mt-1 text-sm text-muted-foreground">Log last night&apos;s sleep duration.</p>
+              <div className="flex gap-2">
+                <Input placeholder="e.g. 7h 30m" value={sleepDraft} onChange={e => setSleepDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && sleepDraft.trim()) { setSleepLog(l => [{ text: sleepDraft.trim(), at: new Date().toLocaleDateString() }, ...l]); setSleepDraft(''); } }} className="text-sm" />
+                <Button size="sm" onClick={() => { if (sleepDraft.trim()) { setSleepLog(l => [{ text: sleepDraft.trim(), at: new Date().toLocaleDateString() }, ...l]); setSleepDraft(''); } }}>Log</Button>
+              </div>
+              {sleepLog.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {sleepLog.slice(0, 3).map((s, i) => (
+                    <li key={i} className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
+                      <span className="font-medium text-foreground">{s.text}</span>
+                      <span className="text-muted-foreground">{s.at}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            {/* Vitals Monitoring */}
+            <Card className="p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">
+                <Heart className="h-6 w-6" aria-hidden />
+              </div>
+              <h4 className="font-semibold text-foreground">Vitals Monitoring</h4>
+              <p className="mb-3 mt-1 text-sm text-muted-foreground">Log a quick vitals reading.</p>
+              <div className="space-y-2">
+                <Input placeholder="BP e.g. 120/80 mmHg" value={vitalsDraft.bp} onChange={e => setVitalsDraft(v => ({ ...v, bp: e.target.value }))} className="text-sm" />
+                <div className="flex gap-2">
+                  <Input placeholder="HR e.g. 72 bpm" value={vitalsDraft.hr} onChange={e => setVitalsDraft(v => ({ ...v, hr: e.target.value }))} className="text-sm" />
+                  <Input placeholder="SpO₂ e.g. 98%" value={vitalsDraft.spo2} onChange={e => setVitalsDraft(v => ({ ...v, spo2: e.target.value }))} className="text-sm" />
                 </div>
-                <h4 className="font-semibold text-foreground">{item.title}</h4>
-                <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
-                <p className="mt-3 text-xs font-medium text-primary">Coming soon</p>
-              </Card>
-            ))}
+              </div>
+              <Button size="sm" className="mt-3 w-full" disabled={!vitalsDraft.bp && !vitalsDraft.hr && !vitalsDraft.spo2} onClick={() => { setVitalsLog(l => [{ ...vitalsDraft, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...l]); setVitalsDraft({ bp: '', hr: '', spo2: '' }); }}>Save Reading</Button>
+              {vitalsLog.length > 0 && (
+                <div className="mt-3 rounded-xl bg-muted/50 p-3 text-xs">
+                  <p className="font-semibold text-foreground">Last reading · {vitalsLog[0].at}</p>
+                  <p className="mt-0.5 text-muted-foreground">{[vitalsLog[0].bp && `BP ${vitalsLog[0].bp}`, vitalsLog[0].hr && `HR ${vitalsLog[0].hr}`, vitalsLog[0].spo2 && `SpO₂ ${vitalsLog[0].spo2}`].filter(Boolean).join(' · ')}</p>
+                </div>
+              )}
+            </Card>
+            {/* Nutrition Log */}
+            <Card className="p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
+                <Zap className="h-6 w-6" aria-hidden />
+              </div>
+              <h4 className="font-semibold text-foreground">Nutrition Log</h4>
+              <p className="mb-3 mt-1 text-sm text-muted-foreground">Log meals for the day.</p>
+              <div className="flex gap-2">
+                <Input placeholder="e.g. Breakfast — oats" value={mealDraft} onChange={e => setMealDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && mealDraft.trim()) { setMealLog(l => [{ text: mealDraft.trim(), at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...l]); setMealDraft(''); } }} className="text-sm" />
+                <Button size="sm" onClick={() => { if (mealDraft.trim()) { setMealLog(l => [{ text: mealDraft.trim(), at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...l]); setMealDraft(''); } }}>Log</Button>
+              </div>
+              {mealLog.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {mealLog.slice(0, 3).map((m, i) => (
+                    <li key={i} className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
+                      <span className="font-medium text-foreground">{m.text}</span>
+                      <span className="text-muted-foreground">{m.at}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            {/* Wellness Goals */}
+            <Card className="p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <CheckCircle className="h-6 w-6" aria-hidden />
+              </div>
+              <h4 className="mb-3 font-semibold text-foreground">Wellness Goals</h4>
+              <ul className="space-y-2">
+                {wellnessGoals.map(g => (
+                  <li key={g.id}>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-2.5 transition-colors hover:bg-muted/40">
+                      <input type="checkbox" checked={g.done} onChange={() => setWellnessGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: !x.done } : x))} className="h-4 w-4 accent-[var(--primary)]" />
+                      <span className={`text-sm ${g.done ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{g.label}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            {/* AI Wellness Coach */}
+            <Card className="p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
+                <Sparkles className="h-6 w-6" aria-hidden />
+              </div>
+              <h4 className="font-semibold text-foreground">AI Wellness Coach</h4>
+              <p className="mt-1 text-sm text-muted-foreground">Personalised health tips based on your care plan.</p>
+              <ul className="mt-3 space-y-2">
+                <li className="flex items-start gap-2 text-sm"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" /><span className="text-muted-foreground">Aim for 8 glasses of water today to stay hydrated.</span></li>
+                <li className="flex items-start gap-2 text-sm"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" /><span className="text-muted-foreground">A 30-minute walk reduces cardiovascular risk by 35%.</span></li>
+                <li className="flex items-start gap-2 text-sm"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" /><span className="text-muted-foreground">Consistent 7–9 hours of sleep boosts immune function.</span></li>
+              </ul>
+              <Button variant="outline" className="mt-4 w-full" onClick={() => router.push('/ai-assistant')}>
+                <Sparkles className="h-4 w-4" aria-hidden /> Ask Wellness Copilot
+              </Button>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

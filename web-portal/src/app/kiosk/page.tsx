@@ -21,6 +21,7 @@ type GeneratedToken = { tokenNumber?: string | number; patientName?: string; dep
 export default function KioskApp() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState<KioskStep>('WELCOME');
+  const [helpOpen, setHelpOpen] = useState(false);
   const [phone, setPhone] = useState('');
   const [walkinData, setWalkinData] = useState({ patientName: '', department: 'General Medicine' });
   const [generatedToken, setGeneratedToken] = useState<GeneratedToken | null>(null);
@@ -95,7 +96,7 @@ export default function KioskApp() {
             <button aria-pressed="true" className="rounded-full bg-card px-6 py-2 font-bold text-foreground shadow-soft">EN</button>
             <button disabled title="Coming soon" className="rounded-full px-6 py-2 font-bold text-muted-foreground opacity-50 cursor-not-allowed">HI</button>
           </div>
-          <button disabled title="Coming soon" className="flex items-center gap-2 rounded-full px-4 py-2 font-bold text-muted-foreground opacity-50 cursor-not-allowed">
+          <button onClick={() => setHelpOpen(true)} className="flex items-center gap-2 rounded-full px-4 py-2 font-bold text-foreground transition-colors hover:bg-muted">
             <HelpCircle className="h-6 w-6" aria-hidden /> Help
           </button>
         </div>
@@ -151,8 +152,8 @@ export default function KioskApp() {
                     icon: QrCode,
                     tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
                     title: 'Scan QR Code',
-                    desc: 'Scan your digital appointment receipt',
-                    onClick: undefined,
+                    desc: 'Enter the ID from your appointment receipt',
+                    onClick: () => setStep('PHONE_INPUT'),
                   },
                   {
                     icon: UserPlus,
@@ -165,14 +166,7 @@ export default function KioskApp() {
                   <button
                     key={opt.title}
                     onClick={opt.onClick}
-                    disabled={!opt.onClick}
-                    title={!opt.onClick ? 'Coming soon' : undefined}
-                    className={cn(
-                      'group flex flex-col items-center rounded-3xl border-2 border-border bg-card p-12 text-center shadow-soft transition-all',
-                      opt.onClick
-                        ? 'hover:-translate-y-2 hover:border-primary hover:shadow-pop'
-                        : 'opacity-50 cursor-not-allowed'
-                    )}
+                    className="group flex flex-col items-center rounded-3xl border-2 border-border bg-card p-12 text-center shadow-soft transition-all hover:-translate-y-2 hover:border-primary hover:shadow-pop"
                   >
                     <div className={cn(
                       'mb-8 flex h-24 w-24 items-center justify-center rounded-full transition-colors group-hover:gradient-brand group-hover:text-white',
@@ -319,6 +313,27 @@ export default function KioskApp() {
         </AnimatePresence>
 
       </div>
+      {/* Help Overlay */}
+      {helpOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setHelpOpen(false)}>
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-10 text-center shadow-float" onClick={e => e.stopPropagation()}>
+            <HelpCircle className="mx-auto mb-6 h-16 w-16 text-primary" aria-hidden />
+            <h2 className="mb-4 text-4xl font-black text-foreground">Need Help?</h2>
+            <p className="mb-8 text-xl text-muted-foreground">Speak to a staff member at the reception desk or call the helpline below.</p>
+            <div className="mb-10 rounded-2xl bg-muted p-8">
+              <p className="mb-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">Hospital Helpline</p>
+              <p className="font-mono text-4xl font-black text-foreground">1800-XXX-XXXX</p>
+              <p className="mt-2 text-sm text-muted-foreground">Available 24/7 · Toll-free</p>
+            </div>
+            <button
+              onClick={() => setHelpOpen(false)}
+              className="rounded-full gradient-brand px-12 py-5 text-xl font-bold text-white shadow-pop hover:brightness-105 active:brightness-95"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

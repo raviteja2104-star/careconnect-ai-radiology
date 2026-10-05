@@ -10,7 +10,7 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Button, Badge, Card, CardHeader, CardTitle,
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, DataTable, type Column,
-  EmptyState, SkeletonCard,
+  EmptyState, SkeletonCard, Dialog, Input, Label,
 } from '@/components/ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
@@ -61,8 +61,32 @@ const RX_STATUS_TONE: Record<string, 'warning' | 'info' | 'success'> = {
   Dispensed: 'success',
 };
 
+function printRx(rx: RxItem) {
+  const win = window.open('', '_blank', 'width=520,height=640');
+  if (!win) return;
+  win.document.write(`<!doctype html><html><head><title>Rx ${rx.orderId}</title>
+    <style>body{font-family:system-ui,sans-serif;padding:24px;max-width:420px;margin:0 auto}
+    h2{font-size:16px;margin:0 0 2px}.meta{color:#555;font-size:12px;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{text-align:left;border-bottom:2px solid #000;padding:5px 3px}
+    td{padding:5px 3px;border-bottom:1px solid #e5e5e5}
+    .footer{margin-top:20px;font-size:11px;color:#888;border-top:1px solid #e5e5e5;padding-top:10px}
+    @media print{body{padding:0}}</style></head><body>
+    <h2>Prescription — ${rx.orderId}</h2>
+    <div class="meta">Patient: <strong>${rx.patientName}</strong> · Doctor: ${rx.doctorName}</div>
+    <table><thead><tr><th>Drug</th><th>Strength</th><th>Qty</th><th>Unit</th></tr></thead>
+    <tbody>${rx.items.map(i => `<tr><td>${i.name}</td><td>${i.strength}</td><td>${i.quantity}</td><td>${i.unit}</td></tr>`).join('')}</tbody></table>
+    <div class="footer">CareConnect Central Pharmacy · Printed ${new Date().toLocaleString()}</div>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
 export default function PharmacyDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
+  const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const [barcodeValue, setBarcodeValue] = useState('');
   const queryClient = useQueryClient();
 
   const statsQuery = useQuery<{ success: boolean; data: PharmacyStats }>({
@@ -254,7 +278,7 @@ export default function PharmacyDashboard() {
         description="Enterprise Pharmacy Information System (PIS)"
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Pharmacy' }]}
         actions={
-          <Button variant="secondary" disabled title="Coming soon">
+          <Button variant="secondary" onClick={() => setBarcodeOpen(true)}>
             <ScanBarcode className="h-4 w-4" aria-hidden /> Scan Barcode
           </Button>
         }
@@ -411,7 +435,7 @@ export default function PharmacyDashboard() {
                       Dispense
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.orderId}`} disabled title="Print">
+                  <Button variant="ghost" size="icon-sm" aria-label={`Print ${rx.orderId}`} onClick={() => printRx(rx)}>
                     <Printer className="h-4 w-4" />
                   </Button>
                 </div>
@@ -454,6 +478,43 @@ export default function PharmacyDashboard() {
           />
         </TabsContent>
       </Tabs>
+      <Dialog
+        open={barcodeOpen}
+        onClose={() => { setBarcodeOpen(false); setBarcodeValue(''); }}
+        title="Scan Barcode"
+        description="Scan a prescription barcode or type the Order ID manually to locate the Rx."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => { setBarcodeOpen(false); setBarcodeValue(''); }}>Cancel</Button>
+            <Button
+              disabled={!barcodeValue.trim()}
+              onClick={() => { setActiveTab('queue'); setBarcodeOpen(false); setBarcodeValue(''); }}
+            >
+              Find Rx
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="barcode-input">Barcode / Order ID</Label>
+          <Input
+            id="barcode-input"
+            autoFocus
+            value={barcodeValue}
+            onChange={e => setBarcodeValue(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && barcodeValue.trim()) {
+                setActiveTab('queue');
+                setBarcodeOpen(false);
+                setBarcodeValue('');
+              }
+            }}
+            placeholder="Scan or type order ID…"
+          />
+          <p className="text-xs text-muted-foreground">Barcode scanners act as keyboards — scanning auto-fills this field.</p>
+        </div>
+      </Dialog>
     </div>
   );
 }

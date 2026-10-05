@@ -278,8 +278,7 @@ export default function EnterpriseWorkflowStudioPage() {
     );
 
   const handleCloneTemplate = (itemTitle: string, category: string) => {
-    const template = findTemplateForMarketplaceItem(category);
-    if (!template) return;
+    const template = findTemplateForMarketplaceItem(category) ?? WORKFLOW_TEMPLATES[0];
     const cloned: WorkflowDefinition = {
       ...template,
       // eslint-disable-next-line react-hooks/purity
@@ -799,15 +798,9 @@ export default function EnterpriseWorkflowStudioPage() {
                         <Badge key={t} tone="neutral">#{t}</Badge>
                       ))}
                     </div>
-                    {findTemplateForMarketplaceItem(item.category) ? (
-                      <Button className="mt-auto w-full" onClick={() => handleCloneTemplate(item.title, item.category)}>
-                        <Sparkles className="h-4 w-4" aria-hidden /> Clone Template into Studio
-                      </Button>
-                    ) : (
-                      <Button className="mt-auto w-full" disabled title="Coming soon">
-                        <Sparkles className="h-4 w-4" aria-hidden /> Clone Template into Studio
-                      </Button>
-                    )}
+                    <Button className="mt-auto w-full" onClick={() => handleCloneTemplate(item.title, item.category)}>
+                      <Sparkles className="h-4 w-4" aria-hidden /> Clone Template into Studio
+                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
