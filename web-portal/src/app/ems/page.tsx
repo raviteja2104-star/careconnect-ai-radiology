@@ -56,6 +56,11 @@ const MODULE_TABS = ['dispatch center', 'fleet tracking', 'epcr handovers', 'int
 export default function EMSDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dispatch center');
+  const [showNewCall, setShowNewCall] = useState(false);
+  const [callDraft, setCallDraft] = useState({ location: '', complaint: '', priority: 'Code 2' });
+  const [localIncidents, setLocalIncidents] = useState<Incident[]>([]);
+  const [managingIncident, setManagingIncident] = useState<Incident | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
 
   const emsQuery = useQuery<{ success: boolean; data: EMSResponse }>({
     queryKey: ['ward-ems'],
@@ -66,7 +71,7 @@ export default function EMSDashboard() {
 
   const apiData = emsQuery.data?.data;
   const apiStats = apiData?.stats;
-  const dispatchQueue: Incident[] = apiData?.incidents ?? [];
+  const dispatchQueue: Incident[] = [...(apiData?.incidents ?? []), ...localIncidents];
 
   const stats = [
     { label: 'Active Incidents', value: apiStats ? String(apiStats.activeIncidents) : '—', icon: AlertTriangle, tone: 'rose'    as const, sub: 'Across the metro region' },
@@ -133,7 +138,7 @@ export default function EMSDashboard() {
         description="Computer-Aided Dispatch & Pre-Hospital Care"
         crumbs={[{ label: 'Home', href: '/' }, { label: 'EMS' }]}
         actions={
-          <Button variant="danger" disabled title="Coming soon">
+          <Button variant="danger" onClick={() => setShowNewCall(true)}>
             <PhoneCall className="h-4 w-4" aria-hidden /> New Emergency Call
           </Button>
         }
@@ -194,7 +199,7 @@ export default function EMSDashboard() {
                   exportName="ems-dispatch-queue"
                   emptyTitle="No active incidents"
                   emptyDescription="New emergency calls will appear here as they are logged."
-                  rowActions={() => <Button variant="outline" size="sm" disabled title="Coming soon">Manage</Button>}
+                  rowActions={(row) => <Button variant="outline" size="sm" onClick={() => setManagingIncident(row)}>Manage</Button>}
                 />
               </CardContent>
             </Card>
@@ -258,6 +263,95 @@ export default function EMSDashboard() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* ── New Emergency Call Modal ── */}
+      {showNewCall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowNewCall(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-danger-soft text-danger"><Siren className="h-5 w-5" /></span>
+              <div><h2 className="text-lg font-bold text-foreground">New Emergency Call</h2><p className="text-xs text-muted-foreground">Log and dispatch a new incident</p></div>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location / Address</label>
+                <input type="text" value={callDraft.location} onChange={e => setCallDraft(d => ({ ...d, location: e.target.value }))} placeholder="Street address or landmark" className="w-full rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Chief Complaint</label>
+                <input type="text" value={callDraft.complaint} onChange={e => setCallDraft(d => ({ ...d, complaint: e.target.value }))} placeholder="e.g. Chest pain, Trauma, Unconscious" className="w-full rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Priority</label>
+                <select value={callDraft.priority} onChange={e => setCallDraft(d => ({ ...d, priority: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                  <option value="Code 3">Code 3 — Life threatening (lights & sirens)</option>
+                  <option value="Code 2">Code 2 — Urgent (no lights)</option>
+                  <option value="Code 1">Code 1 — Non-urgent</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowNewCall(false)}>Cancel</Button>
+              <Button variant="danger" className="flex-1" disabled={!callDraft.location.trim() || !callDraft.complaint.trim()} onClick={() => {
+                const now = new Date();
+                const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                const newIncident: Incident = {
+                  id: `INC-${Date.now().toString(36).toUpperCase().slice(-5)}`,
+                  priority: callDraft.priority, complaint: callDraft.complaint,
+                  location: callDraft.location, unit: 'Awaiting Assignment',
+                  status: 'Awaiting Dispatch', eta: '—', time: t,
+                };
+                setLocalIncidents(prev => [newIncident, ...prev]);
+                setCallDraft({ location: '', complaint: '', priority: 'Code 2' });
+                setShowNewCall(false);
+              }}>
+                <Radio className="h-4 w-4" /> Dispatch Call
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage Incident Modal ── */}
+      {managingIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setManagingIncident(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">{managingIncident.id}</h2>
+                <p className="text-xs text-muted-foreground">{managingIncident.complaint} · {managingIncident.location}</p>
+              </div>
+              <PriorityBadge priority={managingIncident.priority} />
+            </div>
+            <div className="mb-6 space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Unit</span><span className="font-semibold text-foreground">{managingIncident.unit}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">ETA</span><span className="font-semibold text-foreground">{managingIncident.eta}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Time logged</span><span className="font-semibold text-foreground">{managingIncident.time}</span></div>
+            </div>
+            <div className="mb-6">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Update Status</label>
+              <select
+                value={statusOverrides[managingIncident.id] ?? managingIncident.status}
+                onChange={e => setStatusOverrides(prev => ({ ...prev, [managingIncident.id]: e.target.value }))}
+                className="w-full rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option>Awaiting Dispatch</option>
+                <option>En Route</option>
+                <option>On Scene</option>
+                <option>Transporting</option>
+                <option>Available</option>
+                <option>Closed</option>
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setManagingIncident(null)}>Close</Button>
+              <Button className="flex-1" onClick={() => setManagingIncident(null)}>
+                <Activity className="h-4 w-4" /> Save Status
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

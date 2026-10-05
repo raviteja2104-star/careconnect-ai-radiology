@@ -94,6 +94,9 @@ export default function MessagesPage() {
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+  const [showNewThread, setShowNewThread] = useState(false);
+  const [newThreadName, setNewThreadName] = useState('');
+  const [newThreadCreating, setNewThreadCreating] = useState(false);
 
   const { data: channelsData, isLoading: channelsLoading, isError: channelsError } = useQuery({
     queryKey: ['communication', 'threads'],
@@ -108,6 +111,24 @@ export default function MessagesPage() {
       fetch(`${API_BASE}/api/communication/threads/${activeChannel}/messages`, { headers: getAuthHeader() }).then(r => r.json()),
     enabled: !!activeChannel,
     staleTime: 30000,
+  });
+
+  const createThreadMutation = useMutation({
+    mutationFn: (name: string) =>
+      fetch(`${API_BASE}/api/communication/threads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ name, type: 'direct' }),
+      }).then(r => r.json()),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['communication', 'threads'] });
+      const newId = data?.data?._id || data?.data?.id || data?.thread?._id;
+      if (newId) setActiveChannel(newId);
+      setShowNewThread(false);
+      setNewThreadName('');
+      setNewThreadCreating(false);
+    },
+    onError: () => setNewThreadCreating(false),
   });
 
   const sendMutation = useMutation({
@@ -177,7 +198,7 @@ export default function MessagesPage() {
               <Button
                 size="icon-sm"
                 variant="primary"
-                onClick={() => {}}
+                onClick={() => setShowNewThread(true)}
                 aria-label="Start new chat thread"
               >
                 <Plus className="h-4 w-4" />
@@ -375,6 +396,31 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
+
+      {/* ── New Thread Modal ── */}
+      {showNewThread && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowNewThread(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="mb-1 text-lg font-bold text-foreground">New Conversation</h2>
+            <p className="mb-4 text-sm text-muted-foreground">Enter the name or department to message.</p>
+            <Input
+              type="text"
+              placeholder="e.g. Dr. Sharma, Pharmacy, ICU Nurse"
+              value={newThreadName}
+              onChange={e => setNewThreadName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newThreadName.trim()) { setNewThreadCreating(true); createThreadMutation.mutate(newThreadName.trim()); } }}
+              aria-label="Recipient name"
+              className="mb-4"
+            />
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => { setShowNewThread(false); setNewThreadName(''); }}>Cancel</Button>
+              <Button className="flex-1" disabled={!newThreadName.trim() || newThreadCreating} onClick={() => { setNewThreadCreating(true); createThreadMutation.mutate(newThreadName.trim()); }}>
+                <MessageCircle className="h-4 w-4" /> {newThreadCreating ? 'Creating…' : 'Start Chat'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

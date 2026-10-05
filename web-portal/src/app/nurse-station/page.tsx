@@ -105,6 +105,14 @@ export default function NurseStation() {
   const [tasksDone, setTasksDone] = useState<Set<string>>(new Set());
   const toggleTask = (id: string) => setTasksDone(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
+  const [adminConfirm, setAdminConfirm] = useState<EmarTask | null>(null);
+  const [adminDone, setAdminDone] = useState<Set<string>>(new Set());
+  const eMarKey = (t: EmarTask) => `${t.bed}-${t.drug}-${t.time}`;
+
+  const [vitalForm, setVitalForm] = useState<VitalRecord | null>(null);
+  const [vitalDraft, setVitalDraft] = useState({ hr: '', sbp: '', dbp: '', spo2: '', rr: '', temp: '', gcs: '', pain: '' });
+  const [vitalSaved, setVitalSaved] = useState<Set<string>>(new Set());
+
   function timeAgo(iso: string) {
     const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
     if (diff < 60) return `${diff}s ago`;
@@ -193,8 +201,8 @@ export default function NurseStation() {
         description="Your patient ward assignments and active care queue."
         crumbs={[{ label: 'Clinical' }, { label: 'Nurse Station' }]}
         actions={
-          <Button disabled title="Coming soon">
-            <ScanBarcode className="h-4 w-4" aria-hidden /> Scan Patient / Med
+          <Button onClick={() => setActiveTab('eMAR')}>
+            <ScanBarcode className="h-4 w-4" aria-hidden /> eMAR / Administer
           </Button>
         }
       />
@@ -420,9 +428,15 @@ export default function NurseStation() {
                         <Badge tone={task.status === 'Overdue' ? 'danger' : 'warning'}>
                           <Clock className="h-3 w-3 mr-1" aria-hidden />{task.time} · {task.status}
                         </Badge>
-                        <Button size="sm" variant="secondary" disabled>
-                          <ScanBarcode className="h-3.5 w-3.5" aria-hidden /> Administer
-                        </Button>
+                        {adminDone.has(eMarKey(task)) ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-success-soft px-2.5 py-1 text-xs font-semibold text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Administered
+                          </span>
+                        ) : (
+                          <Button size="sm" variant="secondary" onClick={() => setAdminConfirm(task)}>
+                            <ScanBarcode className="h-3.5 w-3.5" aria-hidden /> Administer
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -484,9 +498,18 @@ export default function NurseStation() {
                             </div>
                           ))}
                         </div>
-                        <Button size="sm" variant="outline" className="w-full" disabled>
-                          <Pencil className="h-3.5 w-3.5" aria-hidden /> Record New Vitals
-                        </Button>
+                        {vitalSaved.has(v.id) ? (
+                          <span className="flex w-full items-center justify-center gap-1 rounded-lg bg-success-soft py-1 text-xs font-semibold text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Vitals Recorded
+                          </span>
+                        ) : (
+                          <Button size="sm" variant="outline" className="w-full" onClick={() => {
+                            setVitalForm(v);
+                            setVitalDraft({ hr: String(v.hr), sbp: String(v.systolic), dbp: String(v.diastolic), spo2: String(v.spo2), rr: String(v.rr), temp: String(v.temp), gcs: String(v.gcs), pain: String(v.pain) });
+                          }}>
+                            <Pencil className="h-3.5 w-3.5" aria-hidden /> Record New Vitals
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -602,10 +625,21 @@ export default function NurseStation() {
               <p className="text-sm text-muted-foreground">Situation · Background · Assessment · Recommendation summary for the incoming shift.</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>
+              <Button variant="outline" size="sm" disabled title="AI summary requires nursing AI module">
                 <Sparkles className="h-4 w-4" aria-hidden /> AI Summary
               </Button>
-              <Button variant="outline" size="sm" disabled>
+              <Button variant="outline" size="sm" onClick={() => {
+                const win = window.open('', '_blank', 'width=800,height=900');
+                if (!win) return;
+                const rows = patients.map(p => {
+                  const pv = vitals.find(v => v.bed === p.bed);
+                  const pt = wardTasks.filter(t => t.bed === p.bed && !tasksDone.has(t.id));
+                  const pm = emarTasks.filter(t => t.bed === p.bed);
+                  return `<tr><td>${p.bed}</td><td>${p.name} (${p.age}y ${p.gender})</td><td>${p.diagnosis}</td><td>NEWS2 ${p.ews}</td><td>${pv ? `HR ${pv.hr}, BP ${pv.systolic}/${pv.diastolic}, SpO₂ ${pv.spo2}%` : 'Pending'}</td><td>${pt[0]?.title ?? pm[0] ? `Next med: ${pm[0].drug} ${pm[0].time}` : 'No pending actions'}</td></tr>`;
+                }).join('');
+                win.document.write(`<!doctype html><html><head><title>Shift Handover — ${new Date().toLocaleDateString('en-IN')}</title><style>body{font-family:system-ui,sans-serif;margin:40px;color:#111}h1{font-size:1.2rem;margin-bottom:4px}p.sub{color:#666;font-size:.85rem;margin-bottom:24px}table{border-collapse:collapse;width:100%}th,td{padding:8px 10px;border:1px solid #e5e7eb;font-size:.85rem;text-align:left}th{background:#f9fafb;font-weight:600}@media print{body{margin:20px}}</style></head><body><h1>Shift Handover — SBAR</h1><p class="sub">Generated ${new Date().toLocaleString('en-IN')} · CareConnect Nurse Station</p><table><thead><tr><th>Bed</th><th>Patient</th><th>Diagnosis</th><th>NEWS2</th><th>Vitals</th><th>Recommendation</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+                win.document.close();
+              }}>
                 <FileText className="h-4 w-4" aria-hidden /> Export PDF
               </Button>
             </div>
@@ -687,6 +721,75 @@ export default function NurseStation() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ── Administer Confirmation Modal ── */}
+      {adminConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setAdminConfirm(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="mb-1 text-lg font-bold text-foreground">Confirm Administration</h2>
+            <p className="mb-4 text-sm text-muted-foreground">Please confirm the following medication administration.</p>
+            <div className="mb-6 space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Patient</span><span className="font-semibold text-foreground">{adminConfirm.patient} · {adminConfirm.bed}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Medication</span><span className="font-semibold text-foreground">{adminConfirm.drug}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Dose / Route</span><span className="font-semibold text-foreground">{adminConfirm.dose} · {adminConfirm.route}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Scheduled</span><span className="font-semibold text-foreground">{adminConfirm.time}</span></div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setAdminConfirm(null)}>Cancel</Button>
+              <Button className="flex-1" onClick={() => {
+                setAdminDone(prev => new Set([...prev, eMarKey(adminConfirm)]));
+                setAdminConfirm(null);
+              }}>
+                <CheckCircle2 className="h-4 w-4" /> Confirm & Administer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Record Vitals Modal ── */}
+      {vitalForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setVitalForm(null)}>
+          <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h2 className="mb-1 text-lg font-bold text-foreground">Record Vitals</h2>
+            <p className="mb-4 text-sm text-muted-foreground">{vitalForm.bed} · {vitalForm.patient}</p>
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {([
+                { key: 'hr', label: 'HR', unit: 'bpm' },
+                { key: 'sbp', label: 'SBP', unit: 'mmHg' },
+                { key: 'dbp', label: 'DBP', unit: 'mmHg' },
+                { key: 'spo2', label: 'SpO₂', unit: '%' },
+                { key: 'rr', label: 'RR', unit: '/min' },
+                { key: 'temp', label: 'Temp', unit: '°C' },
+                { key: 'gcs', label: 'GCS', unit: '/15' },
+                { key: 'pain', label: 'Pain', unit: '/10' },
+              ] as const).map(({ key, label, unit }) => (
+                <div key={key} className="rounded-xl border border-border bg-muted/20 p-2">
+                  <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+                  <div className="flex items-baseline gap-1">
+                    <input
+                      type="number"
+                      value={vitalDraft[key]}
+                      onChange={e => setVitalDraft(d => ({ ...d, [key]: e.target.value }))}
+                      className="w-full bg-transparent text-sm font-bold text-foreground focus:outline-none"
+                    />
+                    <span className="text-[10px] text-muted-foreground">{unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setVitalForm(null)}>Cancel</Button>
+              <Button className="flex-1" onClick={() => {
+                setVitalSaved(prev => new Set([...prev, vitalForm.id]));
+                setVitalForm(null);
+              }}>
+                <CheckCircle2 className="h-4 w-4" /> Save Vitals
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

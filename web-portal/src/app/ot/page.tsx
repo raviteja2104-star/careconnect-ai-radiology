@@ -135,10 +135,14 @@ export default function OTDashboard() {
     { label: 'Available ORs',     value: apiStats ? String(apiStats.availableORs)   : '—', icon: CheckCircle,   tone: 'brand'   as const },
   ];
 
-  const whoChecklist = [
-    { phase: 'Sign In (Before Induction)', icon: UserPlus, iconClass: 'text-primary', items: ['Patient Identity Confirmed', 'Consent Verified', 'Site Marked', 'Anesthesia Safety Check', 'Allergies Known'], completed: false },
-    { phase: 'Time Out (Before Incision)', icon: Clock, iconClass: 'text-warning', items: ['Team Introductions', 'Procedure Confirmation', 'Prophylactic Antibiotics <60m', 'Essential Imaging Displayed', 'Blood Available'], completed: false },
-    { phase: 'Sign Out (Before Patient Leaves)', icon: CheckCircle, iconClass: 'text-success', items: ['Instrument/Sponge Count Correct', 'Specimens Labelled', 'Equipment Issues Addressed', 'Post-Op Recovery Plan'], completed: false },
+  const [whoItemChecks, setWhoItemChecks] = useState<Record<string, Record<string, boolean>>>({});
+  const [whoSigned, setWhoSigned] = useState<Record<string, boolean>>({});
+  const [analgesiaGiven, setAnalgesiaGiven] = useState(false);
+
+  const WHO_PHASES = [
+    { phase: 'Sign In (Before Induction)', icon: UserPlus, iconClass: 'text-primary', items: ['Patient Identity Confirmed', 'Consent Verified', 'Site Marked', 'Anesthesia Safety Check', 'Allergies Known'] },
+    { phase: 'Time Out (Before Incision)', icon: Clock, iconClass: 'text-warning', items: ['Team Introductions', 'Procedure Confirmation', 'Prophylactic Antibiotics <60m', 'Essential Imaging Displayed', 'Blood Available'] },
+    { phase: 'Sign Out (Before Patient Leaves)', icon: CheckCircle, iconClass: 'text-success', items: ['Instrument/Sponge Count Correct', 'Specimens Labelled', 'Equipment Issues Addressed', 'Post-Op Recovery Plan'] },
   ];
 
   // ─── Anesthesia state ─────────────────────────────────────────────────
@@ -334,15 +338,18 @@ export default function OTDashboard() {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                  {whoChecklist.map((phase, idx) => {
+                  {WHO_PHASES.map((phase, idx) => {
                     const PhaseIcon = phase.icon;
+                    const signed = !!whoSigned[phase.phase];
+                    const checkedCount = phase.items.filter(item => whoItemChecks[phase.phase]?.[item]).length;
+                    const allChecked = checkedCount === phase.items.length;
                     return (
                       <motion.div
                         key={phase.phase}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35, delay: idx * 0.05 }}
-                        className={`rounded-2xl border p-4 ${phase.completed ? 'border-success/30 bg-success-soft' : 'border-border bg-muted/40'}`}
+                        className={`rounded-2xl border p-4 ${signed ? 'border-success/30 bg-success-soft' : 'border-border bg-muted/40'}`}
                       >
                         <div className="mb-4 flex items-center gap-2 border-b border-border pb-2">
                           <PhaseIcon className={`h-5 w-5 ${phase.iconClass}`} aria-hidden />
@@ -354,25 +361,30 @@ export default function OTDashboard() {
                               <input
                                 type="checkbox"
                                 className="mt-0.5 rounded border-input bg-card text-primary focus:ring-primary"
-                                defaultChecked={phase.completed}
+                                checked={!!whoItemChecks[phase.phase]?.[item]}
+                                disabled={signed}
+                                onChange={(e) => setWhoItemChecks(prev => ({
+                                  ...prev,
+                                  [phase.phase]: { ...prev[phase.phase], [item]: e.target.checked },
+                                }))}
                               />
-                              <span className="text-sm text-foreground">{item}</span>
+                              <span className={`text-sm ${signed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{item}</span>
                             </label>
                           ))}
                         </div>
                         <Button
-                          variant={phase.completed ? 'primary' : 'outline'}
+                          variant={signed ? 'primary' : 'outline'}
                           className="mt-6 w-full"
                           size="sm"
-                          disabled
-                          title={phase.completed ? 'Already signed' : 'Coming soon'}
+                          disabled={signed || !allChecked}
+                          onClick={() => setWhoSigned(prev => ({ ...prev, [phase.phase]: true }))}
                         >
-                          {phase.completed ? (
-                            <>
-                              <CheckCircle className="h-4 w-4" aria-hidden /> Signed & Verified
-                            </>
-                          ) : (
+                          {signed ? (
+                            <><CheckCircle className="h-4 w-4" aria-hidden /> Signed & Verified</>
+                          ) : allChecked ? (
                             'Sign & Verify'
+                          ) : (
+                            `Check all items (${checkedCount}/${phase.items.length})`
                           )}
                         </Button>
                       </motion.div>
@@ -437,7 +449,14 @@ export default function OTDashboard() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" className="flex-1" disabled title="Coming soon">Administer Analgesia</Button>
+                  <Button
+                    variant={analgesiaGiven ? 'primary' : 'secondary'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setAnalgesiaGiven(a => !a)}
+                  >
+                    {analgesiaGiven ? <><CheckCircle className="h-4 w-4" aria-hidden /> Administered</> : 'Administer Analgesia'}
+                  </Button>
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push('/adt')}>Transfer to Ward</Button>
                 </div>
               </CardContent>
