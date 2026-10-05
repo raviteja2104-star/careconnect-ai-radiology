@@ -8,6 +8,8 @@ import {
 } from '@/services/authService';
 
 const ROLE_KEY = 'cc-active-role';
+const DEMO_STARTED_KEY = 'cc-demo-started';
+const DEMO_SESSION_MAX_MS = 8 * 60 * 60 * 1000; // 8 h
 
 interface SessionContextValue {
     session: AuthUserSession;
@@ -26,9 +28,17 @@ interface SessionContextValue {
 
 const SessionContext = React.createContext<SessionContextValue | null>(null);
 
-/** The demo persona the app falls back to when no JWT is present. */
+/** The demo persona the app falls back to when no JWT is present.
+ *  Clears the stored role after DEMO_SESSION_MAX_MS so stale sessions
+ *  don't persist across browser restarts indefinitely. */
 function demoPersona(): AuthUserSession {
     try {
+        const startedAt = localStorage.getItem(DEMO_STARTED_KEY);
+        if (startedAt && Date.now() - Number(startedAt) > DEMO_SESSION_MAX_MS) {
+            localStorage.removeItem(ROLE_KEY);
+            localStorage.removeItem(DEMO_STARTED_KEY);
+            return authService.getCurrentSession();
+        }
         const stored = localStorage.getItem(ROLE_KEY);
         if (stored && PERSONAS[stored]) return PERSONAS[stored];
     } catch { /* storage unavailable */ }
@@ -65,7 +75,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (isAuthenticated) return; // personas are demo-only
         const persona = PERSONAS[role];
         if (!persona) return;
-        localStorage.setItem(ROLE_KEY, role);
+        try {
+            localStorage.setItem(ROLE_KEY, role);
+            if (!localStorage.getItem(DEMO_STARTED_KEY)) {
+                localStorage.setItem(DEMO_STARTED_KEY, String(Date.now()));
+            }
+        } catch { /* storage unavailable */ }
         authService.setActiveSession(persona);
         setSession(persona);
     }, [isAuthenticated]);
@@ -81,6 +96,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
     const logout = React.useCallback(() => {
         clearStoredAuth();
+        try {
+            localStorage.removeItem(ROLE_KEY);
+            localStorage.removeItem(DEMO_STARTED_KEY);
+        } catch { /* storage unavailable */ }
         const persona = demoPersona();
         authService.setActiveSession(persona);
         setSession(persona);

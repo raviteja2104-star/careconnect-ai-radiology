@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         backendId = json?.data?.id ?? null;
     } catch (err) {
         // Backend unavailable — still send email + return success to user
-        console.warn('[provider-enquiry] Backend unreachable:', err);
+        void err; // suppress lint — error details not logged to avoid leaking internal URLs
     }
 
     // Fire email notification (non-blocking)

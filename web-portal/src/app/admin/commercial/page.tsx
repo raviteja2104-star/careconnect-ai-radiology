@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   DollarSign, Building2, CreditCard, Award, TrendingUp, Check, Plus,
-  BarChart3, Sparkles, Landmark, Handshake, Globe2, Bot,
+  BarChart3, Sparkles, Landmark, Handshake, Globe2, Bot, WifiOff,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Badge, Button, Card, CardHeader, CardTitle,
@@ -277,6 +277,18 @@ export default function EnterpriseCommercialPage() {
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Commercial' }]}
         actions={<Badge tone="success" dot>Phase 19 Commercial Active</Badge>}
       />
+
+      {apiTenants === null && (
+        <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm">
+          <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+          <div>
+            <p className="font-semibold text-foreground">Session-only data — backend not connected</p>
+            <p className="text-muted-foreground mt-0.5">
+              Tenant and financial data below comes from an in-memory store. Changes made here (tenant creation, plan updates) will not persist after a page reload. Connect the commercial backend API to enable persistence.
+            </p>
+          </div>
+        </div>
+      )}
 
       <StatGrid>
         <StatCard
