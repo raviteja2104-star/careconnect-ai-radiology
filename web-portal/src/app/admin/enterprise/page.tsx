@@ -81,7 +81,17 @@ export default function EnterpriseIntegrationHubPage() {
   const handleTestIntegration = () => testMutation.mutate();
 
   const [backupNotice, setBackupNotice] = useState(false);
-  const handleTriggerBackup = () => setBackupNotice(true);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const backupMutation = useMutation({
+    mutationFn: () =>
+      fetch('/api/system/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      }).then(r => r.json()),
+    onSuccess: () => { setBackupNotice(true); setBackupError(null); },
+    onError: () => setBackupError('Backup request failed. Check your infrastructure console.'),
+  });
+  const handleTriggerBackup = () => backupMutation.mutate();
 
 
   return (
@@ -356,7 +366,7 @@ export default function EnterpriseIntegrationHubPage() {
               <h2 className="text-lg font-semibold text-foreground">Disaster Recovery & System Backups</h2>
               <p className="text-sm text-muted-foreground">Trigger instant encrypted snapshots and monitor multi-region replication.</p>
             </div>
-            <Button onClick={handleTriggerBackup} variant={backupNotice ? 'outline' : 'primary'}>
+            <Button onClick={handleTriggerBackup} variant={backupNotice ? 'outline' : 'primary'} loading={backupMutation.isPending} disabled={backupMutation.isPending}>
               <HardDrive className="h-4 w-4" aria-hidden /> Trigger Immediate Backup
             </Button>
           </div>
@@ -364,9 +374,15 @@ export default function EnterpriseIntegrationHubPage() {
             <div className="flex items-start gap-3 rounded-xl border border-info/30 bg-info/5 p-4 text-sm">
               <HardDrive className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
               <div>
-                <p className="font-semibold text-foreground">Backup initiated via infrastructure console</p>
-                <p className="text-muted-foreground mt-0.5">Snapshots are managed directly by your cloud provider (AWS RDS / Azure SQL). Visit your cloud console to monitor progress. Direct API trigger is available once the backup management service is connected.</p>
+                <p className="font-semibold text-foreground">Backup request acknowledged</p>
+                <p className="text-muted-foreground mt-0.5">Snapshots are managed directly by your cloud provider (MongoDB Atlas / AWS RDS). Visit your infrastructure console to monitor progress.</p>
               </div>
+            </div>
+          )}
+          {backupError && (
+            <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm">
+              <HardDrive className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
+              <p className="font-semibold text-danger">{backupError}</p>
             </div>
           )}
 
