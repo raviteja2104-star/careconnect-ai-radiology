@@ -120,6 +120,7 @@ export function middleware(req: NextRequest) {
     if (!hasSession) {
         const loginUrl = req.nextUrl.clone();
         loginUrl.pathname = '/login';
+        loginUrl.searchParams.set('reason', 'unauthorized');
         loginUrl.searchParams.set('next', pathname);
         return NextResponse.redirect(loginUrl);
     }

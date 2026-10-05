@@ -117,7 +117,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setSession(persona);
         setIsAuthenticated(false);
         const role = session.role;
-        router.push(role === 'PATIENT' ? '/' : '/login');
+        router.push(role === 'PATIENT' ? '/' : '/login?reason=logged_out');
     }, [router, session.role]);
 
     // Proactive token refresh — schedule 5 minutes before JWT expiry
