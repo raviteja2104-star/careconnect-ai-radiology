@@ -108,21 +108,24 @@ export default function KioskApp() {
   const [walkinData, setWalkinData] = useState({ patientName: '', department: 'General Medicine' });
   const [generatedToken, setGeneratedToken] = useState<GeneratedToken | null>(null);
   const [locale, setLocale] = useState<Locale>('EN');
+  const [checkinError, setCheckinError] = useState<string | null>(null);
   const t = (key: string) => TRANSLATIONS[locale][key] ?? key;
 
   const checkinMutation = useMutation({
-    mutationFn: (identifier: string) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/kiosk/checkin`, {
+    mutationFn: (identifier: string) => {
+      setCheckinError(null);
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/kiosk/checkin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier })
-      }).then(res => res.json()),
+      }).then(res => res.json());
+    },
     onSuccess: (res) => {
       if (res.success) {
         setGeneratedToken(res.data.token);
         setStep('SUCCESS');
       } else {
-        alert(res.error || 'Check-in failed');
+        setCheckinError(res.error || 'Check-in failed. Please try again or ask staff for help.');
       }
     }
   });
@@ -277,9 +280,14 @@ export default function KioskApp() {
                   value={phone}
                   readOnly
                   aria-label="Mobile number"
-                  className="mb-10 w-full rounded-2xl border-2 border-input bg-muted px-8 py-6 text-center font-mono text-4xl tracking-widest text-foreground outline-none placeholder:text-subtle-foreground"
+                  className="mb-4 w-full rounded-2xl border-2 border-input bg-muted px-8 py-6 text-center font-mono text-4xl tracking-widest text-foreground outline-none placeholder:text-subtle-foreground"
                   placeholder={t('mobilePlaceholder')}
                 />
+                {checkinError && (
+                  <p role="alert" className="mb-6 rounded-xl bg-danger-soft px-5 py-3 text-center text-lg font-semibold text-danger">
+                    {checkinError}
+                  </p>
+                )}
 
                 <div className="mb-10 grid grid-cols-3 gap-4">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'Clear', 0, 'DEL'].map((key) => (

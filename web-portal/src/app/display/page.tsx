@@ -29,7 +29,7 @@ export default function PatientDisplayBoard() {
     const socket = io(process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care');
 
     socket.on('connect', () => {
-      console.log('Connected to Queue WebSocket');
+      // connected
     });
 
     socket.on('QUEUE_UPDATED', (data) => {
