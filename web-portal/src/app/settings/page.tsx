@@ -12,7 +12,7 @@ import Link from 'next/link';
 import {
   Building, Globe, Shield, FileText, Save, CheckCircle2, Cpu,
   Sun, Moon, Monitor, Contrast, Palette, Loader2, Plug,
-  Users, Lock, Settings2, ArrowRight, ChevronRight,
+  Users, Lock, Settings2, ArrowRight, ChevronRight, User,
 } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/services/prescriptionTranslationService';
 import {
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
-import { changePassword } from '@/services/authService';
+import { changePassword, updateProfile } from '@/services/authService';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 function authHeaders(): Record<string, string> {
@@ -57,6 +57,14 @@ export default function SettingsPage() {
   });
   const rbacRoles: RbacRole[] = rbacRes?.data ?? [];
 
+  const { data: meRes } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: () => fetch(`${API}/api/auth/me`, { headers: authHeaders() }).then(r => r.json()),
+    enabled: activeTab === 'account',
+    staleTime: 30000,
+  });
+  const meUser = meRes?.data as { firstName?: string; lastName?: string; email?: string; dateOfBirth?: string; gender?: string } | undefined;
+
   // Form states
   const [hospitalInfo, setHospitalInfo] = useState({
     name: 'CareConnect Super Specialty Hospital',
@@ -70,6 +78,24 @@ export default function SettingsPage() {
 
   const [defaultRxLang, setDefaultRxLang] = useState('te');
   const [enableBilingualDefault, setEnableBilingualDefault] = useState(true);
+
+  // Profile edit form state
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const [profileDob, setProfileDob] = useState('');
+  const [profileGender, setProfileGender] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Pre-populate profile form once the /me query resolves
+  useEffect(() => {
+    if (!meUser) return;
+    if (meUser.firstName) setProfileFirstName(meUser.firstName);
+    if (meUser.lastName) setProfileLastName(meUser.lastName);
+    if (meUser.dateOfBirth) setProfileDob(meUser.dateOfBirth.slice(0, 10));
+    if (meUser.gender) setProfileGender(meUser.gender);
+  }, [meUser]);
 
   // Change-password form state
   const [currentPw, setCurrentPw] = useState('');
@@ -495,7 +521,109 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
         {/* ACCOUNT SECURITY */}
-        <TabsContent value="account">
+        <TabsContent value="account" className="space-y-6">
+          {/* MY PROFILE */}
+          <Card>
+            <CardHeader>
+              <CardTitle>My Profile</CardTitle>
+              <CardDescription>Update your personal details. Email and role changes require administrator action.</CardDescription>
+            </CardHeader>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setProfileError('');
+                if (!profileFirstName.trim()) { setProfileError('First name is required.'); return; }
+                setProfileSaving(true);
+                try {
+                  await updateProfile({
+                    firstName: profileFirstName.trim(),
+                    lastName: profileLastName.trim() || undefined,
+                    dateOfBirth: profileDob || undefined,
+                    gender: profileGender || undefined,
+                  });
+                  setProfileSuccess(true);
+                  setTimeout(() => setProfileSuccess(false), 5000);
+                } catch (err: unknown) {
+                  setProfileError((err as Error).message ?? 'Profile update failed.');
+                } finally {
+                  setProfileSaving(false);
+                }
+              }}
+            >
+              <CardContent className="space-y-4 max-w-lg">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="profile-first-name">First Name</Label>
+                    <Input
+                      id="profile-first-name"
+                      type="text"
+                      autoComplete="given-name"
+                      value={profileFirstName}
+                      onChange={(e) => setProfileFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profile-last-name">Last Name</Label>
+                    <Input
+                      id="profile-last-name"
+                      type="text"
+                      autoComplete="family-name"
+                      value={profileLastName}
+                      onChange={(e) => setProfileLastName(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="profile-dob">Date of Birth</Label>
+                    <Input
+                      id="profile-dob"
+                      type="date"
+                      value={profileDob}
+                      onChange={(e) => setProfileDob(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profile-gender">Gender</Label>
+                    <Select
+                      id="profile-gender"
+                      value={profileGender}
+                      onChange={(e) => setProfileGender(e.target.value)}
+                    >
+                      <option value="">— select —</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </Select>
+                  </div>
+                </div>
+                {meUser?.email && (
+                  <div>
+                    <Label>Email</Label>
+                    <Input type="email" value={meUser.email} readOnly className="opacity-60 cursor-not-allowed" />
+                    <FieldHint>Email changes require administrator action.</FieldHint>
+                  </div>
+                )}
+                {profileError && <p role="alert" className="text-sm text-destructive">{profileError}</p>}
+                {profileSuccess && (
+                  <p role="status" className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Profile updated successfully.
+                  </p>
+                )}
+              </CardContent>
+              <CardFooter className="justify-end border-t border-border !pt-5">
+                <Button type="submit" disabled={profileSaving || !profileFirstName.trim()} loading={profileSaving}>
+                  {profileSaving
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…</>
+                    : <><User className="h-4 w-4" aria-hidden /> Save Profile</>}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+
+          {/* CHANGE PASSWORD */}
           <Card>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>

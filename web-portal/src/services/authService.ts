@@ -302,6 +302,37 @@ export async function changePassword(currentPassword: string, newPassword: strin
   if (payload?.data?.refreshToken) window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, payload.data.refreshToken);
 }
 
+export interface ProfileUpdateInput {
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  gender?: string;
+}
+
+/** PUT /api/auth/profile — update the current user's basic profile fields. */
+export async function updateProfile(data: ProfileUpdateInput): Promise<void> {
+  if (typeof window === 'undefined') throw new AuthApiError(0, 'Cannot run on the server.');
+  const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (!token) throw new AuthApiError(401, 'Not authenticated.');
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    res = await fetch(`${AUTH_API_BASE}/api/auth/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+  } catch {
+    throw new AuthApiError(0, 'Cannot reach the server. Check your connection and try again.');
+  }
+  let payload: { success?: boolean; message?: string } = {};
+  try { payload = await res.json(); } catch { /* non-JSON */ }
+  if (!res.ok) throw new AuthApiError(res.status, payload?.message || `Request failed (${res.status})`);
+}
+
 export interface RegisterInput {
   firstName: string;
   lastName: string;
