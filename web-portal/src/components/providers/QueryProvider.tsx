@@ -14,8 +14,12 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(() => new QueryClient({
         queryCache: new QueryCache({
             onError(error) {
-                // Redirect to login when the session expires
+                // Only redirect to login when a real JWT is present and the server
+                // rejected it. In demo mode there is no token in localStorage, so
+                // a 401 just means the endpoint requires auth — not an expired session.
                 if (isAuthError(error) && typeof window !== 'undefined') {
+                    const token = window.localStorage.getItem('token');
+                    if (!token) return;
                     const next = encodeURIComponent(window.location.pathname);
                     window.location.replace(`/login?reason=session_expired&next=${next}`);
                 }

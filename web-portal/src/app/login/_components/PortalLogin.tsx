@@ -40,7 +40,7 @@ interface WrongPortal {
 export function PortalLogin({ portal }: { portal: LoginPortal }) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { signIn } = useSession();
+    const { signIn, switchRole } = useSession();
     const [tab, setTab] = React.useState('login');
 
     const [email, setEmail] = React.useState('');
@@ -463,12 +463,7 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                         )}
 
                         <Button variant="outline" className="w-full" onClick={() => {
-                            signIn(
-                                { _id: DEMO_USER_SESSION.userId, role: 'admin', email: DEMO_USER_SESSION.email },
-                                DEMO_USER_SESSION.accessToken,
-                                DEMO_USER_SESSION.permissions,
-                                DEMO_USER_SESSION.workspaces,
-                            );
+                            switchRole('SUPER_ADMIN');
                             const next = searchParams.get('next');
                             const dest = next && next.startsWith('/') && !next.startsWith('/login') ? next : '/';
                             router.push(dest);

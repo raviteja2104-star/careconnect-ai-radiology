@@ -222,8 +222,7 @@ export function OrdersPanel({
                         return false;
                     }
                     recordLocalOrder(body, flags);
-                    if (flags.length) toast('warning', 'Recorded locally with advisories (demo)', flags.map((f) => f.message).join(' '));
-                    else toast('info', 'Recorded locally (demo)', 'Backend offline — order stored locally only.');
+                    toast('warning', 'Recorded locally (backend offline)', flags.map((f) => f.message).join(' '));
                     return true;
                 }
                 recordLocalOrder(body, body.category === 'medication' ? safetyFlags || undefined : undefined);

@@ -392,19 +392,7 @@ export const DEMO_ENCOUNTER_BUNDLE: EncounterBundle = {
     ],
 };
 
-/* ────────────────── Client-side demo safety screening ─────────────── */
-/**
- * Mirror of the backend's advisory PrescriptionSafety rules so the 422
- * safety-flag flow stays demoable when the backend is offline.
- */
-const DEMO_INTERACTIONS: { pair: [string, string]; severity: SafetyFlag['severity']; message: string }[] = [
-    { pair: ['warfarin', 'aspirin'], severity: 'critical', message: 'Warfarin + Aspirin: major bleeding risk.' },
-    { pair: ['warfarin', 'ibuprofen'], severity: 'critical', message: 'Warfarin + NSAID: major bleeding risk.' },
-    { pair: ['sildenafil', 'nitroglycerin'], severity: 'critical', message: 'PDE5 inhibitor + nitrate: severe hypotension.' },
-    { pair: ['clopidogrel', 'omeprazole'], severity: 'warning', message: 'Omeprazole may reduce clopidogrel activation.' },
-    { pair: ['lisinopril', 'spironolactone'], severity: 'warning', message: 'ACE inhibitor + K-sparing diuretic: hyperkalemia risk.' },
-    { pair: ['tramadol', 'sertraline'], severity: 'warning', message: 'Serotonergic combination: serotonin syndrome risk.' },
-];
+/* ────────────────── Client-side offline safety screening ─────────────── */
 
 export interface SafetyContext {
     currentMedications?: string[];
@@ -416,6 +404,15 @@ export interface SafetyContext {
 export function demoScreenDrugs(drugs: Partial<DrugLine>[], context: SafetyContext): SafetyFlag[] {
     const norm = (s?: string) => String(s || '').trim().toLowerCase();
     const flags: SafetyFlag[] = [];
+
+    // Always surface this when the backend is unreachable so the clinician
+    // knows drug-drug interaction checks did NOT run and must verify manually.
+    flags.push({
+        kind: 'offline',
+        severity: 'warning',
+        message: 'Drug-drug interaction check unavailable (backend offline). Verify all interactions manually before prescribing.',
+    });
+
     const newNames = drugs.map((d) => norm(d.name)).filter(Boolean);
     const allNames = [...newNames, ...(context.currentMedications || []).map(norm)];
     const allergies = (context.allergies || []).map(norm);
@@ -424,13 +421,6 @@ export function demoScreenDrugs(drugs: Partial<DrugLine>[], context: SafetyConte
     for (const n of allNames) {
         if (seen.has(n) && newNames.includes(n)) flags.push({ kind: 'duplicate', severity: 'warning', message: `Duplicate therapy detected: ${n}.` });
         seen.add(n);
-    }
-    for (const { pair, severity, message } of DEMO_INTERACTIONS) {
-        const [a, b] = pair;
-        const hasA = allNames.some((n) => n.includes(a));
-        const hasB = allNames.some((n) => n.includes(b));
-        const involvesNew = newNames.some((n) => n.includes(a) || n.includes(b));
-        if (hasA && hasB && involvesNew) flags.push({ kind: 'interaction', severity, message });
     }
     for (const n of newNames) {
         for (const allergy of allergies) {
