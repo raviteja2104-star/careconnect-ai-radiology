@@ -177,6 +177,48 @@ export default function RevenueDashboard() {
     }
   };
 
+  const viewReceipt = (inv: Invoice) => {
+    const patientName = [inv.patient?.firstName, inv.patient?.lastName].filter(Boolean).join(' ') || inv.patient?.name || 'Unknown Patient';
+    const datePaid = new Date(inv.issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Receipt — ${inv.invoiceNumber}</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 480px; margin: 40px auto; padding: 24px; color: #111; }
+    h1 { font-size: 1.35rem; margin-bottom: 2px; }
+    .subtitle { color: #6b7280; font-size: 0.85rem; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    td { padding: 10px 6px; border-bottom: 1px solid #e5e7eb; }
+    td:first-child { color: #6b7280; }
+    td:last-child { text-align: right; font-weight: 600; }
+    .total td { font-size: 1.1rem; border-top: 2px solid #111; border-bottom: none; font-weight: 700; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46; font-size: 0.75rem; font-weight: 600; }
+    button { margin-top: 16px; padding: 10px 24px; background: #0f172a; color: #fff; border: none; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+    @media print { button { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>Payment Receipt</h1>
+  <p class="subtitle">CareConnect Health Platform &nbsp;·&nbsp; <span class="badge">PAID</span></p>
+  <table>
+    <tr><td>Patient</td><td>${patientName}</td></tr>
+    <tr><td>Invoice No.</td><td>${inv.invoiceNumber}</td></tr>
+    <tr><td>Invoice Type</td><td>${inv.type ?? '—'}</td></tr>
+    <tr><td>Date Issued</td><td>${datePaid}</td></tr>
+    <tr class="total"><td>Amount Paid</td><td>${formatCurrency(inv.totalAmount)}</td></tr>
+  </table>
+  <button onclick="window.print()">Print Receipt</button>
+</body>
+</html>`;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.print();
+    }
+  };
+
   const columns: Column<Invoice>[] = [
     {
       key: 'invoiceNumber',
@@ -236,7 +278,7 @@ export default function RevenueDashboard() {
         inv.status !== 'PAID' ? (
           <Button size="sm" onClick={() => openCollectModal(inv)}>Collect Payment</Button>
         ) : (
-          <Button size="sm" variant="ghost" disabled>
+          <Button size="sm" variant="ghost" onClick={() => viewReceipt(inv)}>
             View Receipt <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
         ),

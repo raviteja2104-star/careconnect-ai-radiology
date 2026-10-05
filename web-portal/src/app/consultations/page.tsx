@@ -1,17 +1,74 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   FileText, Pill, FlaskConical, Search, Plus, Activity, Heart,
-  Thermometer, Save, Send, Mic, Loader2,
+  Thermometer, Save, Send, Mic, MicOff, Loader2,
 } from 'lucide-react';
 import {
   PageHeader, Badge, Button, Avatar, Card, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent, Input, Textarea, Label,
-  EmptyState,
+  EmptyState, Dialog,
 } from '@/components/ui';
+
+interface SRResult {
+  readonly [index: number]: { readonly transcript: string };
+}
+interface SRResultList {
+  readonly length: number;
+  readonly [index: number]: SRResult;
+}
+interface SREvent extends Event {
+  readonly resultIndex: number;
+  readonly results: SRResultList;
+}
+interface SRInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: SREvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: { new(): SRInstance } | undefined;
+    webkitSpeechRecognition: { new(): SRInstance } | undefined;
+  }
+}
+
+const AI_TEMPLATES: Array<{ label: string; fields: Partial<SoapFields> }> = [
+  {
+    label: 'Hypertension follow-up',
+    fields: {
+      subjective: 'Patient presents for hypertension review. Reports good adherence to medications. No chest pain, dyspnoea or headache.',
+      objective: 'BP: /  mmHg, HR:  bpm. Cardiovascular examination normal. No peripheral oedema.',
+      assessment: 'Essential hypertension, controlled.',
+      plan: 'Continue current antihypertensive regimen. Home BP monitoring encouraged. Review in 4–6 weeks.',
+    },
+  },
+  {
+    label: 'Upper respiratory infection',
+    fields: {
+      subjective: 'Patient presents with sore throat, nasal congestion and low-grade fever for  days. No dyspnoea or chest pain.',
+      objective: 'Temp: °C. Throat erythema noted. No tonsil exudate. Lungs clear. No cervical lymphadenopathy.',
+      assessment: 'Acute upper respiratory tract infection, likely viral.',
+      plan: 'Symptomatic management: paracetamol, saline nasal rinse, adequate hydration. Advised to return if symptoms worsen.',
+    },
+  },
+  {
+    label: 'Musculoskeletal pain',
+    fields: {
+      subjective: 'Patient presents with pain in the  region for  days. Aggravated by movement, relieved partially by rest.',
+      objective: 'Tenderness on palpation. Range of motion reduced. No neurovascular deficit.',
+      assessment: 'Musculoskeletal pain, likely mechanical.',
+      plan: 'Analgesics and NSAIDs as required. Physiotherapy referral considered. Review if no improvement in 2 weeks.',
+    },
+  },
+];
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -131,6 +188,11 @@ export default function ConsultationsPage() {
   const [isSigning, setIsSigning] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
+  // Dictate + AI Assist
+  const [dictating, setDictating] = useState(false);
+  const recognitionRef = useRef<SRInstance | null>(null);
+  const [aiAssistOpen, setAiAssistOpen] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
@@ -165,6 +227,30 @@ export default function ConsultationsPage() {
 
   function handleSoapChange(field: keyof SoapFields, value: string) {
     setSoap(prev => ({ ...prev, [field]: value }));
+  }
+
+  function handleDictate() {
+    if (dictating) {
+      recognitionRef.current?.stop();
+      setDictating(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = (event: SREvent) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setSoap(prev => ({ ...prev, subjective: (prev.subjective + ' ' + transcript.trim()).trimStart() }));
+    };
+    recognition.onend = () => setDictating(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setDictating(true);
   }
 
   async function handleSaveDraft() {
@@ -340,10 +426,11 @@ export default function ConsultationsPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <h3 className="font-bold text-foreground">SOAP Note</h3>
                           <div className="flex gap-2">
-                            <Button variant="secondary" size="sm" disabled title="Coming soon">
-                              <Mic className="h-3.5 w-3.5" aria-hidden /> Dictate
+                            <Button variant={dictating ? 'danger' : 'secondary'} size="sm" onClick={handleDictate}>
+                              {dictating ? <MicOff className="h-3.5 w-3.5" aria-hidden /> : <Mic className="h-3.5 w-3.5" aria-hidden />}
+                              {dictating ? 'Stop' : 'Dictate'}
                             </Button>
-                            <Button variant="outline" size="sm" className="text-primary" disabled title="Coming soon">
+                            <Button variant="outline" size="sm" className="text-primary" onClick={() => setAiAssistOpen(true)}>
                               <Activity className="h-3.5 w-3.5" aria-hidden /> AI Assist
                             </Button>
                           </div>
@@ -418,6 +505,30 @@ export default function ConsultationsPage() {
           })()}
         </div>
       )}
+
+      <Dialog
+        open={aiAssistOpen}
+        onClose={() => setAiAssistOpen(false)}
+        title="AI Assist — SOAP Templates"
+        description={selected?.chiefComplaint ? `Pre-fill SOAP note for "${selected.chiefComplaint}"` : 'Select a template to pre-fill the SOAP note.'}
+        size="sm"
+      >
+        <div className="flex flex-col gap-3">
+          {AI_TEMPLATES.map(t => (
+            <Button
+              key={t.label}
+              variant="outline"
+              className="h-auto justify-start whitespace-normal py-3 text-left"
+              onClick={() => {
+                (Object.entries(t.fields) as Array<[keyof SoapFields, string]>).forEach(([k, v]) => handleSoapChange(k, v));
+                setAiAssistOpen(false);
+              }}
+            >
+              {t.label}
+            </Button>
+          ))}
+        </div>
+      </Dialog>
     </div>
   );
 }

@@ -21,7 +21,7 @@ import {
 import {
   PageHeader, Card, CardHeader, CardTitle, CardDescription, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button, Input, Select, Label,
-  DataTable, type Column, EmptyState,
+  DataTable, type Column, EmptyState, Dialog, Textarea,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +95,75 @@ export default function EnterpriseWorkflowStudioPage() {
   const approvalsList = (approvalsRes?.data ?? []) as (WorkflowApprovalChain & { _id: string })[];
   const notificationsList = (notifsRes?.data ?? []) as (WorkflowNotificationTemplate & { _id: string })[];
   const integrationsList = (integrationsRes?.data ?? []) as (WorkflowIntegrationConfig & { _id: string })[];
+
+  const [newApprovalOpen, setNewApprovalOpen] = useState(false);
+  const [approvalDraft, setApprovalDraft] = useState<{ name: string; role: string; slaMinutes: number }>({ name: '', role: 'DOCTOR', slaMinutes: 15 });
+  const [approvalSubmitting, setApprovalSubmitting] = useState(false);
+
+  const [newTemplateOpen, setNewTemplateOpen] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState<{ name: string; channel: string; bodyTemplate: string }>({ name: '', channel: 'WhatsApp', bodyTemplate: '' });
+  const [templateSubmitting, setTemplateSubmitting] = useState(false);
+
+  const [newIntegOpen, setNewIntegOpen] = useState(false);
+  const [integDraft, setIntegDraft] = useState<{ name: string; protocol: string; endpointUrl: string }>({ name: '', protocol: 'FHIR R4', endpointUrl: '' });
+  const [integSubmitting, setIntegSubmitting] = useState(false);
+
+  const handleCreateApproval = async () => {
+    if (!approvalDraft.name.trim()) return;
+    setApprovalSubmitting(true);
+    try {
+      await fetch(`${API}/api/admin/ops/workflow_approval`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name: approvalDraft.name, stages: [{ stageNumber: 1, role: approvalDraft.role, slaMinutes: approvalDraft.slaMinutes }] }),
+      });
+      queryClient.invalidateQueries({ queryKey: ['ops', 'workflow_approval'] });
+      setNewApprovalOpen(false);
+      setApprovalDraft({ name: '', role: 'DOCTOR', slaMinutes: 15 });
+    } catch (err) {
+      console.error('Failed to create approval chain:', err);
+    } finally {
+      setApprovalSubmitting(false);
+    }
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!templateDraft.name.trim()) return;
+    setTemplateSubmitting(true);
+    try {
+      await fetch(`${API}/api/admin/ops/workflow_notification`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(templateDraft),
+      });
+      queryClient.invalidateQueries({ queryKey: ['ops', 'workflow_notification'] });
+      setNewTemplateOpen(false);
+      setTemplateDraft({ name: '', channel: 'WhatsApp', bodyTemplate: '' });
+    } catch (err) {
+      console.error('Failed to create notification template:', err);
+    } finally {
+      setTemplateSubmitting(false);
+    }
+  };
+
+  const handleCreateInteg = async () => {
+    if (!integDraft.name.trim() || !integDraft.endpointUrl.trim()) return;
+    setIntegSubmitting(true);
+    try {
+      await fetch(`${API}/api/admin/ops/workflow_integration`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(integDraft),
+      });
+      queryClient.invalidateQueries({ queryKey: ['ops', 'workflow_integration'] });
+      setNewIntegOpen(false);
+      setIntegDraft({ name: '', protocol: 'FHIR R4', endpointUrl: '' });
+    } catch (err) {
+      console.error('Failed to create integration endpoint:', err);
+    } finally {
+      setIntegSubmitting(false);
+    }
+  };
 
   const createFormMutation = useMutation({
     mutationFn: (form: Omit<WorkflowForm, 'id'>) =>
@@ -605,7 +674,7 @@ export default function EnterpriseWorkflowStudioPage() {
               <h2 className="text-lg font-semibold text-foreground">Multi-Stage Approval Designer</h2>
               <p className="text-sm text-muted-foreground">Configure prescription sign-offs and high-value financial claims.</p>
             </div>
-            <Button disabled title="Coming soon">
+            <Button onClick={() => setNewApprovalOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden /> Create Approval Chain
             </Button>
           </div>
@@ -648,7 +717,7 @@ export default function EnterpriseWorkflowStudioPage() {
               <h2 className="text-lg font-semibold text-foreground">Multi-Channel Alerts & Templates</h2>
               <p className="text-sm text-muted-foreground">Dispatch WhatsApp, SMS, Email, and In-App push notifications.</p>
             </div>
-            <Button disabled title="Coming soon">
+            <Button onClick={() => setNewTemplateOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden /> Add Template
             </Button>
           </div>
@@ -683,7 +752,7 @@ export default function EnterpriseWorkflowStudioPage() {
               <h2 className="text-lg font-semibold text-foreground">API Integration Studio</h2>
               <p className="text-sm text-muted-foreground">Connect ABDM / ABHA, FHIR R4, HL7, and PACS DICOM servers.</p>
             </div>
-            <Button disabled title="Coming soon">
+            <Button onClick={() => setNewIntegOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden /> Add Integration Endpoint
             </Button>
           </div>
@@ -797,6 +866,117 @@ export default function EnterpriseWorkflowStudioPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Create Approval Chain modal */}
+      <Dialog
+        open={newApprovalOpen}
+        onClose={() => setNewApprovalOpen(false)}
+        title="Create Approval Chain"
+        description="Define a new multi-stage approval chain for prescriptions or high-value claims."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setNewApprovalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateApproval} loading={approvalSubmitting} disabled={!approvalDraft.name.trim()}>
+              Create
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="appr-name">Chain Name</Label>
+            <Input id="appr-name" value={approvalDraft.name} onChange={e => setApprovalDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. High-Value Prescription Sign-off" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="appr-role">Approver Role (Stage 1)</Label>
+            <Select id="appr-role" value={approvalDraft.role} onChange={e => setApprovalDraft(p => ({ ...p, role: e.target.value }))}>
+              <option value="DOCTOR">Doctor</option>
+              <option value="NURSE">Nurse</option>
+              <option value="PHARMACY">Pharmacist</option>
+              <option value="LABORATORY">Lab Technician</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="appr-sla">SLA (minutes)</Label>
+            <Input id="appr-sla" type="number" min={1} value={approvalDraft.slaMinutes} onChange={e => setApprovalDraft(p => ({ ...p, slaMinutes: parseInt(e.target.value) || 15 }))} />
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Add Notification Template modal */}
+      <Dialog
+        open={newTemplateOpen}
+        onClose={() => setNewTemplateOpen(false)}
+        title="Add Notification Template"
+        description="Configure a new alert template for a specific channel."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setNewTemplateOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateTemplate} loading={templateSubmitting} disabled={!templateDraft.name.trim()}>
+              Add Template
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="tmpl-name">Template Name</Label>
+            <Input id="tmpl-name" value={templateDraft.name} onChange={e => setTemplateDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Appointment Reminder" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tmpl-channel">Channel</Label>
+            <Select id="tmpl-channel" value={templateDraft.channel} onChange={e => setTemplateDraft(p => ({ ...p, channel: e.target.value }))}>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="SMS">SMS</option>
+              <option value="Email">Email</option>
+              <option value="In-App">In-App</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tmpl-body">Body Template</Label>
+            <Textarea id="tmpl-body" rows={3} value={templateDraft.bodyTemplate} onChange={e => setTemplateDraft(p => ({ ...p, bodyTemplate: e.target.value }))} placeholder="e.g. Dear {{patientName}}, your appointment is confirmed for {{date}}." />
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Add Integration Endpoint modal */}
+      <Dialog
+        open={newIntegOpen}
+        onClose={() => setNewIntegOpen(false)}
+        title="Add Integration Endpoint"
+        description="Connect a new FHIR, HL7, ABDM, or PACS endpoint."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setNewIntegOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateInteg} loading={integSubmitting} disabled={!integDraft.name.trim() || !integDraft.endpointUrl.trim()}>
+              Add Endpoint
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="integ-name">Endpoint Name</Label>
+            <Input id="integ-name" value={integDraft.name} onChange={e => setIntegDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. ABDM Sandbox Gateway" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="integ-type">Protocol / Type</Label>
+            <Select id="integ-type" value={integDraft.protocol} onChange={e => setIntegDraft(p => ({ ...p, protocol: e.target.value }))}>
+              <option value="FHIR R4">FHIR R4</option>
+              <option value="HL7">HL7</option>
+              <option value="ABDM">ABDM</option>
+              <option value="PACS">PACS</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="integ-url">Endpoint URL</Label>
+            <Input id="integ-url" type="url" value={integDraft.endpointUrl} onChange={e => setIntegDraft(p => ({ ...p, endpointUrl: e.target.value }))} placeholder="https://sandbox.abdm.gov.in/api" />
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

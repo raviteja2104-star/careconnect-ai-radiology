@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -11,6 +11,14 @@ import {
   Badge, Button, SkeletonCard, EmptyState,
 } from '@/components/ui';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+
 const severityTone = (severity: string) =>
   severity === 'CRITICAL' ? 'danger'
     : severity === 'HIGH' ? 'warning'
@@ -18,15 +26,34 @@ const severityTone = (severity: string) =>
     : 'success';
 
 export default function SmartQueueAIOptimiser() {
+  const [selectedRec, setSelectedRec] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const handleApproveRec = async (recId: string) => {
+    setApprovingId(recId);
+    try {
+      await fetch(`${API_BASE}/api/operations/recommendations/${recId}/approve`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+      });
+    } catch (err) {
+      console.error('Failed to approve recommendation:', err);
+    } finally {
+      setApprovingId(null);
+      setSelectedRec(null);
+      await refetchRecommendations();
+    }
+  };
+
   const { data: predictionsRes } = useQuery({
     queryKey: ['ai_queue_predictions'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/predictions`).then(res => res.json()),
+    queryFn: () => fetch(`${API_BASE}/api/operations/predictions`).then(res => res.json()),
     refetchInterval: 15000,
   });
 
-  const { data: recommendationsRes } = useQuery({
+  const { data: recommendationsRes, refetch: refetchRecommendations } = useQuery({
     queryKey: ['ai_recommendations'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/operations/recommendations`).then(res => res.json()),
+    queryFn: () => fetch(`${API_BASE}/api/operations/recommendations`).then(res => res.json()),
   });
 
   const predictions = predictionsRes?.data || [];
@@ -155,7 +182,10 @@ export default function SmartQueueAIOptimiser() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <Card>
+                  <Card
+                    className={cn('cursor-pointer transition-all', selectedRec === (rec._id ?? String(i)) && 'ring-2 ring-primary')}
+                    onClick={() => setSelectedRec(rec._id ?? String(i))}
+                  >
                     <CardContent className="pt-6">
                       <div className="mb-3 flex items-start justify-between gap-2">
                         <Badge tone={rec.severity === 'HIGH' || rec.severity === 'CRITICAL' ? 'danger' : 'warning'} dot>
@@ -165,8 +195,14 @@ export default function SmartQueueAIOptimiser() {
                       </div>
                       <h3 className="text-sm font-semibold text-foreground">{rec.recommendationTitle}</h3>
                       <p className="mb-4 mt-1 text-xs text-muted-foreground">{rec.recommendationDetails}</p>
-                      <Button size="sm" className="w-full" disabled title="Select a workflow first">
-                        Approve Action <ArrowRight className="h-4 w-4" aria-hidden />
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        disabled={selectedRec !== (rec._id ?? String(i)) || approvingId === (rec._id ?? String(i))}
+                        onClick={(e) => { e.stopPropagation(); handleApproveRec(rec._id ?? String(i)); }}
+                      >
+                        {approvingId === (rec._id ?? String(i)) ? 'Approving…' : 'Approve Action'}
+                        <ArrowRight className="h-4 w-4" aria-hidden />
                       </Button>
                     </CardContent>
                   </Card>

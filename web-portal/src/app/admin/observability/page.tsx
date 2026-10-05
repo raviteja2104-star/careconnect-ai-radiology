@@ -171,6 +171,9 @@ export default function ObservabilityDashboard() {
     telemedicineActive: 2
   });
 
+  const [replaying, setReplaying] = useState(false);
+  const [replayStep, setReplayStep] = useState(-1);
+
   const [activeTrace, setActiveTrace] = useState<string>('9c1f-4b2a-8d3e');
   const [traces] = useState<{ id: string; workflow: string; status: string; events: { time: string; source: string; name: string }[] }[]>([
     {
@@ -728,8 +731,25 @@ export default function ObservabilityDashboard() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" disabled title="Coming soon">
-                        <Play className="h-3.5 w-3.5 text-success" aria-hidden /> Replay Timeline
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={replaying}
+                        onClick={() => {
+                          const events = selectedTrace?.events ?? [];
+                          setReplaying(true);
+                          setReplayStep(0);
+                          events.forEach((_, idx) => {
+                            setTimeout(() => setReplayStep(idx), idx * 300);
+                          });
+                          setTimeout(() => {
+                            setReplaying(false);
+                            setReplayStep(-1);
+                          }, events.length * 300 + 500);
+                        }}
+                      >
+                        <Play className="h-3.5 w-3.5 text-success" aria-hidden />
+                        {replaying ? 'Replaying…' : 'Replay Timeline'}
                       </Button>
                       <Button variant="outline" size="sm" onClick={handleExportJson}>
                         <Download className="h-3.5 w-3.5 text-info" aria-hidden /> Export JSON
@@ -741,7 +761,7 @@ export default function ObservabilityDashboard() {
 
                     <ol className="max-h-96 space-y-1 overflow-y-auto pr-2 scrollbar-thin">
                       {selectedTrace.events.map((evt, i: number) => (
-                        <li key={i} className="group relative flex items-start gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
+                        <li key={i} className={cn("group relative flex items-start gap-4 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40", replaying && replayStep === i && "bg-primary/15")}>
                           <span className="flex w-24 shrink-0 items-center gap-1.5 text-subtle-foreground tabular-nums">
                             <Clock className="h-3 w-3" aria-hidden /> {evt.time}
                           </span>

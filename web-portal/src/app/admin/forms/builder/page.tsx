@@ -39,6 +39,9 @@ export default function FormBuilder() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [aiExplainConfig, setAiExplainConfig] = useState({ enabled: false, language: 'en', tone: 'simple' });
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
+
   const [templateId, setTemplateId]   = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('General Surgery Consent');
   const [status, setStatus]           = useState<'draft' | 'published'>('draft');
@@ -335,7 +338,52 @@ export default function FormBuilder() {
                       <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                       Enable AI to explain this field to patients via voice or chat.
                     </p>
-                    <Button size="sm" className="w-full" disabled title="Coming soon">Configure AI Explanation</Button>
+                    <Button size="sm" className="w-full" onClick={() => setAiConfigOpen(v => !v)}>
+                      {aiConfigOpen ? 'Close AI Config' : 'Configure AI Explanation'}
+                    </Button>
+                    {aiConfigOpen && (
+                      <div className="mt-3 space-y-3 rounded-xl border border-border bg-muted/40 p-3">
+                        <label className="flex cursor-pointer items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={aiExplainConfig.enabled}
+                            onChange={e => setAiExplainConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                            className="h-4 w-4 rounded border-input accent-[var(--primary)]"
+                          />
+                          <span className="text-xs font-medium text-foreground">Enable AI explanation for this field</span>
+                        </label>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Language</Label>
+                          <select
+                            value={aiExplainConfig.language}
+                            onChange={e => setAiExplainConfig(prev => ({ ...prev, language: e.target.value }))}
+                            className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            <option value="en">English</option>
+                            <option value="hi">Hindi</option>
+                            <option value="ta">Tamil</option>
+                            <option value="te">Telugu</option>
+                            <option value="kn">Kannada</option>
+                            <option value="mr">Marathi</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Explanation Tone</Label>
+                          <select
+                            value={aiExplainConfig.tone}
+                            onChange={e => setAiExplainConfig(prev => ({ ...prev, tone: e.target.value }))}
+                            className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            <option value="simple">Simple</option>
+                            <option value="medical">Medical</option>
+                            <option value="detailed">Detailed</option>
+                          </select>
+                        </div>
+                        <Button size="sm" className="w-full" onClick={() => setAiConfigOpen(false)}>
+                          Save AI Config
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Building, Users, Shield, Settings, Server, FileText,
@@ -15,6 +15,7 @@ import {
   PageHeader, StatCard, StatGrid, Card, CardHeader, CardTitle, CardDescription, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button, DataTable, EmptyState,
   Timeline, TimelineItem, Dropdown, DropdownItem, DropdownSeparator, type Column,
+  Dialog, Input, Label, Select,
 } from '@/components/ui';
 
 /* ------------------------------------------------------------------ */
@@ -35,7 +36,7 @@ const MODULES: { href: string; label: string; tag: string; icon: LucideIcon; til
   { href: '/admin/master-data', label: 'Master Data & Config Hub', tag: 'Manage', icon: Database, tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
 ];
 
-interface Org { name: string; region: string; plan: string; users: string; status: string }
+interface Org { _id?: string; name: string; region: string; plan: string; users: string; status: string }
 
 const ROLES: { title: string; type: string; users: string | number; desc: string }[] = [
   { title: 'System Administrator', type: 'Global', users: '—', desc: 'Full access to all platform settings, infrastructure, and all tenant organizations.' },
@@ -69,7 +70,123 @@ function authHeaders(): Record<string, string> {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('Dashboard');
+
+  // Add Organization
+  const [addOrgOpen, setAddOrgOpen] = useState(false);
+  const [orgDraft, setOrgDraft] = useState<{ name: string; type: string; domain: string }>({ name: '', type: 'Hospital', domain: '' });
+  const [orgSubmitting, setOrgSubmitting] = useState(false);
+
+  const handleCreateOrg = async () => {
+    if (!orgDraft.name.trim()) return;
+    setOrgSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/admin/organizations`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(orgDraft),
+      });
+      const json = await res.json();
+      if (json.success !== false) {
+        queryClient.invalidateQueries({ queryKey: ['admin_organizations'] });
+        setAddOrgOpen(false);
+        setOrgDraft({ name: '', type: 'Hospital', domain: '' });
+      }
+    } catch (err) {
+      console.error('Failed to create organization:', err);
+    } finally {
+      setOrgSubmitting(false);
+    }
+  };
+
+  // Org row actions
+  const [orgDetailOpen, setOrgDetailOpen] = useState(false);
+  const [orgEditOpen, setOrgEditOpen] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
+  const [editOrgDraft, setEditOrgDraft] = useState<Org>({ name: '', region: '', plan: '', users: '', status: '' });
+  const [editOrgSubmitting, setEditOrgSubmitting] = useState(false);
+
+  const handleEditOrg = async () => {
+    if (!editOrgDraft.name.trim()) return;
+    setEditOrgSubmitting(true);
+    try {
+      const id = selectedOrg?._id ?? selectedOrg?.name;
+      await fetch(`${API}/api/admin/organizations/${encodeURIComponent(id ?? '')}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(editOrgDraft),
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin_organizations'] });
+      setOrgEditOpen(false);
+    } catch (err) {
+      console.error('Failed to edit organization:', err);
+    } finally {
+      setEditOrgSubmitting(false);
+    }
+  };
+
+  const handleSuspendOrg = async (org: Org) => {
+    if (!window.confirm(`Suspend "${org.name}"? This will restrict access for all users in this organization.`)) return;
+    try {
+      const id = org._id ?? org.name;
+      await fetch(`${API}/api/admin/organizations/${encodeURIComponent(id)}/suspend`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin_organizations'] });
+    } catch (err) {
+      console.error('Failed to suspend organization:', err);
+    }
+  };
+
+  // Create Custom Role
+  const [createRoleOpen, setCreateRoleOpen] = useState(false);
+  const [roleDraft, setRoleDraft] = useState<{ name: string; type: string; description: string }>({ name: '', type: 'Custom', description: '' });
+  const [roleSubmitting, setRoleSubmitting] = useState(false);
+  const [createdRoles, setCreatedRoles] = useState<typeof ROLES>([]);
+
+  const handleCreateRole = async () => {
+    if (!roleDraft.name.trim()) return;
+    setRoleSubmitting(true);
+    try {
+      await fetch(`${API}/api/admin/rbac/roles`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(roleDraft),
+      });
+      setCreatedRoles(prev => [...prev, { title: roleDraft.name, type: roleDraft.type, users: '—', desc: roleDraft.description }]);
+      setCreateRoleOpen(false);
+      setRoleDraft({ name: '', type: 'Custom', description: '' });
+    } catch (err) {
+      console.error('Failed to create role:', err);
+    } finally {
+      setRoleSubmitting(false);
+    }
+  };
+
+  // Edit Role
+  const [editRoleOpen, setEditRoleOpen] = useState(false);
+  const [editRoleTitle, setEditRoleTitle] = useState('');
+  const [editRoleDraft, setEditRoleDraft] = useState<{ title: string; type: string; desc: string }>({ title: '', type: '', desc: '' });
+  const [editRoleSubmitting, setEditRoleSubmitting] = useState(false);
+
+  const handleEditRole = async () => {
+    if (!editRoleDraft.title.trim()) return;
+    setEditRoleSubmitting(true);
+    try {
+      await fetch(`${API}/api/admin/rbac/roles/${encodeURIComponent(editRoleTitle)}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(editRoleDraft),
+      });
+      setEditRoleOpen(false);
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    } finally {
+      setEditRoleSubmitting(false);
+    }
+  };
 
   const { data: statsRes } = useQuery({
     queryKey: ['admin_platform_stats'],
@@ -129,7 +246,7 @@ export default function AdminDashboard() {
             <Button variant="outline" size="sm" onClick={() => router.push('/admin/observability')}>
               <Bell className="h-4 w-4" aria-hidden /> Alerts
             </Button>
-            <Button size="sm" disabled title="Coming soon">
+            <Button size="sm" onClick={() => setAddOrgOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden /> Add Organization
             </Button>
           </>
@@ -252,11 +369,11 @@ export default function AdminDashboard() {
             exportName="organizations"
             emptyTitle="No organizations found"
             toolbar={
-              <Button size="sm" disabled title="Coming soon">
+              <Button size="sm" onClick={() => setAddOrgOpen(true)}>
                 <Plus className="h-4 w-4" aria-hidden /> Add Organization
               </Button>
             }
-            rowActions={() => (
+            rowActions={(row: Org) => (
               <Dropdown
                 trigger={
                   <Button variant="ghost" size="icon-sm" aria-label="Organization actions">
@@ -264,10 +381,10 @@ export default function AdminDashboard() {
                   </Button>
                 }
               >
-                <DropdownItem disabled title="Coming soon" className="opacity-50">View details</DropdownItem>
-                <DropdownItem disabled title="Coming soon" className="opacity-50">Edit organization</DropdownItem>
+                <DropdownItem onClick={() => { setSelectedOrg(row); setOrgDetailOpen(true); }}>View details</DropdownItem>
+                <DropdownItem onClick={() => { setSelectedOrg(row); setEditOrgDraft({ ...row }); setOrgEditOpen(true); }}>Edit organization</DropdownItem>
                 <DropdownSeparator />
-                <DropdownItem disabled title="Coming soon" className="opacity-50">Suspend</DropdownItem>
+                <DropdownItem onClick={() => handleSuspendOrg(row)}>Suspend</DropdownItem>
               </Dropdown>
             )}
           />
@@ -281,12 +398,12 @@ export default function AdminDashboard() {
                 <CardTitle className="text-lg">Enterprise Role Matrix</CardTitle>
                 <CardDescription className="mt-1">Manage global roles, permissions, and inheritance mapping.</CardDescription>
               </div>
-              <Button variant="outline" size="sm" disabled title="Coming soon">
+              <Button variant="outline" size="sm" onClick={() => setCreateRoleOpen(true)}>
                 <Plus className="h-4 w-4" aria-hidden /> Create Custom Role
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
-              {ROLES.map((r, i) => (
+              {[...ROLES, ...createdRoles].map((r, i) => (
                 <motion.div
                   key={r.title}
                   initial={{ opacity: 0, y: 10 }}
@@ -306,7 +423,12 @@ export default function AdminDashboard() {
                       <div className="text-sm font-bold tabular-nums text-foreground">{r.users}</div>
                       <div className="text-xs text-subtle-foreground">Assigned</div>
                     </div>
-                    <Button variant="outline" size="icon-sm" aria-label={`Edit ${r.title} role`} disabled title="Coming soon">
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={`Edit ${r.title} role`}
+                      onClick={() => { setEditRoleTitle(r.title); setEditRoleDraft({ title: r.title, type: r.type, desc: r.desc }); setEditRoleOpen(true); }}
+                    >
                       <Edit2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -395,6 +517,189 @@ export default function AdminDashboard() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Add Organization modal */}
+      <Dialog
+        open={addOrgOpen}
+        onClose={() => setAddOrgOpen(false)}
+        title="Add Organization"
+        description="Onboard a new hospital, clinic, or diagnostic center to the platform."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setAddOrgOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateOrg} loading={orgSubmitting} disabled={!orgDraft.name.trim()}>
+              Add Organization
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="org-name">Organization Name</Label>
+            <Input id="org-name" value={orgDraft.name} onChange={e => setOrgDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Apollo Hospitals Delhi" autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="org-type">Type</Label>
+            <Select id="org-type" value={orgDraft.type} onChange={e => setOrgDraft(p => ({ ...p, type: e.target.value }))}>
+              <option value="Hospital">Hospital</option>
+              <option value="Clinic">Clinic</option>
+              <option value="Lab">Lab</option>
+              <option value="Pharmacy">Pharmacy</option>
+              <option value="Diagnostic Center">Diagnostic Center</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="org-domain">Domain (optional)</Label>
+            <Input id="org-domain" value={orgDraft.domain} onChange={e => setOrgDraft(p => ({ ...p, domain: e.target.value }))} placeholder="e.g. apollodelhi.careconnect.care" />
+          </div>
+        </div>
+      </Dialog>
+
+      {/* View Org Details modal */}
+      <Dialog
+        open={orgDetailOpen}
+        onClose={() => setOrgDetailOpen(false)}
+        title="Organization Details"
+        description={selectedOrg?.name}
+        size="sm"
+        footer={
+          <Button onClick={() => setOrgDetailOpen(false)}>Close</Button>
+        }
+      >
+        {selectedOrg && (
+          <dl className="space-y-3 text-sm">
+            {[
+              ['Name', selectedOrg.name],
+              ['Region', selectedOrg.region || '—'],
+              ['Plan', selectedOrg.plan || '—'],
+              ['Users', selectedOrg.users || '—'],
+              ['Status', selectedOrg.status || '—'],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/40 px-4 py-3">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-semibold text-foreground">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </Dialog>
+
+      {/* Edit Org modal */}
+      <Dialog
+        open={orgEditOpen}
+        onClose={() => setOrgEditOpen(false)}
+        title="Edit Organization"
+        description="Update the organization's details."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setOrgEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditOrg} loading={editOrgSubmitting} disabled={!editOrgDraft.name.trim()}>
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-org-name">Name</Label>
+            <Input id="edit-org-name" value={editOrgDraft.name} onChange={e => setEditOrgDraft(p => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-org-region">Region</Label>
+            <Input id="edit-org-region" value={editOrgDraft.region} onChange={e => setEditOrgDraft(p => ({ ...p, region: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-org-plan">Plan</Label>
+            <Input id="edit-org-plan" value={editOrgDraft.plan} onChange={e => setEditOrgDraft(p => ({ ...p, plan: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-org-status">Status</Label>
+            <Select id="edit-org-status" value={editOrgDraft.status} onChange={e => setEditOrgDraft(p => ({ ...p, status: e.target.value }))}>
+              <option value="Active">Active</option>
+              <option value="Suspended">Suspended</option>
+              <option value="Pending">Pending</option>
+            </Select>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Create Custom Role modal */}
+      <Dialog
+        open={createRoleOpen}
+        onClose={() => setCreateRoleOpen(false)}
+        title="Create Custom Role"
+        description="Define a new custom RBAC role for this platform."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setCreateRoleOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateRole} loading={roleSubmitting} disabled={!roleDraft.name.trim()}>
+              Create Role
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="role-name">Role Name</Label>
+            <Input id="role-name" value={roleDraft.name} onChange={e => setRoleDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Radiology Manager" autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="role-type">Role Type</Label>
+            <Select id="role-type" value={roleDraft.type} onChange={e => setRoleDraft(p => ({ ...p, type: e.target.value }))}>
+              <option value="Custom">Custom</option>
+              <option value="Clinical">Clinical</option>
+              <option value="Financial">Financial</option>
+              <option value="Tenant">Tenant</option>
+              <option value="Global">Global</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="role-desc">Description</Label>
+            <Input id="role-desc" value={roleDraft.description} onChange={e => setRoleDraft(p => ({ ...p, description: e.target.value }))} placeholder="What this role can do…" />
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Edit Role modal */}
+      <Dialog
+        open={editRoleOpen}
+        onClose={() => setEditRoleOpen(false)}
+        title="Edit Role"
+        description={`Editing: ${editRoleTitle}`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditRoleOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditRole} loading={editRoleSubmitting} disabled={!editRoleDraft.title.trim()}>
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-role-title">Role Name</Label>
+            <Input id="edit-role-title" value={editRoleDraft.title} onChange={e => setEditRoleDraft(p => ({ ...p, title: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-role-type">Type</Label>
+            <Select id="edit-role-type" value={editRoleDraft.type} onChange={e => setEditRoleDraft(p => ({ ...p, type: e.target.value }))}>
+              <option value="Custom">Custom</option>
+              <option value="Clinical">Clinical</option>
+              <option value="Financial">Financial</option>
+              <option value="Tenant">Tenant</option>
+              <option value="Global">Global</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-role-desc">Description</Label>
+            <Input id="edit-role-desc" value={editRoleDraft.desc} onChange={e => setEditRoleDraft(p => ({ ...p, desc: e.target.value }))} />
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

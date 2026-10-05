@@ -354,7 +354,7 @@ export default function NurseStation() {
                         <Badge tone={task.status === 'Overdue' ? 'danger' : 'warning'}>
                           <Clock className="h-3 w-3" aria-hidden /> {task.time} ({task.status})
                         </Badge>
-                        <Button size="sm" variant="secondary" disabled title="Coming soon">
+                        <Button size="sm" variant="secondary" onClick={() => setActiveTab('eMAR')}>
                           <ScanBarcode className="h-3.5 w-3.5" aria-hidden /> Scan
                         </Button>
                       </motion.li>

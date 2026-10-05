@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -97,6 +97,8 @@ export default function MessagesPage() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [newThreadName, setNewThreadName] = useState('');
   const [newThreadCreating, setNewThreadCreating] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: channelsData, isLoading: channelsLoading, isError: channelsError } = useQuery({
     queryKey: ['communication', 'threads'],
@@ -161,20 +163,25 @@ export default function MessagesPage() {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeChannel) return;
+    if ((!inputText.trim() && !attachedFile) || !activeChannel) return;
+
+    const text = attachedFile
+      ? `${inputText}${inputText.trim() ? ' ' : ''}[Attachment: ${attachedFile.name}]`.trim()
+      : inputText;
 
     const optimistic: Message = {
       id: `opt-${Date.now()}`,
       sender: currentUser.name,
       role: 'Me',
-      text: inputText,
+      text,
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
       isMe: true,
     };
 
     setOptimisticMessages(prev => [...prev, optimistic]);
-    sendMutation.mutate({ threadId: activeChannel, text: inputText });
+    sendMutation.mutate({ threadId: activeChannel, text });
     setInputText('');
+    setAttachedFile(null);
   };
 
   return (
@@ -368,29 +375,57 @@ export default function MessagesPage() {
               </div>
 
               {/* Composer */}
-              <form onSubmit={handleSendMessage} className="flex items-center gap-2 border-t border-border p-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Attach file"
-                  disabled
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
+              <form onSubmit={handleSendMessage} className="flex flex-col gap-2 border-t border-border p-4">
+                {attachedFile && (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
+                      <Paperclip className="h-3 w-3 shrink-0" aria-hidden />
+                      {attachedFile.name}
+                      <button
+                        type="button"
+                        aria-label="Remove attachment"
+                        className="ml-1 rounded text-muted-foreground hover:text-foreground"
+                        onClick={() => setAttachedFile(null)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setAttachedFile(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Attach file"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
 
-                <Input
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type your message or clinical adviceâ€¦"
-                  aria-label="Message"
-                  className="flex-1"
-                />
+                  <Input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="Type your message or clinical advice…"
+                    aria-label="Message"
+                    className="flex-1"
+                  />
 
-                <Button type="submit" variant="primary" disabled={sendMutation.isPending || !inputText.trim()}>
-                  <Send className="h-4 w-4" aria-hidden /> {sendMutation.isPending ? 'Sendingâ€¦' : 'Send'}
-                </Button>
+                  <Button type="submit" variant="primary" disabled={sendMutation.isPending || (!inputText.trim() && !attachedFile)}>
+                    <Send className="h-4 w-4" aria-hidden /> {sendMutation.isPending ? 'Sending…' : 'Send'}
+                  </Button>
+                </div>
               </form>
             </>
           )}

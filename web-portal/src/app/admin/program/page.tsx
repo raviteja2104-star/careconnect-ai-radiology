@@ -344,7 +344,7 @@ export default function EnterpriseProgramPage() {
                   className="font-mono"
                 />
               </div>
-              <Button onClick={handleRunAiCopilot} disabled>
+              <Button onClick={handleRunAiCopilot} disabled={!aiPrompt.trim()}>
                 <Sparkles className="h-4 w-4" aria-hidden /> Execute AI Copilot
               </Button>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2">
