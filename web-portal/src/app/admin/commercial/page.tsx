@@ -42,6 +42,12 @@ const PARTNER_TIER_TONE: Record<PartnerEcosystemRecord['tier'], 'warning' | 'neu
   STRATEGIC: 'brand',
 };
 
+const CLASSIFICATION_LABEL: Record<TenantAccountRecord['classification'], string> = {
+  LIVE_IMPLEMENTED: 'Live',
+  DEMO_SIMULATED: 'Demo',
+  TARGET_PRODUCTION_METRIC: 'Target',
+};
+
 const PRICING_PLANS = [
   {
     id: 'CLINIC_STARTER',
@@ -177,7 +183,7 @@ export default function EnterpriseCommercialPage() {
           <div className="min-w-0">
             <p className="flex items-center gap-2 font-semibold text-foreground">
               <span className="truncate">{t.hospitalName}</span>
-              <Badge tone={t.classification === 'LIVE_IMPLEMENTED' ? 'success' : 'warning'}>{t.classification}</Badge>
+              <Badge tone={t.classification === 'LIVE_IMPLEMENTED' ? 'success' : 'warning'}>{CLASSIFICATION_LABEL[t.classification]}</Badge>
             </p>
             <p className="font-mono text-xs text-subtle-foreground">{t.tenantId}</p>
           </div>
@@ -441,12 +447,9 @@ export default function EnterpriseCommercialPage() {
 
         {/* TAB 3: REVENUE & FINANCIALS */}
         <TabsContent value="REVENUE" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Commercial Revenue Platform (MRR / ARR Engine)</h2>
-              <p className="text-sm text-muted-foreground">Track recurring revenue, CAC, LTV, GRR & net expansion metrics.</p>
-            </div>
-            <Badge tone="warning" className="font-mono">{financials.classification}</Badge>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Commercial Revenue Platform (MRR / ARR Engine)</h2>
+            <p className="text-sm text-muted-foreground">Track recurring revenue, CAC, LTV, GRR & net expansion metrics.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
