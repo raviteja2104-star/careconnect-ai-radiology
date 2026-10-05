@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   IndianRupee, Users, Activity, Bed, Download, Calendar, Filter,
@@ -15,7 +15,6 @@ import {
   CardContent, Tabs, TabsList, TabsTrigger, TabsContent, Button, Select, Badge,
   Progress, EmptyState, Input, SkeletonCard,
 } from '@/components/ui';
-import { useCallback } from 'react';
 import { CHART_COLORS, chartGrid, chartAxis, chartTooltip } from '@/lib/chart-theme';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
@@ -201,6 +200,55 @@ export default function ReportsPage() {
   const report: ReportData | null = reportRes?.data ?? null;
   const kpis = report?.kpis;
 
+  const handleExport = useCallback(() => {
+    if (!report) return;
+    const rangeLabel = RANGE_OPTIONS.find(o => o.value === range)?.label ?? range;
+    const lines: string[] = [
+      `CareConnect Executive Report — ${rangeLabel}`,
+      `Generated,${new Date(report.generatedAt).toLocaleString('en-IN')}`,
+      '',
+      'KPIs',
+      'Metric,Value',
+      `Gross Revenue,${inrFmt(report.kpis.grossRevenue)}`,
+      `OPD Revenue,${inrFmt(report.kpis.opdRevenue)}`,
+      `IPD Revenue,${inrFmt(report.kpis.ipdRevenue)}`,
+      `Pharmacy Revenue,${inrFmt(report.kpis.pharmacyRevenue)}`,
+      `Bed Occupancy,${report.kpis.bedOccupancyPct.toFixed(1)}%`,
+      `Occupied / Total Beds,${report.kpis.occupiedBeds} / ${report.kpis.totalBeds}`,
+      `Patient Footfall,${report.kpis.patientFootfall}`,
+      ...(report.kpis.avgLosDays != null ? [`Avg Length of Stay (Days),${report.kpis.avgLosDays.toFixed(1)}`] : []),
+      '',
+      'Department Revenue',
+      'Department,Total,Share (%)',
+      ...report.deptRevenue.map(d => `${d.dept},${inrFmt(d.total)},${d.pct.toFixed(1)}%`),
+      '',
+      'Payment Modes',
+      'Mode,Total',
+      ...report.paymentModes.map(m => `${m.label},${inrFmt(m.total)}`),
+      '',
+      'Ward Occupancy',
+      'Ward,Total Beds,Occupied,Occupancy (%)',
+      ...report.wardOccupancy.map(w => `${w.ward},${w.total},${w.occupied},${w.pct.toFixed(1)}%`),
+      '',
+      'Lab Test Volume',
+      'Test,Count',
+      ...report.labVolume.map(l => `${l.name},${l.count}`),
+      '',
+      'Pharmacy Volume',
+      'Item,Count',
+      ...report.pharmacyVolume.map(p => `${p.name},${p.count}`),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `careconnect-report-${range}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [report, range]);
+
   const grossRevenue     = kpis?.grossRevenue ?? 0;
   const opdRevenue       = kpis?.opdRevenue ?? 0;
   const ipdRevenue       = kpis?.ipdRevenue ?? 0;
@@ -218,8 +266,8 @@ export default function ReportsPage() {
         description="Operational, financial, bed utilization & clinical analytics — live from the database."
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Reports' }]}
         actions={
-          <Button variant="outline" disabled title="Export requires Data Lakehouse integration">
-            <Download className="h-4 w-4" aria-hidden /> Export Report
+          <Button variant="outline" disabled={!report} onClick={handleExport}>
+            <Download className="h-4 w-4" aria-hidden /> Export CSV
           </Button>
         }
       />

@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
+import QRCode from 'qrcode';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -66,6 +67,8 @@ export default function DigitalHealthWallet() {
 
   const [signingConsentId, setSigningConsentId] = useState<string | null>(null);
   const [signError, setSignError] = useState<string | null>(null);
+  const [showQR, setShowQR] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
   const { data: walletRes, refetch, isFetching } = useQuery({
     queryKey: ['patient_wallet', patientId],
@@ -116,12 +119,18 @@ export default function DigitalHealthWallet() {
     }
   }, [patientDisplayName, patientId, queryClient, refetch]);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-
+  const abhaId = wallet.profile?.abhaId;
   const actionCount = wallet.pendingInvoices.length + wallet.pendingConsents.length;
 
-  const abhaId = wallet.profile?.abhaId;
+  useEffect(() => {
+    if (!showQR || !abhaId) return;
+    QRCode.toDataURL(abhaId, { width: 256, margin: 2 })
+      .then(url => setQrDataUrl(url))
+      .catch(() => setQrDataUrl(''));
+  }, [showQR, abhaId]);
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
   return (
     <div className="space-y-6">
@@ -130,7 +139,7 @@ export default function DigitalHealthWallet() {
         description="Your ABHA identity, live queue tokens, invoices, and consultation sessions."
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Patient', href: '/patient' }, { label: 'Wallet' }]}
         actions={
-          <Button variant="outline" disabled title="QR sharing requires ABHA enrollment — coming soon">
+          <Button variant="outline" disabled={!abhaId} onClick={() => setShowQR(true)} title={abhaId ? undefined : 'ABHA ID not enrolled'}>
             <QrCode className="h-4 w-4" aria-hidden /> Show QR
           </Button>
         }
@@ -387,6 +396,52 @@ export default function DigitalHealthWallet() {
           <Loader2 className="inline h-3 w-3 animate-spin mr-1" />Refreshing wallet…
         </p>
       )}
+
+      {/* QR Modal */}
+      <AnimatePresence>
+        {showQR && abhaId && (
+          <motion.div
+            key="qr-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={() => setShowQR(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+              className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl text-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <ShieldCheck className="h-5 w-5 text-primary" aria-hidden /> ABHA Health ID
+                </h2>
+                <button
+                  onClick={() => setShowQR(false)}
+                  className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" aria-hidden />
+                </button>
+              </div>
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt={`QR code for ABHA ID ${abhaId}`} className="mx-auto mb-4 rounded-lg" width={200} height={200} />
+              ) : (
+                <div className="mx-auto mb-4 flex h-[200px] w-[200px] items-center justify-center rounded-lg bg-muted">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+                </div>
+              )}
+              <p className="font-mono text-sm font-bold tracking-widest text-foreground">{abhaId}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{patientDisplayName}</p>
+              <p className="mt-4 text-xs text-muted-foreground">Show this QR at registration or pharmacy counters.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
