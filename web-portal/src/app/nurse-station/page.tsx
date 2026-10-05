@@ -113,6 +113,41 @@ export default function NurseStation() {
   const [vitalDraft, setVitalDraft] = useState({ hr: '', sbp: '', dbp: '', spo2: '', rr: '', temp: '', gcs: '', pain: '' });
   const [vitalSaved, setVitalSaved] = useState<Set<string>>(new Set());
 
+  const [sbarOpen, setSbarOpen] = useState(false);
+  const [sbarLoading, setSbarLoading] = useState(false);
+  const [sbarText, setSbarText] = useState('');
+  const [sbarError, setSbarError] = useState('');
+
+  const handleSbarSummary = async () => {
+    setSbarOpen(true);
+    setSbarLoading(true);
+    setSbarError('');
+    setSbarText('');
+    try {
+      const res = await fetch(`${API_BASE}/api/ward/nursing/sbar-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          patients: patients.map(p => ({ bed: p.bed, name: p.name, age: p.age, gender: p.gender, diagnosis: p.diagnosis, status: p.status, ews: p.ews })),
+          vitals: vitals.map(v => ({ bed: v.bed, hr: v.hr, systolic: v.systolic, diastolic: v.diastolic, spo2: v.spo2 })),
+          pendingTasks: wardTasks.filter(t => !tasksDone.has(t.id)).map(t => ({ bed: t.bed, title: t.title, priority: t.priority })),
+          pendingMeds: emarTasks.filter(t => t.status !== 'Administered').map(t => ({ bed: t.bed, drug: t.drug, time: t.time })),
+        }),
+      });
+      const json = await res.json();
+      const summary = json.summary ?? json.text ?? json.data?.summary;
+      if (summary) {
+        setSbarText(summary);
+      } else {
+        setSbarError(json.message ?? 'AI summary is not available right now.');
+      }
+    } catch {
+      setSbarError('Could not reach the server. Please try again.');
+    } finally {
+      setSbarLoading(false);
+    }
+  };
+
   function timeAgo(iso: string) {
     const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
     if (diff < 60) return `${diff}s ago`;
@@ -625,7 +660,7 @@ export default function NurseStation() {
               <p className="text-sm text-muted-foreground">Situation · Background · Assessment · Recommendation summary for the incoming shift.</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled title="AI summary requires nursing AI module">
+              <Button variant="outline" size="sm" onClick={handleSbarSummary} loading={sbarLoading}>
                 <Sparkles className="h-4 w-4" aria-hidden /> AI Summary
               </Button>
               <Button variant="outline" size="sm" onClick={() => {
@@ -717,7 +752,7 @@ export default function NurseStation() {
           </div>
           <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
-            AI-generated SBAR summaries are available once the nursing AI module is connected. Summaries will include auto-populated Situation, Background, Assessment and Recommendation fields from the patient&apos;s live chart.
+            AI Summary compiles current vitals, pending tasks and medications into an SBAR handover report for the incoming shift.
           </div>
         </TabsContent>
       </Tabs>
@@ -743,6 +778,34 @@ export default function NurseStation() {
                 <CheckCircle2 className="h-4 w-4" /> Confirm & Administer
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SBAR AI Summary Modal ── */}
+      {sbarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSbarOpen(false)}>
+          <div className="flex w-full max-w-2xl flex-col rounded-2xl bg-card p-6 shadow-xl max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <Sparkles className="h-5 w-5 text-warning" aria-hidden /> AI SBAR Summary
+              </h2>
+              <Button variant="ghost" size="sm" onClick={() => setSbarOpen(false)}>Close</Button>
+            </div>
+            {sbarLoading && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin" aria-hidden />
+                <p className="text-sm">Generating shift summary…</p>
+              </div>
+            )}
+            {!sbarLoading && sbarError && (
+              <div className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">{sbarError}</div>
+            )}
+            {!sbarLoading && sbarText && (
+              <div className="flex-1 overflow-y-auto scrollbar-thin">
+                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">{sbarText}</pre>
+              </div>
+            )}
           </div>
         </div>
       )}

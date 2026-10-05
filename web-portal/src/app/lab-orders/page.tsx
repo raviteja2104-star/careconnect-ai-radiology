@@ -120,7 +120,7 @@ export default function LabOrdersPage() {
   });
 
   const orders: LabOrder[] = (() => {
-    const list = ordersRes?.data;
+    const list = ordersRes?.data ?? ordersRes?.orders ?? ordersRes?.labOrders ?? ordersRes?.results ?? (Array.isArray(ordersRes) ? ordersRes : []);
     return Array.isArray(list) ? list.map(mapOrder) : [];
   })();
 

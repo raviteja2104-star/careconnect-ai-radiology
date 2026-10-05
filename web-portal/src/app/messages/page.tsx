@@ -148,7 +148,7 @@ export default function MessagesPage() {
   });
 
   const rawChannels: Channel[] = (() => {
-    const list = channelsData?.data || channelsData?.threads || channelsData?.conversations || [];
+    const list = channelsData?.data ?? channelsData?.threads ?? channelsData?.conversations ?? channelsData?.channels ?? channelsData?.items ?? (Array.isArray(channelsData) ? channelsData : []);
     return Array.isArray(list) ? list.map(mapChannel) : [];
   })();
 

@@ -8,6 +8,88 @@ import {
 import { cn } from '@/lib/utils';
 
 type KioskStep = 'WELCOME' | 'METHOD' | 'PHONE_INPUT' | 'WALKIN_FORM' | 'SUCCESS';
+type Locale = 'EN' | 'HI';
+
+const TRANSLATIONS: Record<Locale, Record<string, string>> = {
+  EN: {
+    tagline: 'Self-Service Terminal',
+    touch: 'Touch to Start',
+    fastCheckin: 'Fast Check-in & Registration',
+    howCheckin: 'How would you like to check in?',
+    hasAppointment: 'I have an Appointment',
+    hasAppointmentDesc: 'Enter your mobile number or ABHA ID',
+    scanQr: 'Scan QR Code',
+    scanQrDesc: 'Enter the ID from your appointment receipt',
+    walkIn: 'New Walk-in',
+    walkInDesc: 'Register as a new patient',
+    enterMobile: 'Enter Mobile Number',
+    mobilePlaceholder: '10-digit number',
+    verify: 'Verify & Check-in',
+    verifying: 'Verifying…',
+    walkInTitle: 'Walk-in Registration',
+    fullName: 'Full Name',
+    namePlaceholder: 'Tap to enter name…',
+    selectDept: 'Select Department',
+    processing: 'Processing…',
+    generateToken: 'Generate Token',
+    success: 'Check-in Complete!',
+    takeToken: 'Please take your printed token below.',
+    tokenNumber: 'Your Token Number',
+    patient: 'Patient',
+    department: 'Department',
+    finish: 'Finish & Print Token',
+    helpTitle: 'Need Help?',
+    helpDesc: 'Speak to a staff member at the reception desk or call the helpline below.',
+    helpline: 'Hospital Helpline',
+    helplineAvail: 'Available 24/7 · Toll-free',
+    close: 'Close',
+    back: 'Back',
+    help: 'Help',
+    deptGeneral: 'General Medicine',
+    deptCardio: 'Cardiology',
+    deptOrtho: 'Orthopedics',
+    deptPed: 'Pediatrics',
+  },
+  HI: {
+    tagline: 'स्व-सेवा टर्मिनल',
+    touch: 'छूएं और शुरू करें',
+    fastCheckin: 'तेज़ चेक-इन और पंजीकरण',
+    howCheckin: 'आप कैसे चेक-इन करना चाहेंगे?',
+    hasAppointment: 'मेरी अपॉइंटमेंट है',
+    hasAppointmentDesc: 'अपना मोबाइल नंबर या ABHA ID दर्ज करें',
+    scanQr: 'QR कोड स्कैन करें',
+    scanQrDesc: 'अपनी रसीद का ID दर्ज करें',
+    walkIn: 'नया वॉक-इन',
+    walkInDesc: 'नए रोगी के रूप में पंजीकरण करें',
+    enterMobile: 'मोबाइल नंबर दर्ज करें',
+    mobilePlaceholder: '10 अंकों का नंबर',
+    verify: 'सत्यापित करें और चेक-इन करें',
+    verifying: 'सत्यापित हो रहा है…',
+    walkInTitle: 'वॉक-इन पंजीकरण',
+    fullName: 'पूरा नाम',
+    namePlaceholder: 'नाम दर्ज करने के लिए टैप करें…',
+    selectDept: 'विभाग चुनें',
+    processing: 'प्रोसेस हो रहा है…',
+    generateToken: 'टोकन जनरेट करें',
+    success: 'चेक-इन पूरा हुआ!',
+    takeToken: 'नीचे प्रिंट किया हुआ टोकन लें।',
+    tokenNumber: 'आपका टोकन नंबर',
+    patient: 'रोगी',
+    department: 'विभाग',
+    finish: 'टोकन प्रिंट करें',
+    helpTitle: 'सहायता चाहिए?',
+    helpDesc: 'रिसेप्शन पर स्टाफ से बात करें या नीचे दिया हेल्पलाइन नंबर पर कॉल करें।',
+    helpline: 'अस्पताल हेल्पलाइन',
+    helplineAvail: '24/7 उपलब्ध · टोल-फ्री',
+    close: 'बंद करें',
+    back: 'वापस',
+    help: 'सहायता',
+    deptGeneral: 'सामान्य चिकित्सा',
+    deptCardio: 'हृदय रोग',
+    deptOrtho: 'अस्थि रोग',
+    deptPed: 'बाल रोग',
+  },
+};
 
 const stepMotion = {
   initial: { opacity: 0, y: 24, scale: 0.98 },
@@ -25,6 +107,8 @@ export default function KioskApp() {
   const [phone, setPhone] = useState('');
   const [walkinData, setWalkinData] = useState({ patientName: '', department: 'General Medicine' });
   const [generatedToken, setGeneratedToken] = useState<GeneratedToken | null>(null);
+  const [locale, setLocale] = useState<Locale>('EN');
+  const t = (key: string) => TRANSLATIONS[locale][key] ?? key;
 
   const checkinMutation = useMutation({
     mutationFn: (identifier: string) =>
@@ -88,16 +172,16 @@ export default function KioskApp() {
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight text-foreground">CareConnect</h1>
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">Self-Service Terminal</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">{t('tagline')}</p>
           </div>
         </div>
         <div className="flex items-center gap-6">
           <div className="flex rounded-full bg-muted p-1.5">
-            <button aria-pressed="true" className="rounded-full bg-card px-6 py-2 font-bold text-foreground shadow-soft">EN</button>
-            <button disabled title="Coming soon" className="rounded-full px-6 py-2 font-bold text-muted-foreground opacity-50 cursor-not-allowed">HI</button>
+            <button aria-pressed={locale === 'EN'} onClick={() => setLocale('EN')} className={cn('rounded-full px-6 py-2 font-bold transition-colors', locale === 'EN' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground hover:text-foreground')}>EN</button>
+            <button aria-pressed={locale === 'HI'} onClick={() => setLocale('HI')} className={cn('rounded-full px-6 py-2 font-bold transition-colors', locale === 'HI' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground hover:text-foreground')}>हिंदी</button>
           </div>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-2 rounded-full px-4 py-2 font-bold text-foreground transition-colors hover:bg-muted">
-            <HelpCircle className="h-6 w-6" aria-hidden /> Help
+            <HelpCircle className="h-6 w-6" aria-hidden /> {t('help')}
           </button>
         </div>
       </header>
@@ -110,7 +194,7 @@ export default function KioskApp() {
             onClick={() => setStep('METHOD')}
             className="absolute left-8 top-8 z-10 flex items-center gap-3 rounded-2xl px-6 py-4 text-xl font-bold text-muted-foreground transition-colors hover:bg-muted"
           >
-            <ArrowLeft className="h-8 w-8" aria-hidden /> Back
+            <ArrowLeft className="h-8 w-8" aria-hidden /> {t('back')}
           </button>
         )}
 
@@ -129,37 +213,37 @@ export default function KioskApp() {
                   <span className="relative inline-flex h-24 w-24 rounded-full gradient-brand" />
                 </span>
               </div>
-              <h1 className="mb-6 text-7xl font-black text-foreground">Touch to Start</h1>
-              <p className="text-3xl font-medium text-muted-foreground">Fast Check-in &amp; Registration</p>
+              <h1 className="mb-6 text-7xl font-black text-foreground">{t('touch')}</h1>
+              <p className="text-3xl font-medium text-muted-foreground">{t('fastCheckin')}</p>
             </motion.div>
           )}
 
           {/* STEP 2: METHOD SELECTION */}
           {step === 'METHOD' && (
             <motion.div key="method" {...stepMotion} className="w-full max-w-6xl">
-              <h1 className="mb-16 text-center text-5xl font-black text-foreground">How would you like to check in?</h1>
+              <h1 className="mb-16 text-center text-5xl font-black text-foreground">{t('howCheckin')}</h1>
 
               <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
                 {[
                   {
                     icon: Phone,
                     tile: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-                    title: 'I have an Appointment',
-                    desc: 'Enter your mobile number or ABHA ID',
+                    title: t('hasAppointment'),
+                    desc: t('hasAppointmentDesc'),
                     onClick: () => setStep('PHONE_INPUT'),
                   },
                   {
                     icon: QrCode,
                     tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-                    title: 'Scan QR Code',
-                    desc: 'Enter the ID from your appointment receipt',
+                    title: t('scanQr'),
+                    desc: t('scanQrDesc'),
                     onClick: () => setStep('PHONE_INPUT'),
                   },
                   {
                     icon: UserPlus,
                     tile: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-                    title: 'New Walk-in',
-                    desc: 'Register as a new patient',
+                    title: t('walkIn'),
+                    desc: t('walkInDesc'),
                     onClick: () => setStep('WALKIN_FORM'),
                   },
                 ].map((opt) => (
@@ -185,7 +269,7 @@ export default function KioskApp() {
           {/* STEP 3: PHONE INPUT */}
           {step === 'PHONE_INPUT' && (
             <motion.div key="phone" {...stepMotion} className="w-full max-w-2xl">
-              <h1 className="mb-12 text-center text-4xl font-black text-foreground">Enter Mobile Number</h1>
+              <h1 className="mb-12 text-center text-4xl font-black text-foreground">{t('enterMobile')}</h1>
 
               <div className="rounded-3xl border border-border bg-card p-10 shadow-float">
                 <input
@@ -194,7 +278,7 @@ export default function KioskApp() {
                   readOnly
                   aria-label="Mobile number"
                   className="mb-10 w-full rounded-2xl border-2 border-input bg-muted px-8 py-6 text-center font-mono text-4xl tracking-widest text-foreground outline-none placeholder:text-subtle-foreground"
-                  placeholder="10-digit number"
+                  placeholder={t('mobilePlaceholder')}
                 />
 
                 <div className="mb-10 grid grid-cols-3 gap-4">
@@ -223,7 +307,7 @@ export default function KioskApp() {
                   disabled={phone.length < 10 || checkinMutation.isPending}
                   className="flex h-24 w-full items-center justify-center gap-4 rounded-2xl gradient-brand text-3xl font-bold text-white shadow-float transition-all hover:brightness-105 active:brightness-95 disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  {checkinMutation.isPending ? 'Verifying…' : <><CheckCircle className="h-8 w-8" aria-hidden /> Verify &amp; Check-in</>}
+                  {checkinMutation.isPending ? t('verifying') : <><CheckCircle className="h-8 w-8" aria-hidden /> {t('verify')}</>}
                 </button>
               </div>
             </motion.div>
@@ -232,33 +316,33 @@ export default function KioskApp() {
           {/* STEP 3.5: WALKIN FORM */}
           {step === 'WALKIN_FORM' && (
             <motion.div key="walkin" {...stepMotion} className="w-full max-w-3xl">
-              <h1 className="mb-12 text-center text-4xl font-black text-foreground">Walk-in Registration</h1>
+              <h1 className="mb-12 text-center text-4xl font-black text-foreground">{t('walkInTitle')}</h1>
 
               <div className="space-y-8 rounded-3xl border border-border bg-card p-10 shadow-float">
                 <div>
-                  <label htmlFor="kiosk-name" className="mb-4 block text-xl font-bold text-foreground">Full Name</label>
+                  <label htmlFor="kiosk-name" className="mb-4 block text-xl font-bold text-foreground">{t('fullName')}</label>
                   <input
                     id="kiosk-name"
                     type="text"
                     value={walkinData.patientName}
                     onChange={(e) => setWalkinData({ ...walkinData, patientName: e.target.value })}
                     className="w-full rounded-2xl border-2 border-input bg-muted px-6 py-6 text-2xl font-medium text-foreground outline-none transition-colors placeholder:text-subtle-foreground focus:border-primary"
-                    placeholder="Tap to enter name…"
+                    placeholder={t('namePlaceholder')}
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="kiosk-dept" className="mb-4 block text-xl font-bold text-foreground">Select Department</label>
+                  <label htmlFor="kiosk-dept" className="mb-4 block text-xl font-bold text-foreground">{t('selectDept')}</label>
                   <select
                     id="kiosk-dept"
                     value={walkinData.department}
                     onChange={(e) => setWalkinData({ ...walkinData, department: e.target.value })}
                     className="w-full cursor-pointer rounded-2xl border-2 border-input bg-muted px-6 py-6 text-2xl font-medium text-foreground outline-none transition-colors focus:border-primary"
                   >
-                    <option value="General Medicine">General Medicine</option>
-                    <option value="Cardiology">Cardiology</option>
-                    <option value="Orthopedics">Orthopedics</option>
-                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="General Medicine">{t('deptGeneral')}</option>
+                    <option value="Cardiology">{t('deptCardio')}</option>
+                    <option value="Orthopedics">{t('deptOrtho')}</option>
+                    <option value="Pediatrics">{t('deptPed')}</option>
                   </select>
                 </div>
 
@@ -267,7 +351,7 @@ export default function KioskApp() {
                   disabled={!walkinData.patientName || registerMutation.isPending}
                   className="mt-8 flex h-24 w-full items-center justify-center gap-4 rounded-2xl gradient-brand text-3xl font-bold text-white shadow-float transition-all hover:brightness-105 active:brightness-95 disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  {registerMutation.isPending ? 'Processing…' : <><CheckCircle className="h-8 w-8" aria-hidden /> Generate Token</>}
+                  {registerMutation.isPending ? t('processing') : <><CheckCircle className="h-8 w-8" aria-hidden /> {t('generateToken')}</>}
                 </button>
               </div>
             </motion.div>
@@ -284,19 +368,19 @@ export default function KioskApp() {
               >
                 <CheckCircle className="h-16 w-16 text-white" aria-hidden />
               </motion.div>
-              <h1 className="mb-4 text-5xl font-black text-foreground">Check-in Complete!</h1>
-              <p className="mb-12 text-2xl text-muted-foreground">Please take your printed token below.</p>
+              <h1 className="mb-4 text-5xl font-black text-foreground">{t('success')}</h1>
+              <p className="mb-12 text-2xl text-muted-foreground">{t('takeToken')}</p>
 
               <div className="relative mb-12 overflow-hidden rounded-3xl border-4 border-dashed border-border bg-card p-12">
-                <p className="mb-4 text-2xl font-bold uppercase tracking-widest text-muted-foreground">Your Token Number</p>
+                <p className="mb-4 text-2xl font-bold uppercase tracking-widest text-muted-foreground">{t('tokenNumber')}</p>
                 <h2 className="mb-8 font-mono text-8xl font-black tracking-tighter text-gradient">{generatedToken.tokenNumber}</h2>
                 <div className="grid grid-cols-2 gap-8 rounded-2xl bg-muted p-8 text-left">
                   <div>
-                    <p className="text-sm font-bold uppercase text-muted-foreground">Patient</p>
+                    <p className="text-sm font-bold uppercase text-muted-foreground">{t('patient')}</p>
                     <p className="text-2xl font-bold text-foreground">{generatedToken.patientName}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-bold uppercase text-muted-foreground">Department</p>
+                    <p className="text-sm font-bold uppercase text-muted-foreground">{t('department')}</p>
                     <p className="text-2xl font-bold text-foreground">{generatedToken.department}</p>
                   </div>
                 </div>
@@ -306,7 +390,7 @@ export default function KioskApp() {
                 onClick={resetKiosk}
                 className="mx-auto flex items-center gap-4 rounded-full gradient-brand px-12 py-6 text-2xl font-bold text-white shadow-pop transition-all hover:brightness-105 active:brightness-95"
               >
-                <Printer className="h-8 w-8" aria-hidden /> Finish &amp; Print Token
+                <Printer className="h-8 w-8" aria-hidden /> {t('finish')}
               </button>
             </motion.div>
           )}
@@ -318,18 +402,18 @@ export default function KioskApp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setHelpOpen(false)}>
           <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-10 text-center shadow-float" onClick={e => e.stopPropagation()}>
             <HelpCircle className="mx-auto mb-6 h-16 w-16 text-primary" aria-hidden />
-            <h2 className="mb-4 text-4xl font-black text-foreground">Need Help?</h2>
-            <p className="mb-8 text-xl text-muted-foreground">Speak to a staff member at the reception desk or call the helpline below.</p>
+            <h2 className="mb-4 text-4xl font-black text-foreground">{t('helpTitle')}</h2>
+            <p className="mb-8 text-xl text-muted-foreground">{t('helpDesc')}</p>
             <div className="mb-10 rounded-2xl bg-muted p-8">
-              <p className="mb-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">Hospital Helpline</p>
+              <p className="mb-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">{t('helpline')}</p>
               <p className="font-mono text-4xl font-black text-foreground">1800-XXX-XXXX</p>
-              <p className="mt-2 text-sm text-muted-foreground">Available 24/7 · Toll-free</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t('helplineAvail')}</p>
             </div>
             <button
               onClick={() => setHelpOpen(false)}
               className="rounded-full gradient-brand px-12 py-5 text-xl font-bold text-white shadow-pop hover:brightness-105 active:brightness-95"
             >
-              Close
+              {t('close')}
             </button>
           </div>
         </div>
