@@ -369,8 +369,9 @@ const changePassword = async (req, res, next) => {
         if (!isMatch) return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
         
         user.password = newPassword;
-        await user.save();
-        res.json({ success: true, message: 'Password changed successfully.', data: { token: generateToken(user._id) } });
+        // Issue a new token pair — invalidates the old refresh token on password change
+        const { accessToken: token, refreshToken } = await issueTokenPair(user);
+        res.json({ success: true, message: 'Password changed successfully.', data: { token, refreshToken } });
     } catch (error) {
         next(error);
     }
