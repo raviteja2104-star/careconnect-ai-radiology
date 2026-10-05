@@ -22,6 +22,7 @@ import {
 } from '@/components/ui';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
+import { changePassword } from '@/services/authService';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 function authHeaders(): Record<string, string> {
@@ -36,7 +37,7 @@ const THEME_MODES = [
 ];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'rx' | 'languages' | 'security' | 'integrations'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'rx' | 'languages' | 'security' | 'integrations' | 'account'>('profile');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { theme, setTheme, highContrast, setHighContrast } = useTheme();
@@ -69,6 +70,14 @@ export default function SettingsPage() {
 
   const [defaultRxLang, setDefaultRxLang] = useState('te');
   const [enableBilingualDefault, setEnableBilingualDefault] = useState(true);
+
+  // Change-password form state
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
 
   // Load hospital info from the API on mount; fall back to hardcoded defaults.
   useEffect(() => {
@@ -151,7 +160,7 @@ export default function SettingsPage() {
         }
       />
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'appearance' | 'rx' | 'languages' | 'security' | 'integrations')}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'appearance' | 'rx' | 'languages' | 'security' | 'integrations' | 'account')}>
         <TabsList className="max-w-full overflow-x-auto no-scrollbar">
           <TabsTrigger value="profile"><Building className="h-4 w-4" aria-hidden /> Hospital Profile</TabsTrigger>
           <TabsTrigger value="appearance"><Palette className="h-4 w-4" aria-hidden /> Appearance</TabsTrigger>
@@ -159,6 +168,7 @@ export default function SettingsPage() {
           <TabsTrigger value="languages"><Globe className="h-4 w-4" aria-hidden /> Languages</TabsTrigger>
           <TabsTrigger value="security"><Shield className="h-4 w-4" aria-hidden /> Roles & Security</TabsTrigger>
           <TabsTrigger value="integrations"><Cpu className="h-4 w-4" aria-hidden /> Integrations</TabsTrigger>
+          <TabsTrigger value="account"><Lock className="h-4 w-4" aria-hidden /> Account Security</TabsTrigger>
         </TabsList>
 
         {/* HOSPITAL PROFILE */}
@@ -484,6 +494,89 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        {/* ACCOUNT SECURITY */}
+        <TabsContent value="account">
+          <Card>
+            <CardHeader>
+              <CardTitle>Change Password</CardTitle>
+              <CardDescription>Enter your current password and choose a new one. Your session tokens will be rotated immediately.</CardDescription>
+            </CardHeader>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setPwError('');
+                if (newPw.length < 6) { setPwError('New password must be at least 6 characters.'); return; }
+                if (newPw !== confirmPw) { setPwError('New passwords do not match.'); return; }
+                setPwSaving(true);
+                try {
+                  await changePassword(currentPw, newPw);
+                  setCurrentPw('');
+                  setNewPw('');
+                  setConfirmPw('');
+                  setPwSuccess(true);
+                  setTimeout(() => setPwSuccess(false), 5000);
+                } catch (err: unknown) {
+                  setPwError((err as Error).message ?? 'Password change failed. Check your current password and try again.');
+                } finally {
+                  setPwSaving(false);
+                }
+              }}
+            >
+              <CardContent className="space-y-4 max-w-md">
+                <div>
+                  <Label htmlFor="current-pw">Current Password</Label>
+                  <Input
+                    id="current-pw"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPw}
+                    onChange={(e) => setCurrentPw(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="new-pw">New Password</Label>
+                  <Input
+                    id="new-pw"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPw}
+                    onChange={(e) => setNewPw(e.target.value)}
+                    required
+                  />
+                  <FieldHint>Minimum 6 characters.</FieldHint>
+                </div>
+                <div>
+                  <Label htmlFor="confirm-pw">Confirm New Password</Label>
+                  <Input
+                    id="confirm-pw"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPw}
+                    onChange={(e) => setConfirmPw(e.target.value)}
+                    required
+                  />
+                </div>
+                {pwError && (
+                  <p role="alert" className="text-sm text-destructive">{pwError}</p>
+                )}
+                {pwSuccess && (
+                  <p role="status" className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Password changed successfully. Your session has been updated.
+                  </p>
+                )}
+              </CardContent>
+              <CardFooter className="justify-end border-t border-border !pt-5">
+                <Button type="submit" disabled={pwSaving || !currentPw || !newPw || !confirmPw} loading={pwSaving}>
+                  {pwSaving
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Updating…</>
+                    : <><Lock className="h-4 w-4" aria-hidden /> Update Password</>}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </div>
   );

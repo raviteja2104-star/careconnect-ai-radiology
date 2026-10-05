@@ -275,6 +275,33 @@ export function loginWithPassword(email: string, password: string): Promise<Auth
   return authRequest('/api/auth/login', { email, password });
 }
 
+/** PUT /api/auth/change-password — rotates the JWT and refresh token on success. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  if (typeof window === 'undefined') throw new AuthApiError(0, 'Cannot run on the server.');
+  const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (!token) throw new AuthApiError(401, 'Not authenticated.');
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    res = await fetch(`${AUTH_API_BASE}/api/auth/change-password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ currentPassword, newPassword }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+  } catch {
+    throw new AuthApiError(0, 'Cannot reach the server. Check your connection and try again.');
+  }
+  let payload: { success?: boolean; message?: string; data?: { token?: string; refreshToken?: string } } = {};
+  try { payload = await res.json(); } catch { /* non-JSON */ }
+  if (!res.ok) throw new AuthApiError(res.status, payload?.message || `Request failed (${res.status})`);
+  // Store the rotated tokens returned by the backend
+  if (payload?.data?.token) window.localStorage.setItem(TOKEN_STORAGE_KEY, payload.data.token);
+  if (payload?.data?.refreshToken) window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, payload.data.refreshToken);
+}
+
 export interface RegisterInput {
   firstName: string;
   lastName: string;
