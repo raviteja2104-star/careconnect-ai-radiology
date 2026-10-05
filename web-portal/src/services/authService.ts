@@ -37,7 +37,7 @@ export const DEMO_USER_SESSION: AuthUserSession = {
   workspaces: ['ADMINISTRATION', 'HOSPITAL_STAFF', 'DOCTOR', 'RADIOLOGY', 'PATIENT'],
   mfaVerified: true,
   accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_production_jwt_token',
-  tokenExpiresAt: '2026-07-26T23:59:59Z'
+  tokenExpiresAt: '2027-12-31T23:59:59Z'
 };
 
 /**
