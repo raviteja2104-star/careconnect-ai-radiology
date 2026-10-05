@@ -1,9 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  otApi,
+  type OTScheduleCase,
+  type AnesthesiaRecordData,
+  type IntraopEventRecord,
+  type InstrumentCountRecord,
+  type InstrumentRow,
+} from '../emr/_lib/api';
 import {
   Scissors, Calendar, Clock, Activity, CheckCircle,
   AlertTriangle, ShieldCheck, HeartPulse, UserPlus,
@@ -25,8 +33,9 @@ function authHeaders(): Record<string, string> {
 }
 
 type Procedure = {
+  _id?: string;
   room: string; patient: string; procedure: string; surgeon: string;
-  anesthesiologist: string; startTime: string; status: string; expectedEnd: string;
+  anesthesiologist: string; time: string; status: string; end: string;
 };
 
 type OTStats = {
@@ -36,7 +45,7 @@ type OTStats = {
 type OTResponse = {
   stats: OTStats;
   procedures: Procedure[];
-  schedule: unknown[];
+  schedule: OTScheduleCase[];
 };
 
 const TABS = ['dashboard', 'calendar', 'who safety checklist', 'anesthesia', 'intraoperative', 'pacu (recovery)', 'instruments'];
@@ -65,9 +74,59 @@ export default function OTDashboard() {
     staleTime: 30_000,
   });
 
+  const qc = useQueryClient();
   const apiData = otQuery.data?.data;
   const apiStats = apiData?.stats;
   const runningProcedures: Procedure[] = apiData?.procedures ?? [];
+  const scheduleFromApi: OTScheduleCase[] = apiData?.schedule ?? [];
+
+  // Active case = first running procedure (has real _id from backend)
+  const activeCaseId = runningProcedures[0]?._id ?? null;
+
+  // ─── Per-case API queries (enabled only when we have a real case id) ──
+  const anesthesiaQuery = useQuery<AnesthesiaRecordData>({
+    queryKey: ['ot-anesthesia', activeCaseId],
+    queryFn:  () => otApi.getAnesthesia(activeCaseId!),
+    enabled:  !!activeCaseId,
+    staleTime: 60_000,
+  });
+  const eventsQuery = useQuery<IntraopEventRecord[]>({
+    queryKey: ['ot-events', activeCaseId],
+    queryFn:  () => otApi.getEvents(activeCaseId!),
+    enabled:  !!activeCaseId,
+    staleTime: 10_000,
+  });
+  const instrumentsQuery = useQuery<InstrumentCountRecord>({
+    queryKey: ['ot-instruments', activeCaseId],
+    queryFn:  () => otApi.getInstruments(activeCaseId!),
+    enabled:  !!activeCaseId,
+    staleTime: 30_000,
+  });
+
+  // ─── Mutations ────────────────────────────────────────────────────────
+  const patchAsaMut = useMutation({
+    mutationFn: (asaClass: string) => otApi.patchAnesthesia(activeCaseId!, { asaClass }),
+    onSuccess: (data) => qc.setQueryData(['ot-anesthesia', activeCaseId], data),
+  });
+  const addDrugMut = useMutation({
+    mutationFn: (drug: { agent: string; dose: string; route: string; category: string }) =>
+      otApi.addDrug(activeCaseId!, drug),
+    onSuccess: (data) => qc.setQueryData(['ot-anesthesia', activeCaseId], data),
+  });
+  const logEventMut = useMutation({
+    mutationFn: (ev: { type: string; note: string; time?: string }) =>
+      otApi.logEvent(activeCaseId!, ev),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ot-events', activeCaseId] }),
+  });
+  const updateCountMut = useMutation({
+    mutationFn: ({ rowId, body }: { rowId: string; body: { count1?: number | null; final?: number | null } }) =>
+      otApi.updateCount(activeCaseId!, rowId, body),
+    onSuccess: (data) => qc.setQueryData(['ot-instruments', activeCaseId], data),
+  });
+  const signOffMut = useMutation({
+    mutationFn: (role: 'scrub' | 'circulator') => otApi.signOff(activeCaseId!, role),
+    onSuccess: (data) => qc.setQueryData(['ot-instruments', activeCaseId], data),
+  });
 
   const stats = [
     { label: "Today's Surgeries", value: apiStats ? String(apiStats.todaySurgeries) : '—', icon: Scissors,      tone: 'violet'  as const },
@@ -83,41 +142,46 @@ export default function OTDashboard() {
   ];
 
   // ─── Anesthesia state ─────────────────────────────────────────────────
-  const [asaClass, setAsaClass] = useState('II');
-  const [anesthesiaDrugs, setAnesthesiaDrugs] = useState<AnesthesiaDrug[]>([
-    { agent: 'Propofol',    dose: '2 mg/kg',    route: 'IV',         time: '08:05', category: 'Induction'   },
-    { agent: 'Fentanyl',   dose: '2 mcg/kg',   route: 'IV',         time: '08:05', category: 'Analgesia'   },
-    { agent: 'Rocuronium', dose: '0.6 mg/kg',  route: 'IV',         time: '08:06', category: 'NMB'         },
-    { agent: 'Sevoflurane', dose: '2%',         route: 'Inhalation', time: '08:10', category: 'Maintenance' },
-  ]);
+  const DEMO_DRUGS: AnesthesiaDrug[] = [
+    { agent: 'Propofol',    dose: '2 mg/kg',   route: 'IV',         time: '08:05', category: 'Induction'   },
+    { agent: 'Fentanyl',   dose: '2 mcg/kg',  route: 'IV',         time: '08:05', category: 'Analgesia'   },
+    { agent: 'Rocuronium', dose: '0.6 mg/kg', route: 'IV',         time: '08:06', category: 'NMB'         },
+    { agent: 'Sevoflurane', dose: '2%',        route: 'Inhalation', time: '08:10', category: 'Maintenance' },
+  ];
+  // Use API data when available, fall back to demo
+  const asaClass    = anesthesiaQuery.data?.asaClass ?? 'II';
+  const anesthesiaDrugs: AnesthesiaDrug[] = (anesthesiaQuery.data?.drugs ?? DEMO_DRUGS) as AnesthesiaDrug[];
   const [newDrug, setNewDrug] = useState<Omit<AnesthesiaDrug, 'time'>>({ agent: '', dose: '', route: 'IV', category: 'Induction' });
   const addDrug = () => {
     if (!newDrug.agent.trim()) return;
-    const now = new Date();
-    const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setAnesthesiaDrugs(prev => [...prev, { ...newDrug, time: t }]);
+    if (activeCaseId) {
+      addDrugMut.mutate(newDrug);
+    }
     setNewDrug({ agent: '', dose: '', route: 'IV', category: 'Induction' });
   };
 
   // ─── Intraoperative state ─────────────────────────────────────────────
-  const [intraopEvents, setIntraopEvents] = useState<IntraopEvent[]>([
-    { type: 'Induction',  note: 'Propofol + Fentanyl + Rocuronium — smooth induction',  time: '08:05' },
-    { type: 'Intubation', note: 'Grade I laryngoscopy, 7.5 mm ETT secured at 21 cm',    time: '08:07' },
+  const DEMO_EVENTS: IntraopEvent[] = [
+    { type: 'Induction',  note: 'Propofol + Fentanyl + Rocuronium — smooth induction', time: '08:05' },
+    { type: 'Intubation', note: 'Grade I laryngoscopy, 7.5 mm ETT at 21 cm',           time: '08:07' },
     { type: 'Incision',   note: 'Skin incision, haemostasis achieved',                  time: '08:22' },
     { type: 'Key Step',   note: 'Port insertion ×4, pneumoperitoneum 12 mmHg',          time: '08:28' },
     { type: 'Key Step',   note: 'Gallbladder dissected — Calot triangle clear',         time: '08:55' },
-  ]);
+  ];
+  const intraopEvents: IntraopEvent[] = (eventsQuery.data ?? DEMO_EVENTS) as IntraopEvent[];
   const [newEvent, setNewEvent] = useState({ type: 'Key Step', note: '' });
   const logEvent = () => {
     if (!newEvent.note.trim()) return;
-    const now = new Date();
-    const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setIntraopEvents(prev => [...prev, { ...newEvent, time: t }]);
+    if (activeCaseId) {
+      const now = new Date();
+      const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      logEventMut.mutate({ ...newEvent, time: t });
+    }
     setNewEvent({ type: 'Key Step', note: '' });
   };
 
   // ─── Instruments state ────────────────────────────────────────────────
-  const [instrumentCounts, setInstrumentCounts] = useState<CountRow[]>([
+  const DEMO_COUNTS: CountRow[] = [
     { name: 'Lap Sponge (4×4)',      category: 'Swabs',       initial: 10, count1: 10,   final: null },
     { name: 'Gauze (2×2)',           category: 'Swabs',       initial: 20, count1: 20,   final: null },
     { name: 'Abdominal Pack',        category: 'Swabs',       initial: 4,  count1: 4,    final: null },
@@ -127,12 +191,29 @@ export default function OTDashboard() {
     { name: 'Metzenbaum Scissor',    category: 'Instruments', initial: 1,  count1: 1,    final: null },
     { name: 'Haemostat Forceps',     category: 'Instruments', initial: 4,  count1: 4,    final: null },
     { name: 'Blade #22',             category: 'Blades',      initial: 1,  count1: 1,    final: null },
-  ]);
-  const [scrubSigned, setScrubSigned] = useState(false);
-  const [circulatorSigned, setCirculatorSigned] = useState(false);
+  ];
+  // Local editable state — synced from API when instrumentsQuery loads
+  const [instrumentCounts, setInstrumentCounts] = useState<CountRow[]>(DEMO_COUNTS);
+  const syncedCaseRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (instrumentsQuery.data && activeCaseId !== syncedCaseRef.current) {
+      syncedCaseRef.current = activeCaseId;
+      setInstrumentCounts(instrumentsQuery.data.rows as CountRow[]);
+    }
+  }, [instrumentsQuery.data, activeCaseId]);
+
+  const scrubSigned       = activeCaseId ? !!instrumentsQuery.data?.scrubSignedAt       : false;
+  const circulatorSigned  = activeCaseId ? !!instrumentsQuery.data?.circulatorSignedAt  : false;
+
   const updateCount = (idx: number, field: 'count1' | 'final', val: string) => {
     const n = val === '' ? null : Number(val);
     setInstrumentCounts(prev => prev.map((r, i) => i === idx ? { ...r, [field]: n } : r));
+  };
+  const flushCount = (idx: number, field: 'count1' | 'final') => {
+    if (!activeCaseId) return;
+    const row = instrumentCounts[idx] as CountRow & { _id?: string };
+    if (!row._id) return;
+    updateCountMut.mutate({ rowId: row._id, body: { [field]: instrumentCounts[idx][field] } });
   };
 
   const boardColumns: Column<Procedure>[] = [
@@ -158,11 +239,11 @@ export default function OTDashboard() {
       ),
     },
     {
-      key: 'startTime', header: 'Timing',
+      key: 'time', header: 'Timing',
       cell: (p) => (
         <div className="text-xs text-muted-foreground">
-          <p>Start: {p.startTime}</p>
-          <p>Est. End: {p.expectedEnd}</p>
+          <p>Start: {p.time}</p>
+          <p>Est. End: {p.end}</p>
         </div>
       ),
     },
@@ -367,19 +448,26 @@ export default function OTDashboard() {
         {/* ── CALENDAR ───────────────────────────────────────────── */}
         <TabsContent value="calendar" className="mt-6 space-y-4">
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            {/* Use API schedule when available, fall back to DEMO_SCHEDULE */}
+            {(() => {
+              const display = scheduleFromApi.length ? scheduleFromApi : DEMO_SCHEDULE;
+              const isLive  = scheduleFromApi.length > 0;
+              return (<>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Calendar className="h-5 w-5 text-primary" aria-hidden /> Today&apos;s OT List
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · 4 ORs Active
+                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {display.length} cases
                 </p>
               </div>
-              <Badge tone="info" dot pulse>Live Schedule</Badge>
+              <Badge tone={isLive ? 'success' : 'warning'} dot pulse={isLive}>
+                {isLive ? 'Live' : 'Demo — no cases today'}
+              </Badge>
             </div>
             <div className="space-y-2">
-              {DEMO_SCHEDULE.map((c, idx) => (
+              {display.map((c, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -8 }}
@@ -413,6 +501,8 @@ export default function OTDashboard() {
                 </motion.div>
               ))}
             </div>
+            </>);
+            })()}
           </motion.div>
         </TabsContent>
 
@@ -436,11 +526,15 @@ export default function OTDashboard() {
                     <span className="text-xs font-medium text-muted-foreground">ASA</span>
                     <select
                       value={asaClass}
-                      onChange={e => setAsaClass(e.target.value)}
-                      className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      onChange={e => activeCaseId
+                        ? patchAsaMut.mutate(e.target.value)
+                        : undefined}
+                      disabled={!activeCaseId}
+                      className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
                     >
                       {['I', 'II', 'III', 'IV', 'V', 'VI'].map(c => <option key={c} value={c}>ASA {c}</option>)}
                     </select>
+                    {!activeCaseId && <span className="text-xs text-muted-foreground">(demo)</span>}
                   </div>
                 </div>
               </CardContent>
@@ -532,8 +626,12 @@ export default function OTDashboard() {
                       {['Induction', 'Maintenance', 'NMB', 'Analgesia', 'Reversal', 'Emergency'].map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
-                  <Button size="sm" variant="outline" onClick={addDrug} className="mt-2 w-full">
-                    <Plus className="h-4 w-4" aria-hidden /> Add Drug
+                  <Button
+                    size="sm" variant="outline" onClick={addDrug} className="mt-2 w-full"
+                    disabled={addDrugMut.isPending}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden />
+                    {addDrugMut.isPending ? 'Saving…' : 'Add Drug'}
                   </Button>
                 </CardContent>
               </Card>
@@ -610,8 +708,9 @@ export default function OTDashboard() {
                       onKeyDown={e => e.key === 'Enter' && logEvent()}
                       className="flex-1 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <Button size="sm" onClick={logEvent}>
-                      <Plus className="h-4 w-4" aria-hidden /> Log
+                    <Button size="sm" onClick={logEvent} disabled={logEventMut.isPending}>
+                      <Plus className="h-4 w-4" aria-hidden />
+                      {logEventMut.isPending ? '…' : 'Log'}
                     </Button>
                   </div>
                 </div>
@@ -680,6 +779,7 @@ export default function OTDashboard() {
                                       type="number"
                                       value={r.count1 ?? ''}
                                       onChange={e => updateCount(i, 'count1', e.target.value)}
+                                      onBlur={() => flushCount(i, 'count1')}
                                       className="w-16 rounded border border-input bg-card px-2 py-1 text-center text-sm tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                     />
                                   </td>
@@ -688,6 +788,7 @@ export default function OTDashboard() {
                                       type="number"
                                       value={r.final ?? ''}
                                       onChange={e => updateCount(i, 'final', e.target.value)}
+                                      onBlur={() => flushCount(i, 'final')}
                                       className={`w-16 rounded border px-2 py-1 text-center text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-primary ${err ? 'border-danger bg-danger/10 text-danger' : ok ? 'border-success bg-success/10 text-success' : 'border-input bg-card text-foreground'}`}
                                     />
                                   </td>
@@ -712,7 +813,12 @@ export default function OTDashboard() {
                     <FlaskConical className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
                     <p className="text-sm font-semibold text-foreground">Scrub Nurse</p>
                     <p className="mb-3 text-xs text-muted-foreground">Confirms all counts are correct</p>
-                    <Button variant={scrubSigned ? 'primary' : 'outline'} size="sm" onClick={() => setScrubSigned(p => !p)} className="w-full">
+                    <Button
+                      variant={scrubSigned ? 'primary' : 'outline'} size="sm"
+                      onClick={() => activeCaseId ? signOffMut.mutate('scrub') : undefined}
+                      disabled={scrubSigned || signOffMut.isPending}
+                      className="w-full"
+                    >
                       {scrubSigned ? <><Check className="h-4 w-4" aria-hidden /> Signed</> : 'Sign Count'}
                     </Button>
                   </div>
@@ -720,7 +826,12 @@ export default function OTDashboard() {
                     <User className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
                     <p className="text-sm font-semibold text-foreground">Circulator Nurse</p>
                     <p className="mb-3 text-xs text-muted-foreground">Witnesses and countersigns</p>
-                    <Button variant={circulatorSigned ? 'primary' : 'outline'} size="sm" onClick={() => setCirculatorSigned(p => !p)} disabled={!scrubSigned} className="w-full">
+                    <Button
+                      variant={circulatorSigned ? 'primary' : 'outline'} size="sm"
+                      onClick={() => activeCaseId ? signOffMut.mutate('circulator') : undefined}
+                      disabled={!scrubSigned || circulatorSigned || signOffMut.isPending}
+                      className="w-full"
+                    >
                       {circulatorSigned ? <><Check className="h-4 w-4" aria-hidden /> Countersigned</> : 'Countersign'}
                     </Button>
                   </div>

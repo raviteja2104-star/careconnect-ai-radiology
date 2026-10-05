@@ -78,6 +78,7 @@ const providerRegistrationRoutes = require('./routes/providerRegistrationRoutes'
 const adtRoutes = require('./routes/adtRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const wardRoutes = require('./routes/wardRoutes');
+const otRoutes   = require('./routes/otRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const emergencyAccessRoutes = require('./routes/emergencyAccessRoutes');
 
@@ -315,6 +316,7 @@ app.use('/api/provider', providerRegistrationRoutes);
 app.use('/api/adt', adtRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/ward', wardRoutes);
+app.use('/api/ot',   otRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/emergency-access', emergencyAccessRoutes);
 app.use('/api/settings', require('./routes/settingsRoutes'));

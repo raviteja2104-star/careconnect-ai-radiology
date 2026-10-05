@@ -840,3 +840,118 @@ export async function postAiMedicationSuggestions(body: {
         return { source: 'unavailable', suggestions: [] };
     }
 }
+
+/* ─────────────────────────── OT Perioperative ─────────────────────────── */
+
+export interface OTScheduleCase {
+    _id: string;
+    room: string;
+    patient: string;
+    procedure: string;
+    surgeon: string;
+    anesthesiologist: string;
+    time: string;
+    end: string;
+    status: string;
+}
+
+export interface AnesthesiaDrugRecord {
+    _id: string;
+    agent: string;
+    dose: string;
+    route: string;
+    category: string;
+    time: string;
+}
+
+export interface AnesthesiaRecordData {
+    _id: string;
+    appointmentId: string;
+    asaClass: string;
+    preOp: Record<string, string>;
+    drugs: AnesthesiaDrugRecord[];
+    scrubSignedBy?: string;
+    scrubSignedAt?: string;
+}
+
+export interface IntraopEventRecord {
+    _id: string;
+    appointmentId: string;
+    type: string;
+    note: string;
+    time: string;
+    loggedAt: string;
+}
+
+export interface InstrumentRow {
+    _id: string;
+    name: string;
+    category: string;
+    initial: number;
+    count1: number | null;
+    final: number | null;
+}
+
+export interface InstrumentCountRecord {
+    _id: string;
+    appointmentId: string;
+    rows: InstrumentRow[];
+    scrubSignedBy?: string;
+    scrubSignedAt?: string;
+    circulatorSignedBy?: string;
+    circulatorSignedAt?: string;
+}
+
+function otHeaders(): Record<string, string> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    };
+}
+
+async function otFetch<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(API_BASE + path, { headers: otHeaders(), ...init });
+    if (!res.ok) throw new Error(`OT API ${path} → ${res.status}`);
+    const json = await res.json();
+    return json.data as T;
+}
+
+export const otApi = {
+    getSchedule: () =>
+        otFetch<OTScheduleCase[]>('/api/ot/schedule'),
+
+    getAnesthesia: (caseId: string) =>
+        otFetch<AnesthesiaRecordData>(`/api/ot/cases/${caseId}/anesthesia`),
+
+    patchAnesthesia: (caseId: string, body: { asaClass?: string; preOp?: Record<string, string> }) =>
+        otFetch<AnesthesiaRecordData>(`/api/ot/cases/${caseId}/anesthesia`, {
+            method: 'PATCH', body: JSON.stringify(body),
+        }),
+
+    addDrug: (caseId: string, drug: { agent: string; dose: string; route: string; category: string }) =>
+        otFetch<AnesthesiaRecordData>(`/api/ot/cases/${caseId}/anesthesia/drugs`, {
+            method: 'POST', body: JSON.stringify(drug),
+        }),
+
+    getEvents: (caseId: string) =>
+        otFetch<IntraopEventRecord[]>(`/api/ot/cases/${caseId}/events`),
+
+    logEvent: (caseId: string, event: { type: string; note: string; time?: string }) =>
+        otFetch<IntraopEventRecord>(`/api/ot/cases/${caseId}/events`, {
+            method: 'POST', body: JSON.stringify(event),
+        }),
+
+    getInstruments: (caseId: string) =>
+        otFetch<InstrumentCountRecord>(`/api/ot/cases/${caseId}/instruments`),
+
+    updateCount: (caseId: string, rowId: string, body: { count1?: number | null; final?: number | null }) =>
+        otFetch<InstrumentCountRecord>(`/api/ot/cases/${caseId}/instruments/${rowId}`, {
+            method: 'PATCH', body: JSON.stringify(body),
+        }),
+
+    signOff: (caseId: string, role: 'scrub' | 'circulator') =>
+        otFetch<InstrumentCountRecord>(`/api/ot/cases/${caseId}/instruments/signoff`, {
+            method: 'POST', body: JSON.stringify({ role }),
+        }),
+};

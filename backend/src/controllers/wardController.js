@@ -246,20 +246,27 @@ exports.getOT = async (req, res) => {
 
         if (surgeries.length === 0) return res.json({ success: true, data: EMPTY_OT });
 
-        const procedures = surgeries.map((a, idx) => {
+        const toCase = (a, idx) => {
             const pt = a.patient || {};
-            const dr = a.doctor || {};
+            const dr = a.doctor  || {};
             return {
-                room: `OR-${idx + 1}`,
-                patient: pt.firstName ? `${pt.firstName} ${pt.lastName}` : 'Unknown',
-                procedure: a.reason || a.specialty,
-                surgeon: dr.firstName ? `Dr. ${dr.firstName} ${dr.lastName}` : 'Unassigned',
+                _id:              a._id.toString(),
+                room:             `OR-${idx + 1}`,
+                patient:          pt.firstName ? `${pt.firstName} ${pt.lastName}` : 'Unknown',
+                procedure:        a.reason || a.specialty || 'Surgery',
+                surgeon:          dr.firstName ? `Dr. ${dr.firstName} ${dr.lastName}` : 'Unassigned',
                 anesthesiologist: 'Unassigned',
-                startTime: a.timeSlot || '—',
-                status: a.status.replace('_', ' '),
-                expectedEnd: '—',
+                time:             a.timeSlot || '—',
+                end:              '—',
+                status:           a.status ? a.status.replace('_', ' ') : 'Scheduled',
             };
-        });
+        };
+
+        const procedures = surgeries
+            .filter(s => ['In_Consultation', 'Checked_In', 'Waiting'].includes(s.status))
+            .map(toCase);
+
+        const schedule = surgeries.map(toCase);
 
         res.json({
             success: true,
@@ -271,7 +278,7 @@ exports.getOT = async (req, res) => {
                     availableORs: Math.max(0, 5 - surgeries.length),
                 },
                 procedures,
-                schedule: [],
+                schedule,
             },
         });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
