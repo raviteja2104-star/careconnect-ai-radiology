@@ -482,28 +482,28 @@ function ReadingWorkspace({ studyId }: { studyId: string }) {
                 <section className="xl:col-span-5 order-1 xl:order-2">
                     {/* Deliberately always-dark surface — DICOM reading convention. */}
                     <div className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-3xl border border-border bg-zinc-950 text-zinc-100 shadow-float">
-                        {/* Disabled viewer toolbar */}
+                        {/* Viewer toolbar — each tool opens the dedicated DICOM viewer with that tool pre-activated */}
                         <div className="flex flex-wrap items-center gap-1 border-b border-zinc-800 px-3 py-2">
-                            {[
-                                { icon: Contrast, label: 'W/L' },
-                                { icon: ZoomIn, label: 'Zoom' },
-                                { icon: Move, label: 'Pan' },
-                                { icon: Layers, label: 'MPR' },
-                                { icon: Play, label: 'Cine' },
-                                { icon: Ruler, label: 'Measure' },
-                                { icon: RotateCw, label: 'Rotate' },
-                            ].map(({ icon: Icon, label }) => (
+                            {([
+                                { icon: Contrast, label: 'W/L', tool: 'wl' },
+                                { icon: ZoomIn, label: 'Zoom', tool: 'zoom' },
+                                { icon: Move, label: 'Pan', tool: 'pan' },
+                                { icon: Layers, label: 'MPR', tool: 'mpr' },
+                                { icon: Play, label: 'Cine', tool: 'cine' },
+                                { icon: Ruler, label: 'Measure', tool: 'measure' },
+                                { icon: RotateCw, label: 'Rotate', tool: 'rotate' },
+                            ] as const).map(({ icon: Icon, label, tool }) => (
                                 <button
                                     key={label}
                                     type="button"
-                                    disabled
-                                    title={`${label} — available in the external viewer`}
-                                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-500"
+                                    title={`${label} — opens viewer with ${label} active`}
+                                    onClick={() => window.open(`${API_BASE}/viewer?study=${encodeURIComponent(study.studyInstanceUID)}&tool=${tool}`, '_blank', 'noopener')}
+                                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
                                 >
                                     <Icon className="h-3.5 w-3.5" aria-hidden /> {label}
                                 </button>
                             ))}
-                            <span className="ml-auto text-[11px] italic text-zinc-500">Viewer streams in external window</span>
+                            <span className="ml-auto text-[11px] text-zinc-500">Opens in viewer window</span>
                         </div>
 
                         {/* Stage */}

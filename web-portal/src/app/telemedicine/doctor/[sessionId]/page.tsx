@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Camera, CameraOff, PhoneOff, Sparkles, MessageSquare, FileText, Stethoscope, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,56 @@ export default function DoctorConsultationWorkspace({ params }: { params: Promis
 
   const [activeTab, setActiveTab] = useState<'SCRIBE' | 'EMR' | 'CHAT'>('SCRIBE');
   const [aiSummary, setAiSummary] = useState('');
+
+  const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+  function authHeaders(): Record<string, string> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  // EMR summary for this session's patient
+  const { data: emrRes, isLoading: emrLoading } = useQuery({
+    queryKey: ['telemedicine-emr', sessionId],
+    queryFn: () => fetch(`${API}/api/telemedicine/sessions/${sessionId}/emr`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60000,
+    enabled: activeTab === 'EMR',
+  });
+  const emrData = emrRes?.data ?? null;
+
+  // In-session chat
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'doctor' | 'patient'; text: string; ts: string }>>([]);
+
+  const { data: chatRes } = useQuery({
+    queryKey: ['telemedicine-chat', sessionId],
+    queryFn: () => fetch(`${API}/api/telemedicine/sessions/${sessionId}/chat`, { headers: authHeaders() }).then(r => r.json()),
+    refetchInterval: 3000,
+    enabled: activeTab === 'CHAT',
+  });
+
+  React.useEffect(() => {
+    if (chatRes?.data?.length) setChatMessages(chatRes.data);
+  }, [chatRes]);
+
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+    const msg = { role: 'doctor' as const, text: chatInput.trim(), ts: new Date().toISOString() };
+    setChatMessages(prev => [...prev, msg]);
+    setChatInput('');
+    setChatSending(true);
+    try {
+      await fetch(`${API}/api/telemedicine/sessions/${sessionId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ text: msg.text }),
+      });
+    } catch {
+      // optimistic message stays visible
+    } finally {
+      setChatSending(false);
+    }
+  };
 
   // Real WebRTC video: doctor is the offering peer; signaling rides the
   // existing socket.io server (room `webrtc:<sessionId>`).
@@ -251,21 +301,98 @@ export default function DoctorConsultationWorkspace({ params }: { params: Promis
           )}
 
           {activeTab === 'EMR' && (
-            <EmptyState
-              icon={FileText}
-              title="EMR integration"
-              description="The patient's electronic medical record panel will surface here once connected."
-              className="h-full animate-fade-in"
-            />
+            <div className="space-y-4 animate-fade-in">
+              {emrLoading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map(i => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}
+                </div>
+              ) : !emrData ? (
+                <EmptyState
+                  icon={FileText}
+                  title="No patient record"
+                  description="Patient EMR not available for this session. Ensure the session is linked to a registered patient."
+                  className="h-full"
+                />
+              ) : (
+                <>
+                  {emrData.patient && (
+                    <div className="rounded-2xl border border-border bg-muted/40 p-4">
+                      <p className="text-sm font-semibold text-foreground">{emrData.patient.name ?? '—'}</p>
+                      <p className="text-xs text-muted-foreground">{[emrData.patient.dob, emrData.patient.bloodGroup].filter(Boolean).join(' · ')}</p>
+                    </div>
+                  )}
+                  {emrData.allergies?.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Allergies</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(emrData.allergies as string[]).map((a) => <Badge key={a} tone="danger">{a}</Badge>)}
+                      </div>
+                    </div>
+                  )}
+                  {emrData.medications?.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Medications</p>
+                      <div className="space-y-1">
+                        {(emrData.medications as { name: string; dose?: string }[]).map((m, i) => (
+                          <div key={i} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2">
+                            <span className="text-sm font-medium text-foreground">{m.name}</span>
+                            {m.dose && <span className="text-xs text-muted-foreground">{m.dose}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {emrData.recentNotes?.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent Notes</p>
+                      <div className="space-y-2">
+                        {(emrData.recentNotes as { date: string; note: string; author?: string }[]).map((n, i) => (
+                          <div key={i} className="rounded-xl border border-border bg-muted/30 p-3">
+                            <p className="text-xs font-semibold text-muted-foreground">{n.date}{n.author ? ` · ${n.author}` : ''}</p>
+                            <p className="mt-1 text-sm text-foreground">{n.note}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!emrData.allergies?.length && !emrData.medications?.length && !emrData.recentNotes?.length && (
+                    <EmptyState icon={FileText} title="No records on file" description="This patient has no notes, medications, or allergies recorded yet." className="h-full" />
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           {activeTab === 'CHAT' && (
-            <EmptyState
-              icon={MessageSquare}
-              title="Secure messaging"
-              description="In-consultation chat with the patient will appear here."
-              className="h-full animate-fade-in"
-            />
+            <div className="flex h-full flex-col gap-3 animate-fade-in">
+              <div className="flex-1 space-y-2 overflow-y-auto">
+                {chatMessages.length === 0 ? (
+                  <p className="pt-6 text-center text-xs text-muted-foreground">No messages yet — type below to send a note to the patient.</p>
+                ) : chatMessages.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'doctor' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'doctor' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
+                      <p>{m.text}</p>
+                      <p className={`mt-0.5 text-[10px] tabular-nums ${m.role === 'doctor' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                        {new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="shrink-0 flex items-end gap-2">
+                <Textarea
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+                  placeholder="Type a message… (Enter to send)"
+                  className="min-h-0 resize-none py-2 text-sm"
+                  rows={2}
+                />
+                <Button onClick={handleSendChat} disabled={!chatInput.trim() || chatSending} loading={chatSending} size="sm" className="mb-0.5 shrink-0">
+                  Send
+                </Button>
+              </div>
+            </div>
           )}
 
         </div>

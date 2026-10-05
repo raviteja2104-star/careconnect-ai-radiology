@@ -74,6 +74,9 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
     const [search, setSearch] = React.useState('');
     const [uploadOpen, setUploadOpen] = React.useState(false);
     const [starting, setStarting] = React.useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+    const [uploading, setUploading] = React.useState(false);
 
     const demo = Boolean(q360.data?.demo);
     const data = q360.data?.data;
@@ -129,6 +132,34 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
         },
         [patientId, isDemoPatient, qEncounters.data, queryClient, router, toast]
     );
+
+    const handleUpload = async () => {
+        if (!selectedFile) return;
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('patientId', patientId);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/patient/documents/upload`,
+                { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData }
+            );
+            const json = await res.json();
+            if (json.success !== false) {
+                toast('success', 'Document uploaded', selectedFile.name);
+                setUploadOpen(false);
+                setSelectedFile(null);
+                queryClient.invalidateQueries({ queryKey: ['emr', '360', patientId] });
+            } else {
+                toast('error', 'Upload failed', json.message ?? 'Server returned an error.');
+            }
+        } catch {
+            toast('error', 'Upload failed', 'Could not reach the server.');
+        } finally {
+            setUploading(false);
+        }
+    };
 
     /* ── Timeline filtering ── */
     const timeline = React.useMemo(() => {
@@ -409,29 +440,47 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                 </Card>
             </div>
 
-            {/* ── Upload document placeholder ── */}
+            {/* ── Upload document ── */}
             <Dialog
                 open={uploadOpen}
-                onClose={() => setUploadOpen(false)}
+                onClose={() => { setUploadOpen(false); setSelectedFile(null); }}
                 title="Upload Document"
                 description="Attach discharge summaries, external reports, or scanned records to this patient."
                 footer={
                     <>
-                        <Button variant="outline" onClick={() => setUploadOpen(false)}>Close</Button>
-                        <Button disabled title="Document storage integration is pending">
+                        <Button variant="outline" onClick={() => { setUploadOpen(false); setSelectedFile(null); }}>Cancel</Button>
+                        <Button disabled={!selectedFile || uploading} loading={uploading} onClick={handleUpload}>
                             <UploadCloud className="h-4 w-4" aria-hidden /> Upload
                         </Button>
                     </>
                 }
             >
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 px-6 py-10 text-center">
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={e => e.key === 'Enter' && fileInputRef.current?.click()}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 px-6 py-10 text-center transition-colors hover:border-primary/50 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                     <UploadCloud className="mb-3 h-8 w-8 text-subtle-foreground" aria-hidden />
-                    <h4 className="text-sm font-semibold text-foreground">Storage integration pending</h4>
-                    <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
-                        Document upload requires the object-storage service, which is not connected yet.
-                        Nothing will be uploaded from this dialog — the action stays disabled until the
-                        integration ships, so no document is ever silently lost.
-                    </p>
+                    {selectedFile ? (
+                        <>
+                            <h4 className="text-sm font-semibold text-foreground">{selectedFile.name}</h4>
+                            <p className="mt-1.5 text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB · Click to change</p>
+                        </>
+                    ) : (
+                        <>
+                            <h4 className="text-sm font-semibold text-foreground">Click to select a file</h4>
+                            <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">PDF, JPG, PNG, DOC up to 10 MB — discharge summaries, external reports, scanned records</p>
+                        </>
+                    )}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        className="hidden"
+                        onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                    />
                 </div>
             </Dialog>
         </div>
