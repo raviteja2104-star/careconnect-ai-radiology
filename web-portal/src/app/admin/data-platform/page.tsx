@@ -38,36 +38,37 @@ export default function EnterpriseDataPlatformPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('TWIN');
 
   const { data: empiRes } = useQuery({ queryKey: ['admin-ops-enterprise_empi'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_empi`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const empi: MasterPatientIndexRecord[] = (empiRes?.data ?? enterpriseDataPlatformService.getEMPI()) as MasterPatientIndexRecord[];
+  const empi: MasterPatientIndexRecord[] = (empiRes?.data ?? []) as MasterPatientIndexRecord[];
 
   const { data: assetsRes } = useQuery({ queryKey: ['admin-ops-enterprise_asset'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_asset`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const assets: DataAssetRecord[] = (assetsRes?.data ?? enterpriseDataPlatformService.getAssets()) as DataAssetRecord[];
+  const assets: DataAssetRecord[] = (assetsRes?.data ?? []) as DataAssetRecord[];
 
   const { data: popHealthRes } = useQuery({ queryKey: ['admin-ops-enterprise_pop_health'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_pop_health`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const popHealth: PopulationHealthMetric[] = (popHealthRes?.data ?? enterpriseDataPlatformService.getPopulationHealth()) as PopulationHealthMetric[];
+  const popHealth: PopulationHealthMetric[] = (popHealthRes?.data ?? []) as PopulationHealthMetric[];
 
   const { data: predictiveRes } = useQuery({ queryKey: ['admin-ops-enterprise_predictive'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_predictive`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const predictive: PredictiveModelInsight[] = (predictiveRes?.data ?? enterpriseDataPlatformService.getPredictiveInsights()) as PredictiveModelInsight[];
+  const predictive: PredictiveModelInsight[] = (predictiveRes?.data ?? []) as PredictiveModelInsight[];
 
-  const [twin, setTwin] = useState<DigitalTwinHospitalState>(enterpriseDataPlatformService.getDigitalTwinState());
+  const { data: twinRes, refetch: refetchTwin } = useQuery({ queryKey: ['admin-ops-enterprise_twin'], queryFn: () => fetch(`${API}/api/admin/ops/enterprise_twin`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
+  const twin: DigitalTwinHospitalState | null = twinRes?.data ?? null;
 
   // Research Query Form
   const [cohortName, setCohortName] = useState('Cardiovascular & Type 2 Diabetes High-Risk Cohort');
 
   const handleRefreshTwin = () => {
-    setTwin(enterpriseDataPlatformService.getDigitalTwinState());
+    void refetchTwin();
   };
 
   const totalRecords = assets.reduce((sum, a) => sum + a.recordCount, 0);
   const totalCohort = popHealth.reduce((sum, p) => sum + p.cohortSize, 0);
 
-  const twinStages = [
+  const twinStages = twin ? [
     { step: 1, label: 'OPD Triage Queue', value: twin.opdTriageQueue, sub: 'Avg 14 min wait', icon: ClipboardList, tile: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400' },
     { step: 2, label: 'Doctor Consultations', value: twin.consultationActive, sub: 'Active consultations', icon: Stethoscope, tile: 'bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400' },
     { step: 3, label: 'Lab & Radiology', value: twin.labSpecimensInQueue + twin.radiologyScansActive, sub: 'In diagnostics', icon: FlaskConical, tile: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400' },
     { step: 4, label: 'Pharmacy Dispense', value: twin.pharmacyDispenseQueue, sub: 'Dispensing queue', icon: Pill, tile: 'bg-emerald-50 text-emerald-500/15 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400' },
     { step: 5, label: 'IPD / ICU / OT', value: twin.ipdBedsOccupied + twin.icuBedsOccupied, sub: 'Occupied beds', icon: BedDouble, tile: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400' },
-  ];
+  ] : [];
 
   const empiColumns: Column<MasterPatientIndexRecord>[] = [
     {
@@ -192,13 +193,8 @@ export default function EnterpriseDataPlatformPage() {
         }
       />
 
-      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
-        <span>⚠</span>
-        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
-      </div>
-
       <StatGrid>
-        <StatCard label="Active patients (twin)" value={twin.activePatients.toLocaleString()} sub="Live across all facilities" icon={Activity} tone="brand" trend="up" delay={0} />
+        <StatCard label="Active patients (twin)" value={twin ? twin.activePatients.toLocaleString() : '—'} sub="Live across all facilities" icon={Activity} tone="brand" trend="up" delay={0} />
         <StatCard label="Chronic care cohort" value={totalCohort.toLocaleString()} sub={`${popHealth.length} tracked conditions`} icon={Heart} tone="rose" trend="neutral" delay={0.05} />
         <StatCard label="Records under management" value={totalRecords.toLocaleString()} sub={`${assets.length} governed data assets`} icon={Database} tone="violet" trend="up" delay={0.1} />
         <StatCard label="Predictive risk alerts" value={predictive.length} sub="Sepsis, readmission & SOFA models" icon={Sparkles} tone="amber" trend="neutral" delay={0.15} />
@@ -226,7 +222,7 @@ export default function EnterpriseDataPlatformPage() {
             </Button>
           </div>
 
-          {twin.bottleneckAlert && (
+          {twin?.bottleneckAlert && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -235,7 +231,7 @@ export default function EnterpriseDataPlatformPage() {
               className="flex items-center gap-3 rounded-2xl bg-warning-soft p-4 text-sm font-medium text-warning"
             >
               <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
-              <span><strong>Digital twin bottleneck alert:</strong> {twin.bottleneckAlert}</span>
+              <span><strong>Digital twin bottleneck alert:</strong> {twin?.bottleneckAlert}</span>
             </motion.div>
           )}
 

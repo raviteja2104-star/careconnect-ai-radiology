@@ -507,11 +507,101 @@ export default function ReportsPage() {
 
         {/* TAB 4: OPD vs IPD */}
         <TabsContent value="opd-ipd">
-          <EmptyState
-            icon={Building2}
-            title="OPD vs IPD report in preparation"
-            description="Footfall and demographic comparisons for this period are being compiled."
-          />
+          {isLoading ? (
+            <SkeletonCard />
+          ) : !report ? (
+            <EmptyState
+              icon={Building2}
+              title="No data for this period"
+              description="No OPD or IPD data was returned for the selected period. Try a different date range or check that the reporting API is connected."
+            />
+          ) : (
+            <div className="space-y-6">
+              <StatGrid className="sm:grid-cols-3">
+                <StatCard
+                  label="OPD Revenue"
+                  value={inrFmt(report.kpis.opdRevenue)}
+                  sub={`${Math.round((report.kpis.opdRevenue / Math.max(report.kpis.grossRevenue, 1)) * 100)}% of gross revenue`}
+                  icon={Building2}
+                  tone="teal"
+                />
+                <StatCard
+                  label="IPD Revenue"
+                  value={inrFmt(report.kpis.ipdRevenue)}
+                  sub={`${Math.round((report.kpis.ipdRevenue / Math.max(report.kpis.grossRevenue, 1)) * 100)}% of gross revenue`}
+                  icon={Bed}
+                  tone="violet"
+                />
+                <StatCard
+                  label="Patient Footfall"
+                  value={report.kpis.patientFootfall.toLocaleString('en-IN')}
+                  sub="Total OPD + IPD encounters"
+                  icon={Users}
+                  tone="emerald"
+                />
+              </StatGrid>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bed Occupancy</CardTitle>
+                    <CardDescription>IPD bed utilisation for the period</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-end justify-between">
+                      <span className="text-3xl font-bold tabular-nums">{report.kpis.bedOccupancyPct.toFixed(1)}%</span>
+                      <span className="text-sm text-muted-foreground">{report.kpis.occupiedBeds} / {report.kpis.totalBeds} beds</span>
+                    </div>
+                    <Progress value={report.kpis.bedOccupancyPct} />
+                  </CardContent>
+                </Card>
+
+                {report.kpis.avgLosDays != null && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Average Length of Stay</CardTitle>
+                      <CardDescription>Mean IPD admission duration</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold tabular-nums">
+                        {report.kpis.avgLosDays.toFixed(1)}{' '}
+                        <span className="text-base font-normal text-muted-foreground">days</span>
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Revenue Split</CardTitle>
+                  <CardDescription>OPD vs IPD vs Pharmacy revenue for the period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart
+                      data={[
+                        { name: 'OPD', value: report.kpis.opdRevenue },
+                        { name: 'IPD', value: report.kpis.ipdRevenue },
+                        { name: 'Pharmacy', value: report.kpis.pharmacyRevenue },
+                      ]}
+                      barSize={48}
+                    >
+                      <CartesianGrid {...chartGrid} />
+                      <XAxis dataKey="name" {...chartAxis} />
+                      <YAxis {...chartAxis} tickFormatter={(v: number) => inrFmt(v)} width={80} />
+                      <Tooltip {...chartTooltip} formatter={(v: number) => [inrFmt(v), 'Revenue']} />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {[CHART_COLORS[0], CHART_COLORS[1], CHART_COLORS[2]].map((color, i) => (
+                          <Cell key={i} fill={color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         {/* TAB 5: PATIENT CLINICAL REPORT */}

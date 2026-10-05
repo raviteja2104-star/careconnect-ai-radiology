@@ -1,12 +1,17 @@
-import React from 'react';
+'use client';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { 
-  Calendar, Clock, UserCheck, ShieldOff, LayoutTemplate, 
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  Calendar, Clock, UserCheck, ShieldOff, LayoutTemplate,
   Settings, Activity, BarChart, Bell, Search, Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function SchedulingLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [searchQ, setSearchQ] = useState('');
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
       
@@ -48,10 +53,10 @@ export default function SchedulingLayout({ children }: { children: React.ReactNo
           <div className="flex items-center gap-4">
             <div className="relative w-64">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input type="text" placeholder="Search doctors, shifts..." className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none" />
+              <input type="text" placeholder="Search doctors, shifts..." value={searchQ} onChange={e => setSearchQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && searchQ.trim()) router.push(`${pathname}?q=${encodeURIComponent(searchQ.trim())}`); }} className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none" />
             </div>
             <button className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><Bell className="w-5 h-5" /></button>
-            <button className="bg-indigo-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg flex items-center gap-2">
+            <button className="bg-indigo-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg flex items-center gap-2" onClick={() => router.push('/admin/scheduling/shifts')}>
               <Plus className="w-4 h-4" /> New Schedule
             </button>
           </div>

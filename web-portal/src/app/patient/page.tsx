@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -83,13 +83,46 @@ export default function PatientPortal() {
   const patientId = session.userId;
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [wellnessGoals, setWellnessGoals] = useState([
-    { id: 'g1', label: 'Walk 8,000 steps daily', done: false },
-    { id: 'g2', label: 'Sleep 7+ hours each night', done: false },
-    { id: 'g3', label: 'Drink 2L of water', done: false },
-    { id: 'g4', label: 'Take medications on time', done: false },
-    { id: 'g5', label: 'Monitor blood pressure weekly', done: false },
-  ]);
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [wellnessGoals, setWellnessGoals] = useState<Array<{ id: string; label: string; done: boolean }>>([]);
+  const [wellnessTips, setWellnessTips] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!patientId) return;
+    let cancelled = false;
+    fetch(`${API_BASE}/health-records/patients/${patientId}/wellness-goals`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (cancelled) return;
+        const goals = json?.data ?? json?.goals;
+        if (Array.isArray(goals) && goals.length > 0) setWellnessGoals(goals);
+      })
+      .catch(() => {/* endpoint not yet available */});
+    fetch(`${API_BASE}/health-records/patients/${patientId}/wellness-tips`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (cancelled) return;
+        const tips = json?.data ?? json?.tips;
+        if (Array.isArray(tips) && tips.length > 0) setWellnessTips(tips);
+      })
+      .catch(() => {});
+    const logTypes = ['activity', 'sleep', 'meal', 'vitals'] as const;
+    logTypes.forEach(type => {
+      fetch(`${API_BASE}/health-records/patients/${patientId}/wellness-logs?type=${type}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (cancelled) return;
+          const logs = json?.data ?? json?.logs;
+          if (!Array.isArray(logs) || !logs.length) return;
+          if (type === 'activity') setActivityLog(logs);
+          else if (type === 'sleep') setSleepLog(logs);
+          else if (type === 'meal') setMealLog(logs);
+          else if (type === 'vitals') setVitalsLog(logs);
+        })
+        .catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [patientId]);
   const [activityDraft, setActivityDraft] = useState('');
   const [activityLog, setActivityLog] = useState<Array<{ text: string; at: string }>>([]);
   const [sleepDraft, setSleepDraft] = useState('');
@@ -724,16 +757,28 @@ export default function PatientPortal() {
                 <CheckCircle className="h-6 w-6" aria-hidden />
               </div>
               <h4 className="mb-3 font-semibold text-foreground">Wellness Goals</h4>
+              {wellnessGoals.length === 0 ? (
+                <p className="py-3 text-sm text-muted-foreground">No wellness goals set yet. Speak with your care team to configure personalised goals.</p>
+              ) : (
               <ul className="space-y-2">
                 {wellnessGoals.map(g => (
                   <li key={g.id}>
                     <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-2.5 transition-colors hover:bg-muted/40">
-                      <input type="checkbox" checked={g.done} onChange={() => setWellnessGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: !x.done } : x))} className="h-4 w-4 accent-[var(--primary)]" />
+                      <input type="checkbox" checked={g.done} onChange={() => {
+                          const updated = !g.done;
+                          setWellnessGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: updated } : x));
+                          fetch(`${API_BASE}/health-records/patients/${patientId}/wellness-goals/${g.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                            body: JSON.stringify({ done: updated }),
+                          }).catch(() => {/* save will retry on next session load */});
+                        }} className="h-4 w-4 accent-[var(--primary)]" />
                       <span className={`text-sm ${g.done ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{g.label}</span>
                     </label>
                   </li>
                 ))}
               </ul>
+              )}
             </Card>
             {/* AI Wellness Coach */}
             <Card className="p-5">
@@ -742,11 +787,18 @@ export default function PatientPortal() {
               </div>
               <h4 className="font-semibold text-foreground">AI Wellness Coach</h4>
               <p className="mt-1 text-sm text-muted-foreground">Personalised health tips based on your care plan.</p>
-              <ul className="mt-3 space-y-2">
-                <li className="flex items-start gap-2 text-sm"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" /><span className="text-muted-foreground">Aim for 8 glasses of water today to stay hydrated.</span></li>
-                <li className="flex items-start gap-2 text-sm"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" /><span className="text-muted-foreground">A 30-minute walk reduces cardiovascular risk by 35%.</span></li>
-                <li className="flex items-start gap-2 text-sm"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" /><span className="text-muted-foreground">Consistent 7–9 hours of sleep boosts immune function.</span></li>
-              </ul>
+              {wellnessTips.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {wellnessTips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                      <span className="text-muted-foreground">{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">Personalised tips will appear here once your care plan is active.</p>
+              )}
               <Button variant="outline" className="mt-4 w-full" onClick={() => router.push('/ai-assistant')}>
                 <Sparkles className="h-4 w-4" aria-hidden /> Ask Wellness Copilot
               </Button>
@@ -763,8 +815,8 @@ export default function PatientPortal() {
         description="Understand your labs, medications, and health questions."
         footer={
           <div className="relative w-full">
-            <Input placeholder="Type a question…" aria-label="Ask the AI assistant" className="pr-11" />
-            <Button size="icon-sm" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full" aria-label="Send question" onClick={() => router.push('/ai-assistant')}>
+            <Input placeholder="Type a question…" aria-label="Ask the AI assistant" className="pr-11" value={aiQuestion} onChange={e => setAiQuestion(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && aiQuestion.trim()) { router.push(`/ai-assistant?q=${encodeURIComponent(aiQuestion.trim())}`); setAiQuestion(''); } }} />
+            <Button size="icon-sm" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full" aria-label="Send question" onClick={() => { router.push(aiQuestion.trim() ? `/ai-assistant?q=${encodeURIComponent(aiQuestion.trim())}` : '/ai-assistant'); setAiQuestion(''); }}>
               <Send className="h-3.5 w-3.5" />
             </Button>
           </div>

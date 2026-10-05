@@ -308,7 +308,7 @@ export default function BusinessPage() {
                         <p className="biz-contact-p">Fill in the form and our provider team will reach out within one business day. No commitment required — listing your profile is free.</p>
                         <div className="biz-contact-ways">
                             {[
-                                { icon: '📞', label: 'Call our provider team', val: '1800-123-4567 (Mon–Sat, 9 AM–6 PM)', bg: '#EBF1FB' },
+                                { icon: '📞', label: 'Call our provider team', val: `${process.env.NEXT_PUBLIC_HELPLINE_NUMBER ?? '1800-123-4567'} (Mon–Sat, 9 AM–6 PM)`, bg: '#EBF1FB' },
                                 { icon: '✉️', label: 'Email us', val: 'providers@careconnect.health', bg: '#E6F7F8' },
                             ].map(w => (
                                 <div key={w.label} className="biz-contact-way">

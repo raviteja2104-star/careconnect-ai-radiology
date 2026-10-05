@@ -49,25 +49,24 @@ export default function EnterpriseIntegrationHubPage() {
   const [activeTab, setActiveTab] = useState<'FHIR' | 'HL7' | 'DEVICES' | 'ABDM' | 'API_GATEWAY' | 'RECOVERY'>('FHIR');
 
   const { data: fhirRes } = useQuery({ queryKey: ['admin-ops-integration_fhir'], queryFn: () => fetch(`${API}/api/admin/ops/integration_fhir`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const fhirResources: FHIRResourceRecord[] = (fhirRes?.data?.length ? fhirRes.data : integrationHubService.getFHIRResources()) as FHIRResourceRecord[];
+  const fhirResources: FHIRResourceRecord[] = (fhirRes?.data ?? []) as FHIRResourceRecord[];
 
   const { data: hl7Res } = useQuery({ queryKey: ['admin-ops-integration_hl7'], queryFn: () => fetch(`${API}/api/admin/ops/integration_hl7`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
-  const hl7Messages: HL7MessageRecord[] = (hl7Res?.data?.length ? hl7Res.data : integrationHubService.getHL7Messages()) as HL7MessageRecord[];
+  const hl7Messages: HL7MessageRecord[] = (hl7Res?.data ?? []) as HL7MessageRecord[];
 
   const { data: devicesRes } = useQuery({ queryKey: ['admin-ops-integration_device'], queryFn: () => fetch(`${API}/api/admin/ops/integration_device`, { headers: authHeaders() }).then(r => r.json()), staleTime: 30_000 });
-  const devices: DeviceTelemetryRecord[] = (devicesRes?.data?.length ? devicesRes.data : integrationHubService.getDevices()) as DeviceTelemetryRecord[];
-
-  const health = integrationHubService.getSystemHealth();
-
-  const [testEndpoint, setTestEndpoint] = useState('https://fhir.careconnect.hospital/r4/Patient');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [testResult, setTestResult] = useState<any>(null);
+  const devices: DeviceTelemetryRecord[] = (devicesRes?.data ?? []) as DeviceTelemetryRecord[];
 
   const { data: integrationHealthRes } = useQuery({
     queryKey: ['integrations_health'],
     queryFn: () => fetch(`${API}/api/integrations/health`, { headers: authHeaders() }).then(r => r.json()),
     staleTime: 30000,
   });
+  const health = integrationHealthRes?.data ?? null;
+
+  const [testEndpoint, setTestEndpoint] = useState('https://fhir.careconnect.hospital/r4/Patient');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [testResult, setTestResult] = useState<any>(null);
 
   const testMutation = useMutation({
     mutationFn: () =>
@@ -93,7 +92,7 @@ export default function EnterpriseIntegrationHubPage() {
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Integration Hub' }]}
         actions={
           <>
-            <Badge tone="success" dot pulse>{health.status}</Badge>
+            <Badge tone={health?.status === 'HEALTHY' ? 'success' : 'outline'} dot={health?.status === 'HEALTHY'} pulse={health?.status === 'HEALTHY'}>{health?.status ?? 'Checking…'}</Badge>
             <Link
               href="/admin/command-center"
               className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-opacity hover:opacity-90"
@@ -105,16 +104,11 @@ export default function EnterpriseIntegrationHubPage() {
         }
       />
 
-      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
-        <span>⚠</span>
-        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
-      </div>
-
       <StatGrid>
-        <StatCard label="Platform uptime" value={`${health.uptimePct}%`} sub="Rolling 30-day availability" icon={Server} tone="emerald" trend="up" delay={0} />
-        <StatCard label="CPU usage" value={`${health.cpuUsagePct}%`} sub="Cluster average" icon={Cpu} tone="brand" delay={0.05} />
-        <StatCard label="Memory usage" value={`${health.memoryUsagePct}%`} sub={`${health.databaseConnections} DB connections`} icon={MemoryStick} tone="violet" delay={0.1} />
-        <StatCard label="Kafka queue" value={health.kafkaQueueLength} sub="Messages awaiting processing" icon={Database} tone="teal" delay={0.15} />
+        <StatCard label="Platform uptime" value={health ? `${health.uptimePct}%` : '—'} sub="Rolling 30-day availability" icon={Server} tone="emerald" trend="up" delay={0} />
+        <StatCard label="CPU usage" value={health ? `${health.cpuUsagePct}%` : '—'} sub="Cluster average" icon={Cpu} tone="brand" delay={0.05} />
+        <StatCard label="Memory usage" value={health ? `${health.memoryUsagePct}%` : '—'} sub={health ? `${health.databaseConnections} DB connections` : 'Awaiting telemetry'} icon={MemoryStick} tone="violet" delay={0.1} />
+        <StatCard label="Kafka queue" value={health ? health.kafkaQueueLength : '—'} sub="Messages awaiting processing" icon={Database} tone="teal" delay={0.15} />
       </StatGrid>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
