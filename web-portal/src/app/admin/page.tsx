@@ -196,21 +196,33 @@ export default function AdminDashboard() {
   const [inviteUserOpen, setInviteUserOpen] = useState(false);
   const [userDraft, setUserDraft] = useState<{ name: string; email: string; role: string; org: string }>({ name: '', email: '', role: 'Attending Physician', org: '' });
   const [userSubmitting, setUserSubmitting] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
+  const [inviteError, setInviteError] = useState('');
 
   const handleInviteUser = async () => {
     if (!userDraft.email.trim()) return;
     setUserSubmitting(true);
+    setInviteError('');
     try {
-      await fetch(`${API}/api/admin/users/invite`, {
+      const res = await fetch(`${API}/api/admin/users/invite`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify(userDraft),
       });
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        setInviteError(json.message || 'Failed to create user.');
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ['admin_users'] });
-      setInviteUserOpen(false);
+      setInviteResult({
+        name: json.data?.name ?? userDraft.name,
+        email: json.data?.email ?? userDraft.email,
+        tempPassword: json.data?.tempPassword ?? '',
+      });
       setUserDraft({ name: '', email: '', role: 'Attending Physician', org: '' });
     } catch (err) {
-      console.error('Failed to invite user:', err);
+      setInviteError('Cannot reach the server. Check your connection.');
     } finally {
       setUserSubmitting(false);
     }
@@ -945,46 +957,75 @@ export default function AdminDashboard() {
       {/* Invite User modal */}
       <Dialog
         open={inviteUserOpen}
-        onClose={() => setInviteUserOpen(false)}
-        title="Invite User"
-        description="Send an invitation to a new user to join the platform."
+        onClose={() => { setInviteUserOpen(false); setInviteResult(null); setInviteError(''); }}
+        title={inviteResult ? 'User Added' : 'Invite User'}
+        description={inviteResult ? 'Share the temporary password with the user.' : 'Create an account for a new staff member.'}
         size="sm"
-        footer={
+        footer={inviteResult ? (
+          <Button onClick={() => { setInviteUserOpen(false); setInviteResult(null); }}>Done</Button>
+        ) : (
           <>
-            <Button variant="outline" onClick={() => setInviteUserOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setInviteUserOpen(false); setInviteError(''); }}>Cancel</Button>
             <Button onClick={handleInviteUser} loading={userSubmitting} disabled={!userDraft.email.trim()}>
-              Send Invitation
+              Add User
             </Button>
           </>
-        }
+        )}
       >
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="user-name">Full Name</Label>
-            <Input id="user-name" value={userDraft.name} onChange={e => setUserDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Dr. Priya Nair" autoFocus />
+        {inviteResult ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10 p-4">
+              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+              <div>
+                <p className="font-semibold text-emerald-800 dark:text-emerald-300 text-sm">{inviteResult.name} added</p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">{inviteResult.email}</p>
+              </div>
+            </div>
+            {inviteResult.tempPassword && (
+              <div className="space-y-1.5">
+                <Label>Temporary Password</Label>
+                <div className="flex gap-2">
+                  <Input value={inviteResult.tempPassword} readOnly className="font-mono text-sm" />
+                  <Button variant="outline" type="button" onClick={() => navigator.clipboard?.writeText(inviteResult.tempPassword)}>
+                    Copy
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Share this with the user. They should change it after first sign-in.</p>
+              </div>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="user-email">Email Address</Label>
-            <Input id="user-email" type="email" value={userDraft.email} onChange={e => setUserDraft(p => ({ ...p, email: e.target.value }))} placeholder="e.g. priya@apollodelhi.in" />
+        ) : (
+          <div className="space-y-4">
+            {inviteError && (
+              <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{inviteError}</p>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="user-name">Full Name</Label>
+              <Input id="user-name" value={userDraft.name} onChange={e => setUserDraft(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Dr. Priya Nair" autoFocus />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="user-email">Email Address</Label>
+              <Input id="user-email" type="email" value={userDraft.email} onChange={e => setUserDraft(p => ({ ...p, email: e.target.value }))} placeholder="e.g. priya@apollodelhi.in" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="user-role">Role</Label>
+              <Select id="user-role" value={userDraft.role} onChange={e => setUserDraft(p => ({ ...p, role: e.target.value }))}>
+                <option value="Attending Physician">Attending Physician</option>
+                <option value="Nurse">Nurse</option>
+                <option value="Organization Admin">Organization Admin</option>
+                <option value="Billing Specialist">Billing Specialist</option>
+                <option value="Lab Technician">Lab Technician</option>
+                <option value="Radiologist">Radiologist</option>
+                <option value="Pharmacist">Pharmacist</option>
+                <option value="System Administrator">System Administrator</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="user-org">Organization (optional)</Label>
+              <Input id="user-org" value={userDraft.org} onChange={e => setUserDraft(p => ({ ...p, org: e.target.value }))} placeholder="e.g. Apollo Hospitals Delhi" />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="user-role">Role</Label>
-            <Select id="user-role" value={userDraft.role} onChange={e => setUserDraft(p => ({ ...p, role: e.target.value }))}>
-              <option value="Attending Physician">Attending Physician</option>
-              <option value="Nurse">Nurse</option>
-              <option value="Organization Admin">Organization Admin</option>
-              <option value="Billing Specialist">Billing Specialist</option>
-              <option value="Lab Technician">Lab Technician</option>
-              <option value="Radiologist">Radiologist</option>
-              <option value="Pharmacist">Pharmacist</option>
-              <option value="System Administrator">System Administrator</option>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="user-org">Organization (optional)</Label>
-            <Input id="user-org" value={userDraft.org} onChange={e => setUserDraft(p => ({ ...p, org: e.target.value }))} placeholder="e.g. Apollo Hospitals Delhi" />
-          </div>
-        </div>
+        )}
       </Dialog>
     </div>
   );

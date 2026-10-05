@@ -534,3 +534,118 @@ exports.rejectUser = async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 };
+
+// ─── User Management ──────────────────────────────────────────────────────────
+
+exports.getAdminUsers = async (req, res) => {
+    try {
+        const users = await User.find({})
+            .select('_id firstName lastName email role isActive approvalStatus lastLogin')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const data = users.map(u => ({
+            _id: u._id,
+            name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
+            email: u.email,
+            role: u.role || 'patient',
+            status: !u.isActive ? 'Suspended' : (u.approvalStatus === 'pending' ? 'Invited' : 'Active'),
+            lastLogin: u.lastLogin ? new Date(u.lastLogin).toISOString() : null,
+        }));
+
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+const INVITE_ROLE_MAP = {
+    'attending physician': 'doctor',
+    'nurse': 'nurse',
+    'organization admin': 'admin',
+    'system administrator': 'admin',
+    'billing specialist': 'biller',
+    'lab technician': 'lab_tech',
+    'radiologist': 'radiologist',
+    'pharmacist': 'pharmacist',
+};
+
+exports.inviteUser = async (req, res) => {
+    try {
+        const crypto = require('crypto');
+        const { name, email, role, org } = req.body;
+
+        if (!email || !email.trim()) {
+            return res.status(422).json({ success: false, message: 'Email is required.' });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const existing = await User.findOne({ email: normalizedEmail });
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'A user with this email already exists.' });
+        }
+
+        const nameParts = (name || '').trim().split(/\s+/);
+        const firstName = nameParts[0] || 'Invited';
+        const lastName = nameParts.slice(1).join(' ') || 'User';
+        const mappedRole = INVITE_ROLE_MAP[(role || '').toLowerCase()] ?? 'nurse';
+        const tempPassword = crypto.randomBytes(8).toString('hex');
+
+        const user = await User.create({
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            password: tempPassword,
+            role: mappedRole,
+            hospital: org || 'CareConnect',
+            isActive: true,
+            approvalStatus: 'approved',
+            tenantId: 't-default',
+        });
+
+        res.status(201).json({
+            success: true,
+            message: `${firstName} ${lastName} has been added to the platform.`,
+            data: {
+                _id: user._id,
+                name: `${firstName} ${lastName}`,
+                email: user.email,
+                role: user.role,
+                tempPassword,
+            },
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.suspendUser = async (req, res) => {
+    try {
+        if (req.user._id.toString() === req.params.id) {
+            return res.status(400).json({ success: false, message: 'You cannot suspend your own account.' });
+        }
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { isActive: false },
+            { new: true }
+        ).select('firstName lastName email role isActive');
+        if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+        res.json({ success: true, message: `${user.firstName} ${user.lastName}'s account has been suspended.`, data: user });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.reactivateUser = async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { isActive: true, approvalStatus: 'approved' },
+            { new: true }
+        ).select('firstName lastName email role isActive');
+        if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+        res.json({ success: true, message: `${user.firstName} ${user.lastName}'s account has been reactivated.`, data: user });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};

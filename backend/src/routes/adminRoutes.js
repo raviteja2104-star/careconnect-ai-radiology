@@ -17,6 +17,10 @@ const {
   getPendingApprovals,
   approveUser,
   rejectUser,
+  getAdminUsers,
+  inviteUser,
+  suspendUser,
+  reactivateUser,
 } = require('../controllers/adminController');
 
 const {
@@ -55,5 +59,11 @@ router.delete('/ops/:type/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'
 router.get('/pending-approvals',          protect, permit('ADMIN.VIEW_USERS'),          getPendingApprovals);
 router.patch('/users/:id/approve',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), approveUser);
 router.patch('/users/:id/reject',         protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), rejectUser);
+
+// User management
+router.get('/users',                      protect, permit('ADMIN.VIEW_USERS'),               getAdminUsers);
+router.post('/users/invite',              protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),   inviteUser);
+router.patch('/users/:id/suspend',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),   suspendUser);
+router.patch('/users/:id/reactivate',     protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'),   reactivateUser);
 
 module.exports = router;
