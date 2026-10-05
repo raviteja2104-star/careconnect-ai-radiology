@@ -6,13 +6,15 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
   Scissors, Calendar, Clock, Activity, CheckCircle,
-  AlertTriangle, ShieldCheck, HeartPulse, UserPlus, Settings,
+  AlertTriangle, ShieldCheck, HeartPulse, UserPlus,
+  FlaskConical, Syringe, Layers, ClipboardList, Plus,
+  Timer, User, Check, X,
 } from 'lucide-react';
 import {
   PageHeader, Button, Badge, StatCard, StatGrid,
   Card, CardHeader, CardTitle, CardDescription, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  DataTable, type Column, EmptyState, ProgressRing, SkeletonCard,
+  DataTable, type Column, ProgressRing, SkeletonCard,
 } from '@/components/ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
@@ -38,6 +40,19 @@ type OTResponse = {
 };
 
 const TABS = ['dashboard', 'calendar', 'who safety checklist', 'anesthesia', 'intraoperative', 'pacu (recovery)', 'instruments'];
+
+const DEMO_SCHEDULE = [
+  { time: '07:30', end: '09:30', room: 'OR-1', patient: 'Ramesh K. (M/58)', procedure: 'CABG (Off-Pump)', surgeon: 'Dr. A. Mehta', anesthesiologist: 'Dr. S. Kapoor', status: 'Completed' },
+  { time: '08:00', end: '10:30', room: 'OR-2', patient: 'Smita J. (F/45)', procedure: 'Total Knee Replacement (R)', surgeon: 'Dr. P. Nair', anesthesiologist: 'Dr. R. Joshi', status: 'In Progress' },
+  { time: '10:00', end: '12:00', room: 'OR-1', patient: 'Arjun S. (M/34)', procedure: 'Laparoscopic Cholecystectomy', surgeon: 'Dr. M. Sharma', anesthesiologist: 'Dr. S. Kapoor', status: 'Scheduled' },
+  { time: '11:00', end: '13:00', room: 'OR-3', patient: 'Kavitha R. (F/52)', procedure: 'Mastectomy (Right)', surgeon: 'Dr. L. Deshpande', anesthesiologist: 'Dr. V. Rao', status: 'Scheduled' },
+  { time: '13:00', end: '15:00', room: 'OR-2', patient: 'Mohammed A. (M/67)', procedure: 'TURP', surgeon: 'Dr. P. Nair', anesthesiologist: 'Dr. R. Joshi', status: 'Scheduled' },
+  { time: '14:00', end: '16:30', room: 'OR-4', patient: 'Priya T. (F/28)', procedure: 'Myomectomy', surgeon: 'Dr. A. Sinha', anesthesiologist: 'Dr. V. Rao', status: 'Delayed' },
+] as const;
+
+type AnesthesiaDrug = { agent: string; dose: string; route: string; time: string; category: string };
+type IntraopEvent  = { type: string; note: string; time: string };
+type CountRow      = { name: string; category: string; initial: number; count1: number | null; final: number | null };
 
 export default function OTDashboard() {
   const router = useRouter();
@@ -66,6 +81,59 @@ export default function OTDashboard() {
     { phase: 'Time Out (Before Incision)', icon: Clock, iconClass: 'text-warning', items: ['Team Introductions', 'Procedure Confirmation', 'Prophylactic Antibiotics <60m', 'Essential Imaging Displayed', 'Blood Available'], completed: false },
     { phase: 'Sign Out (Before Patient Leaves)', icon: CheckCircle, iconClass: 'text-success', items: ['Instrument/Sponge Count Correct', 'Specimens Labelled', 'Equipment Issues Addressed', 'Post-Op Recovery Plan'], completed: false },
   ];
+
+  // ─── Anesthesia state ─────────────────────────────────────────────────
+  const [asaClass, setAsaClass] = useState('II');
+  const [anesthesiaDrugs, setAnesthesiaDrugs] = useState<AnesthesiaDrug[]>([
+    { agent: 'Propofol',    dose: '2 mg/kg',    route: 'IV',         time: '08:05', category: 'Induction'   },
+    { agent: 'Fentanyl',   dose: '2 mcg/kg',   route: 'IV',         time: '08:05', category: 'Analgesia'   },
+    { agent: 'Rocuronium', dose: '0.6 mg/kg',  route: 'IV',         time: '08:06', category: 'NMB'         },
+    { agent: 'Sevoflurane', dose: '2%',         route: 'Inhalation', time: '08:10', category: 'Maintenance' },
+  ]);
+  const [newDrug, setNewDrug] = useState<Omit<AnesthesiaDrug, 'time'>>({ agent: '', dose: '', route: 'IV', category: 'Induction' });
+  const addDrug = () => {
+    if (!newDrug.agent.trim()) return;
+    const now = new Date();
+    const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setAnesthesiaDrugs(prev => [...prev, { ...newDrug, time: t }]);
+    setNewDrug({ agent: '', dose: '', route: 'IV', category: 'Induction' });
+  };
+
+  // ─── Intraoperative state ─────────────────────────────────────────────
+  const [intraopEvents, setIntraopEvents] = useState<IntraopEvent[]>([
+    { type: 'Induction',  note: 'Propofol + Fentanyl + Rocuronium — smooth induction',  time: '08:05' },
+    { type: 'Intubation', note: 'Grade I laryngoscopy, 7.5 mm ETT secured at 21 cm',    time: '08:07' },
+    { type: 'Incision',   note: 'Skin incision, haemostasis achieved',                  time: '08:22' },
+    { type: 'Key Step',   note: 'Port insertion ×4, pneumoperitoneum 12 mmHg',          time: '08:28' },
+    { type: 'Key Step',   note: 'Gallbladder dissected — Calot triangle clear',         time: '08:55' },
+  ]);
+  const [newEvent, setNewEvent] = useState({ type: 'Key Step', note: '' });
+  const logEvent = () => {
+    if (!newEvent.note.trim()) return;
+    const now = new Date();
+    const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setIntraopEvents(prev => [...prev, { ...newEvent, time: t }]);
+    setNewEvent({ type: 'Key Step', note: '' });
+  };
+
+  // ─── Instruments state ────────────────────────────────────────────────
+  const [instrumentCounts, setInstrumentCounts] = useState<CountRow[]>([
+    { name: 'Lap Sponge (4×4)',      category: 'Swabs',       initial: 10, count1: 10,   final: null },
+    { name: 'Gauze (2×2)',           category: 'Swabs',       initial: 20, count1: 20,   final: null },
+    { name: 'Abdominal Pack',        category: 'Swabs',       initial: 4,  count1: 4,    final: null },
+    { name: '22G Needle',            category: 'Needles',     initial: 4,  count1: 4,    final: null },
+    { name: 'Vicryl 2-0 (Suture)',   category: 'Needles',     initial: 3,  count1: null, final: null },
+    { name: 'Retractor',             category: 'Instruments', initial: 2,  count1: 2,    final: null },
+    { name: 'Metzenbaum Scissor',    category: 'Instruments', initial: 1,  count1: 1,    final: null },
+    { name: 'Haemostat Forceps',     category: 'Instruments', initial: 4,  count1: 4,    final: null },
+    { name: 'Blade #22',             category: 'Blades',      initial: 1,  count1: 1,    final: null },
+  ]);
+  const [scrubSigned, setScrubSigned] = useState(false);
+  const [circulatorSigned, setCirculatorSigned] = useState(false);
+  const updateCount = (idx: number, field: 'count1' | 'final', val: string) => {
+    const n = val === '' ? null : Number(val);
+    setInstrumentCounts(prev => prev.map((r, i) => i === idx ? { ...r, [field]: n } : r));
+  };
 
   const boardColumns: Column<Procedure>[] = [
     {
@@ -296,15 +364,371 @@ export default function OTDashboard() {
           </div>
         </TabsContent>
 
-        {['calendar', 'anesthesia', 'intraoperative', 'instruments'].map((tab) => (
-          <TabsContent key={tab} value={tab} className="mt-6">
-            <EmptyState
-              icon={Settings}
-              title={`${tab.charAt(0).toUpperCase() + tab.slice(1)} Module`}
-              description={`The ${tab} workspace is being integrated with the perioperative platform.`}
-            />
-          </TabsContent>
-        ))}
+        {/* ── CALENDAR ───────────────────────────────────────────── */}
+        <TabsContent value="calendar" className="mt-6 space-y-4">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                  <Calendar className="h-5 w-5 text-primary" aria-hidden /> Today&apos;s OT List
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · 4 ORs Active
+                </p>
+              </div>
+              <Badge tone="info" dot pulse>Live Schedule</Badge>
+            </div>
+            <div className="space-y-2">
+              {DEMO_SCHEDULE.map((c, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.25, delay: idx * 0.04 }}
+                >
+                  <Card className={c.status === 'Delayed' ? 'border-warning/40' : c.status === 'In Progress' ? 'border-primary/40' : ''}>
+                    <CardContent className="flex items-center gap-4 py-3">
+                      <div className="w-16 shrink-0 text-center">
+                        <p className="text-sm font-bold tabular-nums text-foreground">{c.time}</p>
+                        <p className="text-xs text-muted-foreground">→ {c.end}</p>
+                      </div>
+                      <div className="w-14 shrink-0">
+                        <span className="inline-block rounded-lg bg-primary/10 px-2 py-1 text-xs font-bold text-primary">{c.room}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">{c.patient}</p>
+                        <p className="truncate text-xs text-muted-foreground">{c.procedure}</p>
+                      </div>
+                      <div className="hidden min-w-0 flex-1 md:block">
+                        <p className="truncate text-xs font-medium text-foreground">{c.surgeon}</p>
+                        <p className="truncate text-xs text-muted-foreground">{c.anesthesiologist}</p>
+                      </div>
+                      <Badge
+                        tone={c.status === 'Completed' ? 'success' : c.status === 'In Progress' ? 'info' : c.status === 'Delayed' ? 'warning' : 'brand'}
+                        dot
+                        pulse={c.status === 'In Progress'}
+                      >{c.status}</Badge>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        {/* ── ANESTHESIA ─────────────────────────────────────────── */}
+        <TabsContent value="anesthesia" className="mt-6 space-y-6">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6">
+            {/* Active case header */}
+            <Card className="border-primary/30">
+              <CardContent className="py-4">
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Active Case</p>
+                    <p className="text-lg font-bold text-foreground">
+                      {runningProcedures[0]?.patient ?? 'Smita J. (F/45)'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {runningProcedures[0]?.procedure ?? 'Total Knee Replacement (R)'} · {runningProcedures[0]?.room ?? 'OR-2'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">ASA</span>
+                    <select
+                      value={asaClass}
+                      onChange={e => setAsaClass(e.target.value)}
+                      className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {['I', 'II', 'III', 'IV', 'V', 'VI'].map(c => <option key={c} value={c}>ASA {c}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Pre-op Assessment */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ClipboardList className="h-4 w-4 text-primary" aria-hidden /> Pre-op Assessment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {[
+                    { label: 'Weight',          value: '72 kg'               },
+                    { label: 'Height',          value: '163 cm'              },
+                    { label: 'BMI',             value: '27.1'                },
+                    { label: 'NPO Status',      value: 'Fasting ×8 h ✓'      },
+                    { label: 'Allergies',       value: 'Penicillin'          },
+                    { label: 'Mallampati',      value: 'Class II'            },
+                    { label: 'Mouth Opening',   value: '> 3 cm ✓'            },
+                    { label: 'Neck Mobility',   value: 'Full ROM ✓'          },
+                    { label: 'Airway Risk',     value: 'Low'                 },
+                    { label: 'Anaesthesia Plan', value: 'Spinal + sedation'  },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between border-b border-border pb-2 last:border-0 last:pb-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className="font-medium text-foreground">{r.value}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Drug Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Syringe className="h-4 w-4 text-primary" aria-hidden /> Drug Chart
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-xs text-muted-foreground">
+                          <th className="pb-2 text-left font-semibold">Agent</th>
+                          <th className="pb-2 text-left font-semibold">Dose</th>
+                          <th className="pb-2 text-left font-semibold">Route</th>
+                          <th className="pb-2 text-left font-semibold">Time</th>
+                          <th className="pb-2 text-left font-semibold">Category</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {anesthesiaDrugs.map((d, i) => (
+                          <tr key={i} className="border-b border-border/50 last:border-0">
+                            <td className="py-2 font-medium text-foreground">{d.agent}</td>
+                            <td className="py-2 tabular-nums text-muted-foreground">{d.dose}</td>
+                            <td className="py-2 text-muted-foreground">{d.route}</td>
+                            <td className="py-2 tabular-nums text-muted-foreground">{d.time}</td>
+                            <td className="py-2">
+                              <Badge tone={d.category === 'Induction' ? 'info' : d.category === 'Maintenance' ? 'success' : d.category === 'NMB' ? 'warning' : 'brand'}>
+                                {d.category}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4 md:grid-cols-4">
+                    <input
+                      placeholder="Agent"
+                      value={newDrug.agent}
+                      onChange={e => setNewDrug(p => ({ ...p, agent: e.target.value }))}
+                      className="col-span-2 rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <input
+                      placeholder="Dose"
+                      value={newDrug.dose}
+                      onChange={e => setNewDrug(p => ({ ...p, dose: e.target.value }))}
+                      className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <select
+                      value={newDrug.category}
+                      onChange={e => setNewDrug(p => ({ ...p, category: e.target.value }))}
+                      className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {['Induction', 'Maintenance', 'NMB', 'Analgesia', 'Reversal', 'Emergency'].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={addDrug} className="mt-2 w-full">
+                    <Plus className="h-4 w-4" aria-hidden /> Add Drug
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        {/* ── INTRAOPERATIVE ─────────────────────────────────────── */}
+        <TabsContent value="intraoperative" className="mt-6 space-y-6">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6">
+            {/* Case timer bar */}
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-muted/40 p-4">
+              <Timer className="h-8 w-8 shrink-0 text-primary" aria-hidden />
+              <div className="flex-1">
+                <p className="font-bold text-foreground">{runningProcedures[0]?.patient ?? 'Smita J. (F/45)'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {runningProcedures[0]?.procedure ?? 'Total Knee Replacement (R)'} · {runningProcedures[0]?.surgeon ?? 'Dr. P. Nair'}
+                </p>
+              </div>
+              <div className="flex gap-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold tabular-nums text-primary">01:34</p>
+                  <p className="text-xs text-muted-foreground">Elapsed</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold tabular-nums text-warning">00:56</p>
+                  <p className="text-xs text-muted-foreground">Remaining</p>
+                </div>
+              </div>
+              <Badge tone="info" dot pulse>Surgery Active</Badge>
+            </div>
+
+            {/* Event timeline */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Activity className="h-4 w-4 text-primary" aria-hidden /> Intraoperative Events
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-0">
+                  {intraopEvents.map((ev, idx) => (
+                    <div key={idx} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`mt-1 h-3 w-3 shrink-0 rounded-full ${ev.type === 'Incision' ? 'bg-danger' : ev.type === 'Induction' ? 'bg-info' : ev.type === 'Intubation' ? 'bg-warning' : 'bg-primary'}`} />
+                        {idx < intraopEvents.length - 1 && <div className="my-1 w-px flex-1 bg-border" />}
+                      </div>
+                      <div className="pb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs tabular-nums text-muted-foreground">{ev.time}</span>
+                          <Badge tone={ev.type === 'Incision' || ev.type === 'Complication' ? 'danger' : ev.type === 'Induction' ? 'info' : ev.type === 'Intubation' ? 'warning' : 'brand'}>
+                            {ev.type}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-sm text-foreground">{ev.note}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Log event */}
+                <div className="mt-4 space-y-2 border-t border-border pt-4">
+                  <div className="flex gap-2">
+                    <select
+                      value={newEvent.type}
+                      onChange={e => setNewEvent(p => ({ ...p, type: e.target.value }))}
+                      className="rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {['Induction', 'Intubation', 'Incision', 'Key Step', 'Complication', 'Blood Loss', 'Closure', 'Extubation', 'Other'].map(t => <option key={t}>{t}</option>)}
+                    </select>
+                    <input
+                      placeholder="Event note…"
+                      value={newEvent.note}
+                      onChange={e => setNewEvent(p => ({ ...p, note: e.target.value }))}
+                      onKeyDown={e => e.key === 'Enter' && logEvent()}
+                      className="flex-1 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <Button size="sm" onClick={logEvent}>
+                      <Plus className="h-4 w-4" aria-hidden /> Log
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* ── INSTRUMENTS ────────────────────────────────────────── */}
+        <TabsContent value="instruments" className="mt-6 space-y-6">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <Card>
+              <CardHeader className="flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Layers className="h-4 w-4 text-primary" aria-hidden /> Instrument Count Sheet
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {runningProcedures[0]?.patient ?? 'Smita J. (F/45)'} · {runningProcedures[0]?.procedure ?? 'TKR (R)'} · {runningProcedures[0]?.room ?? 'OR-2'}
+                  </CardDescription>
+                </div>
+                {instrumentCounts.filter(r => r.final !== null).every(r => r.final === r.initial) && instrumentCounts.some(r => r.final !== null) ? (
+                  <Badge tone="success" dot>Counts Match</Badge>
+                ) : instrumentCounts.some(r => r.final !== null && r.final !== r.initial) ? (
+                  <Badge tone="danger" dot pulse>COUNT DISCREPANCY</Badge>
+                ) : (
+                  <Badge tone="warning" dot>Counts Pending</Badge>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="pb-3 text-left font-semibold">#</th>
+                        <th className="pb-3 text-left font-semibold">Item</th>
+                        <th className="pb-3 text-left font-semibold">Category</th>
+                        <th className="pb-3 text-center font-semibold">Initial</th>
+                        <th className="pb-3 text-center font-semibold">Count 1</th>
+                        <th className="pb-3 text-center font-semibold">Final</th>
+                        <th className="pb-3 text-center font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(['Swabs', 'Needles', 'Instruments', 'Blades'] as const).map(cat => {
+                        const rows = instrumentCounts.map((r, i) => ({ r, i })).filter(({ r }) => r.category === cat);
+                        if (!rows.length) return null;
+                        return (
+                          <React.Fragment key={cat}>
+                            <tr>
+                              <td colSpan={7} className="pb-1 pt-4">
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</span>
+                              </td>
+                            </tr>
+                            {rows.map(({ r, i }) => {
+                              const ok  = r.final !== null && r.final === r.initial;
+                              const err = r.final !== null && r.final !== r.initial;
+                              return (
+                                <tr key={i} className={`border-b border-border/50 last:border-0 ${err ? 'bg-danger/5' : ok ? 'bg-success/5' : ''}`}>
+                                  <td className="py-2 text-xs tabular-nums text-muted-foreground">{i + 1}</td>
+                                  <td className="py-2 font-medium text-foreground">{r.name}</td>
+                                  <td className="py-2 text-muted-foreground">{r.category}</td>
+                                  <td className="py-2 text-center font-bold tabular-nums text-foreground">{r.initial}</td>
+                                  <td className="py-2 text-center">
+                                    <input
+                                      type="number"
+                                      value={r.count1 ?? ''}
+                                      onChange={e => updateCount(i, 'count1', e.target.value)}
+                                      className="w-16 rounded border border-input bg-card px-2 py-1 text-center text-sm tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                  </td>
+                                  <td className="py-2 text-center">
+                                    <input
+                                      type="number"
+                                      value={r.final ?? ''}
+                                      onChange={e => updateCount(i, 'final', e.target.value)}
+                                      className={`w-16 rounded border px-2 py-1 text-center text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-primary ${err ? 'border-danger bg-danger/10 text-danger' : ok ? 'border-success bg-success/10 text-success' : 'border-input bg-card text-foreground'}`}
+                                    />
+                                  </td>
+                                  <td className="py-2 text-center">
+                                    {ok  ? <Check className="mx-auto h-4 w-4 text-success" aria-hidden /> :
+                                     err ? <X     className="mx-auto h-4 w-4 text-danger"  aria-hidden /> :
+                                     <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Sign-off */}
+                <div className="mt-6 grid grid-cols-1 gap-4 border-t border-border pt-6 sm:grid-cols-2">
+                  <div className={`rounded-2xl border p-4 text-center ${scrubSigned ? 'border-success/40 bg-success/5' : 'border-border'}`}>
+                    <FlaskConical className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
+                    <p className="text-sm font-semibold text-foreground">Scrub Nurse</p>
+                    <p className="mb-3 text-xs text-muted-foreground">Confirms all counts are correct</p>
+                    <Button variant={scrubSigned ? 'primary' : 'outline'} size="sm" onClick={() => setScrubSigned(p => !p)} className="w-full">
+                      {scrubSigned ? <><Check className="h-4 w-4" aria-hidden /> Signed</> : 'Sign Count'}
+                    </Button>
+                  </div>
+                  <div className={`rounded-2xl border p-4 text-center ${circulatorSigned ? 'border-success/40 bg-success/5' : 'border-border'}`}>
+                    <User className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
+                    <p className="text-sm font-semibold text-foreground">Circulator Nurse</p>
+                    <p className="mb-3 text-xs text-muted-foreground">Witnesses and countersigns</p>
+                    <Button variant={circulatorSigned ? 'primary' : 'outline'} size="sm" onClick={() => setCirculatorSigned(p => !p)} disabled={!scrubSigned} className="w-full">
+                      {circulatorSigned ? <><Check className="h-4 w-4" aria-hidden /> Countersigned</> : 'Countersign'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
       </Tabs>
     </div>
   );
