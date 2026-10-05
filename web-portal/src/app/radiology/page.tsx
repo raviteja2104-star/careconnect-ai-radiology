@@ -3,11 +3,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Search, Filter, ChevronDown, Download, Eye,
+  Search, Download, Eye,
   Image as ImageIcon, Clock, CheckCircle2, AlertCircle, Share2, ScanLine
 } from 'lucide-react';
 import {
-  PageHeader, StatCard, StatGrid, Badge, Button, Input, DataTable, EmptyState, Skeleton, type Column
+  PageHeader, StatCard, StatGrid, Badge, Button, Input, Select, DataTable, EmptyState, Skeleton, type Column, useToast,
 } from '@/components/ui';
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}/api`;
@@ -25,7 +25,9 @@ interface Scan {
   doctor: string;
   facility: string;
   findings: string;
-  images: number;
+  images: number | null;
+  fileUrl?: string;
+  finalReport?: { findings?: string; impression?: string; recommendations?: string[] };
 }
 
 interface ApiScan {
@@ -34,10 +36,12 @@ interface ApiScan {
   scanType?: string;
   bodyPart?: string;
   status?: string;
-  finalReport?: { findings?: string; impression?: string };
+  imageCount?: number;
+  finalReport?: { findings?: string; impression?: string; recommendations?: string[] };
   aiReport?: { findings?: string; riskLevel?: string };
   requestedBy?: { firstName?: string; lastName?: string; specialization?: string } | string;
   createdAt?: string;
+  fileUrl?: string;
 }
 
 function toUiScan(s: ApiScan): Scan {
@@ -50,6 +54,7 @@ function toUiScan(s: ApiScan): Scan {
     approved: 'COMPLETED', ai_completed: 'COMPLETED', radiologist_review: 'PENDING',
     pending: 'PENDING', rejected: 'COMPLETED',
   };
+  const hasFile = s.fileUrl && !s.fileUrl.startsWith('demo://');
   return {
     id: s.scanId ?? s._id,
     type: [s.scanType, s.bodyPart].filter(Boolean).join(' ') || '—',
@@ -58,13 +63,72 @@ function toUiScan(s: ApiScan): Scan {
     doctor,
     facility: 'Imaging Center',
     findings,
-    images: 0,
+    images: typeof s.imageCount === 'number' ? s.imageCount : (hasFile ? 1 : null),
+    fileUrl: s.fileUrl,
+    finalReport: s.finalReport,
   };
+}
+
+function printReport(scan: Scan) {
+  const win = window.open('', '_blank', 'width=700,height=900');
+  if (!win) return;
+  const lines = [
+    `<tr><td>Scan ID</td><td>${scan.id}</td></tr>`,
+    `<tr><td>Scan Type</td><td>${scan.type}</td></tr>`,
+    `<tr><td>Date</td><td>${scan.date}</td></tr>`,
+    `<tr><td>Status</td><td>${scan.status}</td></tr>`,
+    `<tr><td>Doctor</td><td>${scan.doctor}</td></tr>`,
+    `<tr><td>Facility</td><td>${scan.facility}</td></tr>`,
+    `<tr><td>Findings</td><td>${scan.finalReport?.findings ?? scan.findings}</td></tr>`,
+    scan.finalReport?.impression ? `<tr><td>Impression</td><td>${scan.finalReport.impression}</td></tr>` : '',
+    scan.finalReport?.recommendations?.length
+      ? `<tr><td>Recommendations</td><td>${scan.finalReport.recommendations.join('; ')}</td></tr>` : '',
+  ].filter(Boolean).join('');
+  win.document.write(`<!doctype html><html><head><title>Radiology Report — ${scan.id}</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:40px;color:#111}
+  h1{font-size:1.25rem;margin-bottom:4px}
+  p.sub{color:#666;font-size:.85rem;margin-bottom:24px}
+  table{border-collapse:collapse;width:100%}
+  td{padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:.9rem}
+  td:first-child{width:180px;font-weight:600;color:#374151}
+  @media print{body{margin:20px}}
+</style></head><body>
+<h1>Radiology Report</h1>
+<p class="sub">CareConnect Medical Center</p>
+<table>${lines}</table>
+<p style="margin-top:32px;font-size:.75rem;color:#9ca3af">
+  Generated ${new Date().toLocaleString('en-IN')} · CareConnect Healthcare OS
+</p>
+<script>window.onload=()=>{window.print();window.close();}<\/script>
+</body></html>`);
+  win.document.close();
+}
+
+async function shareReport(scan: Scan, toast: (tone: 'success' | 'error' | 'info' | 'warning', title: string, desc?: string) => void) {
+  const text = `Radiology Report — ${scan.type}\nDate: ${scan.date}\nStatus: ${scan.status}\nFindings: ${scan.findings}\nFacility: ${scan.facility}\nDoctor: ${scan.doctor}`;
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: `Radiology Report — ${scan.type}`, text });
+      return;
+    } catch {
+      // user cancelled or unsupported — fall through to clipboard
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('success', 'Copied to clipboard', 'Report summary copied. Paste to share.');
+  } catch {
+    toast('error', 'Share failed', 'Could not copy to clipboard.');
+  }
 }
 
 export default function RadiologyPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [findingsFilter, setFindingsFilter] = useState('all');
 
   const { data: apiScans = [], isLoading } = useQuery<ApiScan[]>({
     queryKey: ['patient-scans'],
@@ -77,9 +141,13 @@ export default function RadiologyPage() {
   });
 
   const scans: Scan[] = apiScans.map(toUiScan);
-  const filteredScans = scans.filter(
-    s => s.type.toLowerCase().includes(search.toLowerCase()) || s.id.toLowerCase().includes(search.toLowerCase())
-  );
+
+  const filteredScans = scans.filter(s => {
+    if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+    if (findingsFilter !== 'all' && s.findings !== findingsFilter) return false;
+    if (search && !s.type.toLowerCase().includes(search.toLowerCase()) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   const completedCount = scans.filter(s => s.status === 'COMPLETED').length;
   const pendingCount = scans.filter(s => s.status === 'PENDING').length;
@@ -153,8 +221,12 @@ export default function RadiologyPage() {
       header: 'Images',
       sortable: true,
       align: 'right',
-      accessor: (row) => row.images,
-      cell: (row) => <span className="text-sm tabular-nums text-muted-foreground">{row.images}</span>,
+      accessor: (row) => row.images ?? -1,
+      cell: (row) => (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {row.images !== null ? row.images : '—'}
+        </span>
+      ),
     },
   ];
 
@@ -175,9 +247,25 @@ export default function RadiologyPage() {
                 aria-label="Search scans"
               />
             </div>
-            <Button variant="outline" disabled title="Coming soon">
-              <Filter className="h-4 w-4" aria-hidden /> Filter <ChevronDown className="h-4 w-4" aria-hidden />
-            </Button>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter by status"
+            >
+              <option value="all">All Statuses</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="PENDING">Pending</option>
+            </Select>
+            <Select
+              value={findingsFilter}
+              onChange={(e) => setFindingsFilter(e.target.value)}
+              aria-label="Filter by findings"
+            >
+              <option value="all">All Findings</option>
+              <option value="Normal">Normal</option>
+              <option value="Abnormal">Abnormal</option>
+              <option value="Pending">Awaiting Report</option>
+            </Select>
           </>
         }
       />
@@ -205,7 +293,7 @@ export default function RadiologyPage() {
           searchable={false}
           pageSize={10}
           emptyTitle="No scans found"
-          emptyDescription={search ? `No results for "${search}".` : 'Imaging studies will appear here once available.'}
+          emptyDescription={search ? `No results for "${search}".` : 'No scans match the current filters.'}
           rowActions={(scan) => (
             <div className="flex items-center justify-end gap-1">
               <Button
@@ -218,10 +306,22 @@ export default function RadiologyPage() {
               >
                 <Eye className="h-4 w-4" aria-hidden />
               </Button>
-              <Button variant="ghost" size="icon-sm" disabled title="Coming soon" aria-label="Share Report">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Share Report"
+                title="Share Report"
+                onClick={() => shareReport(scan, toast)}
+              >
                 <Share2 className="h-4 w-4" aria-hidden />
               </Button>
-              <Button variant="ghost" size="icon-sm" disabled title="Coming soon" aria-label="Download PDF">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Download PDF"
+                title="Download PDF"
+                onClick={() => printReport(scan)}
+              >
                 <Download className="h-4 w-4" aria-hidden />
               </Button>
             </div>
