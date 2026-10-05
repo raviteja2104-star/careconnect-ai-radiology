@@ -58,6 +58,16 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
     const [registering, setRegistering] = React.useState(false);
     const [googleLoading, setGoogleLoading] = React.useState(false);
     const [pendingApproval, setPendingApproval] = React.useState<string | null>(null);
+    const [bannerDismissed, setBannerDismissed] = React.useState(false);
+
+    const SESSION_BANNERS: Record<string, string> = {
+        session_expired: 'Your session expired — please sign in again.',
+        unauthorized: 'You need to sign in to access that page.',
+        logged_out: 'You have been signed out successfully.',
+    };
+    const reasonBanner = !bannerDismissed
+        ? SESSION_BANNERS[searchParams.get('reason') ?? ''] ?? null
+        : null;
 
     // Load Google Identity Services script once
     React.useEffect(() => {
@@ -273,6 +283,20 @@ export function PortalLogin({ portal }: { portal: LoginPortal }) {
                                 </p>
                             </div>
                         </div>
+
+                        {reasonBanner && (
+                            <div role="alert" className="mb-5 flex items-start justify-between gap-2 rounded-xl border border-info/30 bg-info-soft px-3.5 py-3 text-sm text-info">
+                                <span>{reasonBanner}</span>
+                                <button
+                                    type="button"
+                                    aria-label="Dismiss"
+                                    onClick={() => setBannerDismissed(true)}
+                                    className="shrink-0 rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
 
                         <Tabs value={tab} onValueChange={setTab}>
                             {portal.allowRegister && (
