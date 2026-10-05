@@ -780,6 +780,7 @@ function ObservationTab({ patients }: { patients: TrackedPatient[] }) {
     Object.fromEntries(patients.map(p => [p.bed, new Date(Date.now() - Math.random() * 8 * 3600000)]))
   );
   const [dcChecks, setDcChecks] = useState<Record<string, boolean>>({});
+  const [dischargedBeds, setDischargedBeds] = useState<Set<string>>(new Set());
 
   return (
     <div className="space-y-4">
@@ -811,12 +812,18 @@ function ObservationTab({ patients }: { patients: TrackedPatient[] }) {
                     checked={!!dcChecks[key(c.id)]} onToggle={() => setDcChecks(d => ({ ...d, [key(c.id)]: !d[key(c.id)] }))} />
                 ))}
               </div>
-              {done === OBS_CRITERIA.length && (
+              {done === OBS_CRITERIA.length && !dischargedBeds.has(p.bed) && (
                 <div className="mt-4 flex items-center justify-between rounded-xl bg-success-soft p-3">
                   <span className="text-sm font-semibold text-success">All criteria met — patient eligible for discharge</span>
-                  <Button size="sm" variant="secondary" onClick={() => {}}>
+                  <Button size="sm" variant="secondary" onClick={() => setDischargedBeds(prev => new Set([...prev, p.bed]))}>
                     <CheckCircle className="h-4 w-4" /> Discharge
                   </Button>
+                </div>
+              )}
+              {dischargedBeds.has(p.bed) && (
+                <div className="mt-4 flex items-center gap-2 rounded-xl bg-muted/60 p-3">
+                  <CheckCircle className="h-4 w-4 text-success" />
+                  <span className="text-sm font-semibold text-success">Discharge order sent to ADT</span>
                 </div>
               )}
             </CardContent>

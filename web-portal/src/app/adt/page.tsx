@@ -313,12 +313,106 @@ export default function ADTDashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="discharge planner" className="mt-6">
-          <EmptyState icon={FileCheck} title="Discharge Clearance Checklist" description="Multi-department sign-off tracking for pending discharges." />
+        <TabsContent value="discharge planner" className="mt-6 space-y-4">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : discharges.length === 0 ? (
+            <EmptyState icon={FileCheck} title="No pending discharges" description="Today's discharge queue is empty." />
+          ) : discharges.map((dis, i) => {
+            const isFullyCleared = dis.docClear && dis.nurseClear && dis.pharmClear && dis.billClear;
+            const clearances = [
+              { label: 'Clinical', done: dis.docClear, icon: Stethoscope },
+              { label: 'Nursing', done: dis.nurseClear, icon: Activity },
+              { label: 'Pharmacy', done: dis.pharmClear, icon: Pill },
+              { label: 'Billing', done: dis.billClear, icon: FileText },
+            ];
+            const clearedCount = clearances.filter(c => c.done).length;
+            return (
+              <Card key={i}>
+                <CardContent className="pt-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-foreground">{dis.patient}</p>
+                      <p className="text-xs text-muted-foreground">{dis.specialty} · Dr. {dis.doctor}</p>
+                    </div>
+                    {dischargedIds.has(dis.id) ? (
+                      <Badge tone="success">Discharged</Badge>
+                    ) : isFullyCleared ? (
+                      <Button
+                        size="sm"
+                        className="bg-success hover:bg-success/90"
+                        disabled={dischargingId === dis.id}
+                        onClick={() => handleDischarge(dis.id)}
+                      >
+                        {dischargingId === dis.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…</> : 'Final Discharge'}
+                      </Button>
+                    ) : (
+                      <Badge tone="warning" dot>Pending Clearances</Badge>
+                    )}
+                  </div>
+                  <Progress value={(clearedCount / clearances.length) * 100} tone={isFullyCleared ? 'success' : 'warning'} size="sm" label={`${clearedCount} of ${clearances.length} clearances`} className="mb-3" />
+                  <div className="grid grid-cols-4 gap-2">
+                    {clearances.map(c => {
+                      const Icon = c.icon;
+                      return (
+                        <div key={c.label} className={`flex flex-col items-center justify-center rounded-lg border p-2 transition-colors ${c.done ? 'border-success/30 bg-success-soft text-success' : 'border-border bg-card text-subtle-foreground'}`}>
+                          <Icon className="mb-1 h-4 w-4" aria-hidden />
+                          <span className="text-center text-[10px] font-semibold leading-tight">{c.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         <TabsContent value="clearance checklist" className="mt-6">
-          <EmptyState icon={FileCheck} title="Clearance checklist" description="Departmental clearance tracking for pending discharges will appear here." />
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : discharges.length === 0 ? (
+            <EmptyState icon={FileCheck} title="No pending discharges" description="Today's discharge queue is empty." />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {([
+                { label: 'Clinical', icon: Stethoscope, key: 'docClear' as const },
+                { label: 'Nursing', icon: Activity, key: 'nurseClear' as const },
+                { label: 'Pharmacy', icon: Pill, key: 'pharmClear' as const },
+                { label: 'Billing', icon: FileText, key: 'billClear' as const },
+              ] as const).map(dept => {
+                const pending = discharges.filter(d => !d[dept.key] && !dischargedIds.has(d.id));
+                const cleared = discharges.filter(d => d[dept.key]);
+                const Icon = dept.icon;
+                return (
+                  <Card key={dept.label}>
+                    <CardHeader className="flex-row items-center gap-3 border-b border-border pb-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${pending.length > 0 ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success'}`}>
+                        <Icon className="h-4 w-4" aria-hidden />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{dept.label} Clearance</CardTitle>
+                        <p className="text-xs text-muted-foreground">{pending.length} pending · {cleared.length} cleared</p>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="divide-y divide-border pt-2">
+                      {pending.length === 0 ? (
+                        <p className="py-3 text-center text-sm text-success">All cleared</p>
+                      ) : pending.map((d, j) => (
+                        <div key={j} className="flex items-center justify-between gap-2 py-2">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{d.patient}</p>
+                            <p className="text-xs text-muted-foreground">{d.specialty} · Dr. {d.doctor}</p>
+                          </div>
+                          <Badge tone="warning" dot>Awaiting</Badge>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
