@@ -116,7 +116,7 @@ export default function ProductionDashboard() {
         {[
           { title: 'CPU Load', meter: Math.min(Number(cpuLoad), 100), tone: 'success' as const, icon: Cpu, foot: perf.cpu.model ? `${perf.cpu.cores} cores • ${perf.cpu.model}` : 'Model pending' },
           { title: 'Memory Pressure', meter: Number(memUsedPercent), tone: 'brand' as const, icon: HardDrive, foot: perf.memory.processRss ? `Node RSS ${(perf.memory.processRss / 1024 / 1024).toFixed(0)} MB` : 'RSS pending' },
-          { title: 'Socket Saturation', meter: 25, tone: 'warning' as const, icon: Activity, foot: `Event-loop latency ${perf.eventLoop.latency ?? '—'}` },
+          { title: 'Socket Saturation', meter: perf.network?.activeConnections != null ? Math.min(Math.round((perf.network.activeConnections / (perf.network.maxConnections ?? 1000)) * 100), 100) : 0, tone: 'warning' as const, icon: Activity, foot: `Event-loop latency ${perf.eventLoop.latency ?? '—'}` },
         ].map((m, i) => (
           <motion.div
             key={m.title}

@@ -49,18 +49,19 @@ export default function EnterpriseProgramPage() {
   const [activeTab, setActiveTab] = useState<'PORTFOLIO' | 'TRACEABILITY' | 'DEVSECOPS' | 'ARCHITECTURE' | 'TECH_DEBT'>('PORTFOLIO');
 
   const { data: initiativesRes } = useQuery({ queryKey: ['admin-ops-program_initiative'], queryFn: () => fetch(`${API}/api/admin/ops/program_initiative`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const initiatives: PortfolioInitiative[] = (initiativesRes?.data ?? enterpriseProgramService.getInitiatives()) as PortfolioInitiative[];
+  const initiatives: PortfolioInitiative[] = (initiativesRes?.data ?? []) as PortfolioInitiative[];
 
   const { data: matrixRes } = useQuery({ queryKey: ['admin-ops-program_matrix'], queryFn: () => fetch(`${API}/api/admin/ops/program_matrix`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const matrix: TraceabilityMatrixItem[] = (matrixRes?.data ?? enterpriseProgramService.getMatrix()) as TraceabilityMatrixItem[];
+  const matrix: TraceabilityMatrixItem[] = (matrixRes?.data ?? []) as TraceabilityMatrixItem[];
 
   const { data: techDebtRes } = useQuery({ queryKey: ['admin-ops-program_tech_debt'], queryFn: () => fetch(`${API}/api/admin/ops/program_tech_debt`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const techDebt: TechDebtItem[] = (techDebtRes?.data ?? enterpriseProgramService.getTechDebt()) as TechDebtItem[];
+  const techDebt: TechDebtItem[] = (techDebtRes?.data ?? []) as TechDebtItem[];
 
   const { data: adrsRes } = useQuery({ queryKey: ['admin-ops-program_adr'], queryFn: () => fetch(`${API}/api/admin/ops/program_adr`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
-  const adrs: ArchitectureRecord[] = (adrsRes?.data ?? enterpriseProgramService.getADRs()) as ArchitectureRecord[];
+  const adrs: ArchitectureRecord[] = (adrsRes?.data ?? []) as ArchitectureRecord[];
 
-  const engMetrics = enterpriseProgramService.getEngineeringDevSecOpsMetrics();
+  const { data: engMetricsRes } = useQuery({ queryKey: ['admin-ops-program_eng'], queryFn: () => fetch(`${API}/api/admin/ops/program_eng`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
+  const engMetrics = engMetricsRes?.data ?? null;
 
   // Interactive AI Assistant State
   const [aiPrompt, setAiPrompt] = useState('Generate release notes for v1.1.0-hardened detailing OAuth 2.1, PHI scanner, & k6 load test results.');
@@ -196,15 +197,10 @@ export default function EnterpriseProgramPage() {
         actions={<Badge tone="brand" dot>Phase 20 Complete</Badge>}
       />
 
-      <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning flex items-center gap-2 mb-6">
-        <span>⚠</span>
-        <span><strong>Preview mode</strong> — This section displays sample data for demonstration. Real-time data integration is coming soon.</span>
-      </div>
-
       <StatGrid>
         <StatCard
           label="CI/CD build success"
-          value={`${engMetrics.ciBuildSuccessRatePct}%`}
+          value={engMetrics ? `${engMetrics.ciBuildSuccessRatePct}%` : '—'}
           sub="GitHub Actions pipeline"
           icon={Terminal}
           tone="emerald"
@@ -213,15 +209,15 @@ export default function EnterpriseProgramPage() {
         />
         <StatCard
           label="Code quality grade"
-          value={engMetrics.sonarQubeCodeQualityGrade}
-          sub={`SonarQube · ${engMetrics.codeCoveragePct}% coverage`}
+          value={engMetrics?.sonarQubeCodeQualityGrade ?? '—'}
+          sub={engMetrics ? `SonarQube · ${engMetrics.codeCoveragePct}% coverage` : 'Awaiting telemetry'}
           icon={ShieldCheck}
           tone="brand"
           delay={0.05}
         />
         <StatCard
           label="Open vulnerabilities"
-          value={engMetrics.openSecurityVulnerabilitiesCount}
+          value={engMetrics?.openSecurityVulnerabilitiesCount ?? '—'}
           sub="Snyk / Dependabot scans"
           icon={Gauge}
           tone="teal"
@@ -230,8 +226,8 @@ export default function EnterpriseProgramPage() {
         />
         <StatCard
           label="Sprint velocity"
-          value={`${engMetrics.sprintVelocityStoryPoints} pts`}
-          sub={`${engMetrics.openPullRequestsCount} open pull requests`}
+          value={engMetrics ? `${engMetrics.sprintVelocityStoryPoints} pts` : '—'}
+          sub={engMetrics ? `${engMetrics.openPullRequestsCount} open pull requests` : 'Awaiting data'}
           icon={BarChart2}
           tone="violet"
           trend="up"
