@@ -101,51 +101,63 @@ export default function HospitalCommandCenterPage() {
         }
       />
 
-      {/* Clinical critical alerts */}
-      <section aria-label="Clinical critical alerts">
-        <StatGrid className="xl:grid-cols-5">
-          <StatCard
-            label="Code Blue"
-            value={clinicalAlerts.codeBlueCount ?? '—'}
-            sub={clinicalAlerts.codeBlueCount === null ? 'Not yet available' : 'Active Cardiac Arrests'}
-            icon={HeartPulse}
-            tone="emerald"
-            delay={0}
-          />
-          <StatCard
-            label="Sepsis Bundle"
-            value={clinicalAlerts.sepsisRiskAlerts ?? '—'}
-            sub={clinicalAlerts.sepsisRiskAlerts === null ? 'Not yet available' : '1-Hour Protocol Timers'}
-            icon={AlertCircle}
-            tone="amber"
-            delay={0.05}
-          />
-          <StatCard
-            label="Stroke Alerts"
-            value={clinicalAlerts.strokeAlerts ?? '—'}
-            sub={clinicalAlerts.strokeAlerts === null ? 'Not yet available' : 'STAT CT Imaging Gate'}
-            icon={Zap}
-            tone="violet"
-            delay={0.1}
-          />
-          <StatCard
-            label="High NEWS2"
-            value={clinicalAlerts.highNews2Count ?? '—'}
-            sub={clinicalAlerts.highNews2Count === null ? 'Not yet available' : 'Score ≥ 7 Deterioration'}
-            icon={ShieldAlert}
-            tone="rose"
-            delay={0.15}
-          />
-          <StatCard
-            label="Critical Labs"
-            value={clinicalAlerts.criticalLabValues ?? '—'}
-            sub={clinicalAlerts.criticalLabValues === null ? 'Not yet available' : 'STAT Panic Value Alerts'}
-            icon={Activity}
-            tone="teal"
-            delay={0.2}
-          />
-        </StatGrid>
-      </section>
+      {/* Clinical critical alerts — hidden until at least one value is available */}
+      {Object.values(clinicalAlerts).some((v) => v !== null) ? (
+        <section aria-label="Clinical critical alerts">
+          <StatGrid className="xl:grid-cols-5">
+            <StatCard
+              label="Code Blue"
+              value={clinicalAlerts.codeBlueCount ?? '—'}
+              sub={clinicalAlerts.codeBlueCount === null ? 'Not yet available' : 'Active Cardiac Arrests'}
+              icon={HeartPulse}
+              tone="emerald"
+              delay={0}
+            />
+            <StatCard
+              label="Sepsis Bundle"
+              value={clinicalAlerts.sepsisRiskAlerts ?? '—'}
+              sub={clinicalAlerts.sepsisRiskAlerts === null ? 'Not yet available' : '1-Hour Protocol Timers'}
+              icon={AlertCircle}
+              tone="amber"
+              delay={0.05}
+            />
+            <StatCard
+              label="Stroke Alerts"
+              value={clinicalAlerts.strokeAlerts ?? '—'}
+              sub={clinicalAlerts.strokeAlerts === null ? 'Not yet available' : 'STAT CT Imaging Gate'}
+              icon={Zap}
+              tone="violet"
+              delay={0.1}
+            />
+            <StatCard
+              label="High NEWS2"
+              value={clinicalAlerts.highNews2Count ?? '—'}
+              sub={clinicalAlerts.highNews2Count === null ? 'Not yet available' : 'Score ≥ 7 Deterioration'}
+              icon={ShieldAlert}
+              tone="rose"
+              delay={0.15}
+            />
+            <StatCard
+              label="Critical Labs"
+              value={clinicalAlerts.criticalLabValues ?? '—'}
+              sub={clinicalAlerts.criticalLabValues === null ? 'Not yet available' : 'STAT Panic Value Alerts'}
+              icon={Activity}
+              tone="teal"
+              delay={0.2}
+            />
+          </StatGrid>
+        </section>
+      ) : (
+        <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3">
+          <HeartPulse className="h-5 w-5 shrink-0 text-muted-foreground/50" aria-hidden />
+          <div>
+            <p className="text-xs font-semibold text-foreground">Clinical Alerts</p>
+            <p className="text-xs text-muted-foreground">
+              Clinical alert data is not yet available. These metrics will appear when the clinical monitoring system is connected.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Capacity, TAT, financial */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
