@@ -607,6 +607,7 @@ exports.listOrders = async (req, res) => {
         if (req.user.tenantId) filter.tenantId = req.user.tenantId;
         if (req.query.patientId) filter.patientId = req.query.patientId;
         if (req.user.role === 'patient') filter.patientId = req.user._id;
+        if (req.query.encounterId) filter.encounterId = req.query.encounterId;
         if (req.query.category) filter.category = req.query.category;
         if (req.query.status) filter.status = req.query.status;
         const orders = await ClinicalOrder.find(filter)

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   FileText, Pill, FlaskConical, Search, Plus, Activity, Heart,
-  Thermometer, Save, Send, Mic, MicOff, Loader2,
+  Thermometer, Save, Send, Mic, MicOff, Loader2, AlertTriangle,
 } from 'lucide-react';
 import {
   PageHeader, Badge, Button, Avatar, Card, CardContent,
@@ -95,6 +95,14 @@ interface SoapFields {
   assessment: string;
   plan: string;
 }
+
+interface DrugLine { name: string; dose?: string; quantity?: number; durationDays?: number; }
+interface MedOrder {
+  _id: string; orderCode?: string; status: string; createdAt: string;
+  details: { drugs: DrugLine[] };
+  orderingDoctorId?: { firstName?: string; lastName?: string } | null;
+}
+interface SafetyFlag { drug?: string; type?: string; severity: 'info' | 'warning' | 'critical'; message: string; }
 
 function VitalsStrip({ vitals }: { vitals: NonNullable<Consultation['vitals']> }) {
   const items = [
@@ -188,10 +196,80 @@ export default function ConsultationsPage() {
   const [isSigning, setIsSigning] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
+  // Rx tab state
+  const [medOrders, setMedOrders] = useState<MedOrder[]>([]);
+  const [medLoading, setMedLoading] = useState(false);
+  const [medError, setMedError] = useState('');
+  const [addMedOpen, setAddMedOpen] = useState(false);
+  const [drugDraft, setDrugDraft] = useState({ name: '', dose: '', quantity: '', durationDays: '' });
+  const [medSubmitting, setMedSubmitting] = useState(false);
+  const [safetyFlags, setSafetyFlags] = useState<SafetyFlag[]>([]);
+  const [pendingAck, setPendingAck] = useState(false);
+
   // Dictate + AI Assist
   const [dictating, setDictating] = useState(false);
   const recognitionRef = useRef<SRInstance | null>(null);
   const [aiAssistOpen, setAiAssistOpen] = useState(false);
+
+  const fetchMedOrders = React.useCallback(async (encounterId: string) => {
+    setMedLoading(true);
+    setMedError('');
+    try {
+      const r = await fetch(`${API}/api/emr/orders?encounterId=${encounterId}&category=medication`, { headers: authHeaders() });
+      if (r.ok) {
+        const data = await r.json();
+        setMedOrders(Array.isArray(data) ? data : []);
+      } else {
+        setMedError('Failed to load medications.');
+      }
+    } catch {
+      setMedError('Network error loading medications.');
+    } finally {
+      setMedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'rx' && selected?.encounterId) {
+      fetchMedOrders(selected.encounterId);
+    } else if (activeTab === 'rx') {
+      setMedOrders([]);
+    }
+  }, [activeTab, selected?.encounterId, fetchMedOrders]);
+
+  async function handleAddMed(acknowledge = false) {
+    if (!drugDraft.name.trim() || !selected?.encounterId) return;
+    setMedSubmitting(true);
+    if (!acknowledge) setSafetyFlags([]);
+    try {
+      const drug: DrugLine & Record<string, unknown> = { name: drugDraft.name.trim() };
+      if (drugDraft.dose) drug.dose = drugDraft.dose;
+      if (drugDraft.quantity) drug.quantity = Number(drugDraft.quantity);
+      if (drugDraft.durationDays) drug.durationDays = Number(drugDraft.durationDays);
+      const body: Record<string, unknown> = { category: 'medication', details: { drugs: [drug] } };
+      if (acknowledge) body.acknowledgeCritical = true;
+      const r = await fetch(`${API}/api/emr/encounters/${selected.encounterId}/orders`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (r.status === 422 && data.flags) {
+        setSafetyFlags(data.flags as SafetyFlag[]);
+        setPendingAck(true);
+      } else if (r.ok) {
+        setAddMedOpen(false);
+        setDrugDraft({ name: '', dose: '', quantity: '', durationDays: '' });
+        setSafetyFlags([]);
+        setPendingAck(false);
+        await fetchMedOrders(selected.encounterId);
+      } else {
+        setSafetyFlags([{ severity: 'critical', message: data.message || 'Failed to add medication.' }]);
+      }
+    } catch {
+      setSafetyFlags([{ severity: 'critical', message: 'Network error.' }]);
+    } finally {
+      setMedSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -223,6 +301,8 @@ export default function ConsultationsPage() {
     setSelected(c);
     setSoap(emptySoap(c.soap ?? undefined));
     setSaveMessage(null);
+    setMedOrders([]);
+    setMedError('');
   }
 
   function handleSoapChange(field: keyof SoapFields, value: string) {
@@ -470,15 +550,60 @@ export default function ConsultationsPage() {
                     <Card>
                       <CardContent className="space-y-4 p-6">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-bold text-foreground">Prescriptions</h3>
-                          <Link href="/prescriptions">
-                            <Button size="sm"><Plus className="h-3.5 w-3.5" aria-hidden /> Add Medication</Button>
-                          </Link>
+                          <h3 className="font-bold text-foreground">Medications</h3>
+                          {selected.encounterId && (
+                            <Button size="sm" onClick={() => { setAddMedOpen(true); setSafetyFlags([]); setPendingAck(false); setDrugDraft({ name: '', dose: '', quantity: '', durationDays: '' }); }}>
+                              <Plus className="h-3.5 w-3.5" aria-hidden /> Add Medication
+                            </Button>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 rounded-xl bg-primary/5 p-4 text-sm text-primary">
-                          <Pill className="h-4 w-4 shrink-0" aria-hidden />
-                          No medications prescribed yet for this encounter.
-                        </div>
+
+                        {!selected.encounterId && (
+                          <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft p-4 text-sm text-warning">
+                            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                            Save a SOAP draft first to enable prescriptions for this encounter.
+                          </div>
+                        )}
+
+                        {selected.encounterId && medLoading && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading medications…
+                          </div>
+                        )}
+
+                        {selected.encounterId && medError && (
+                          <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{medError}</p>
+                        )}
+
+                        {selected.encounterId && !medLoading && !medError && medOrders.length === 0 && (
+                          <div className="flex items-center gap-2 rounded-xl bg-primary/5 p-4 text-sm text-primary">
+                            <Pill className="h-4 w-4 shrink-0" aria-hidden />
+                            No medications prescribed yet for this encounter.
+                          </div>
+                        )}
+
+                        {medOrders.length > 0 && (
+                          <div className="divide-y divide-border rounded-xl border border-border">
+                            {medOrders.map(order => (
+                              <div key={order._id} className="px-4 py-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="space-y-0.5">
+                                    {order.details.drugs.map((d, i) => (
+                                      <p key={i} className="text-sm font-medium text-foreground">
+                                        {d.name}{d.dose ? ` — ${d.dose}` : ''}{d.quantity ? ` ×${d.quantity}` : ''}{d.durationDays ? ` (${d.durationDays}d)` : ''}
+                                      </p>
+                                    ))}
+                                  </div>
+                                  <Badge tone="success" className="shrink-0 text-[10px]">{order.status || 'ordered'}</Badge>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  {order.orderCode ? ` · ${order.orderCode}` : ''}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -505,6 +630,61 @@ export default function ConsultationsPage() {
           })()}
         </div>
       )}
+
+      <Dialog
+        open={addMedOpen}
+        onClose={() => { setAddMedOpen(false); setSafetyFlags([]); setPendingAck(false); }}
+        title="Add Medication"
+        description="This prescription will be sent to pharmacy as a clinical order."
+        size="sm"
+        footer={
+          pendingAck ? (
+            <>
+              <Button variant="outline" onClick={() => { setAddMedOpen(false); setSafetyFlags([]); setPendingAck(false); }}>Cancel</Button>
+              <Button variant="danger" onClick={() => handleAddMed(true)} loading={medSubmitting}>Acknowledge &amp; Prescribe</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => { setAddMedOpen(false); setSafetyFlags([]); setPendingAck(false); }}>Cancel</Button>
+              <Button onClick={() => handleAddMed(false)} loading={medSubmitting} disabled={!drugDraft.name.trim()}>Add Medication</Button>
+            </>
+          )
+        }
+      >
+        <div className="space-y-4">
+          {safetyFlags.length > 0 && (
+            <div className="space-y-2">
+              {safetyFlags.map((f, i) => (
+                <div key={i} className={`flex items-start gap-2 rounded-lg p-3 text-sm ${f.severity === 'critical' ? 'border border-danger/30 bg-danger-soft text-danger' : f.severity === 'warning' ? 'border border-warning/30 bg-warning-soft text-warning' : 'border border-info/30 bg-info-soft text-info'}`}>
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <div>
+                    {f.drug && <p className="font-semibold">{f.drug}</p>}
+                    <p>{f.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div>
+            <Label htmlFor="med-name">Drug name <span aria-hidden>*</span></Label>
+            <Input id="med-name" value={drugDraft.name} onChange={e => setDrugDraft(d => ({ ...d, name: e.target.value }))} placeholder="e.g. Amoxicillin" />
+          </div>
+          <div>
+            <Label htmlFor="med-dose">Dose</Label>
+            <Input id="med-dose" value={drugDraft.dose} onChange={e => setDrugDraft(d => ({ ...d, dose: e.target.value }))} placeholder="e.g. 500 mg TID" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="med-qty">Quantity</Label>
+              <Input id="med-qty" type="number" min="1" value={drugDraft.quantity} onChange={e => setDrugDraft(d => ({ ...d, quantity: e.target.value }))} placeholder="e.g. 21" />
+            </div>
+            <div>
+              <Label htmlFor="med-dur">Duration (days)</Label>
+              <Input id="med-dur" type="number" min="1" value={drugDraft.durationDays} onChange={e => setDrugDraft(d => ({ ...d, durationDays: e.target.value }))} placeholder="e.g. 7" />
+            </div>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={aiAssistOpen}
