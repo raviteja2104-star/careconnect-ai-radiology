@@ -100,8 +100,8 @@ export default function EnterpriseOperationsPage() {
   const staticAdoption = enterpriseOperationsService.getCustomerAdoptionMetrics();
 
   // Ticket Form State
-  const [newHosp, setNewHosp] = useState('Apollo Super Specialty Hospital Main');
-  const [newTitle, setNewTitle] = useState('PACS DICOM Gateway WADO-RS connection latency check');
+  const [newHosp, setNewHosp] = useState('');
+  const [newTitle, setNewTitle] = useState('');
   const [newSev, setNewSev] = useState<'MINOR' | 'MAJOR' | 'CRITICAL'>('MINOR');
 
   const createTicketMutation = useMutation({

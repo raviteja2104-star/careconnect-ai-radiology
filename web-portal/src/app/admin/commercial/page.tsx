@@ -118,7 +118,7 @@ export default function EnterpriseCommercialPage() {
   const apiFinancials: ApiFinancials | null = financialsRes?.data ?? null;
 
   // Form State
-  const [newHosp, setNewHosp] = useState('Fortis Memorial Research Institute');
+  const [newHosp, setNewHosp] = useState('');
   const [newTier, setNewTier] = useState('HOSPITAL_CORE');
 
   const handleCreateTenant = (e: React.FormEvent) => {

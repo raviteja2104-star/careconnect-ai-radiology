@@ -82,7 +82,7 @@ export default function ProductionHardeningPage() {
   const [importRecords, setImportRecords] = useState(1420);
 
   // Interactive PHI Scanner State
-  const [rawText, setRawText] = useState('Patient Rajesh Rao (SSN: 901-28-4920, Phone: 9876543210, Email: rajesh@example.com) presented with acute dyspnea.');
+  const [rawText, setRawText] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [phiResult, setPhiResult] = useState<any>(null);
 
@@ -292,7 +292,7 @@ export default function ProductionHardeningPage() {
             <CardContent className="space-y-3">
               <div>
                 <Label htmlFor="phi-text">Clinical note text</Label>
-                <Textarea id="phi-text" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} />
+                <Textarea id="phi-text" rows={3} value={rawText} onChange={(e) => setRawText(e.target.value)} placeholder="Paste a clinical note or report to scan for PHI — names, IDs, contact details, dates of birth…" />
               </div>
               <Button onClick={handleScanPHI}>
                 <ScanSearch className="h-4 w-4" aria-hidden /> Scan & Redact PHI

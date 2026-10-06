@@ -64,7 +64,7 @@ export default function EnterpriseProgramPage() {
   const engMetrics = engMetricsRes?.data ?? null;
 
   // Interactive AI Assistant State
-  const [aiPrompt, setAiPrompt] = useState('Generate release notes for v1.1.0-hardened detailing OAuth 2.1, PHI scanner, & k6 load test results.');
+  const [aiPrompt, setAiPrompt] = useState('');
   const [aiOutput, setAiOutput] = useState<string>('');
   const [aiRunning, setAiRunning] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
