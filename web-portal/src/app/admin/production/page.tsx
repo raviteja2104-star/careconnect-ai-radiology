@@ -60,7 +60,8 @@ export default function ProductionHardeningPage() {
 
   const [session] = useState<AuthUserSession>(authService.getCurrentSession());
   const [policy] = useState(authService.getSecurityPolicy());
-  const [logs, setLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [auditError, setAuditError] = useState(false);
   const [testMetrics] = useState<QualityMetricsData>(testingSuiteService.getTestMetrics());
 
   const { data: complianceRes } = useQuery({ queryKey: ['admin-ops-production_compliance'], queryFn: () => fetch(`${API}/api/admin/ops/production_compliance`, { headers: authHeaders() }).then(r => r.json()), staleTime: 60_000 });
@@ -91,7 +92,7 @@ export default function ProductionHardeningPage() {
     let active = true;
     securityAuditService.getAuditLogs()
       .then((res) => { if (active) setLogs(res.data); })
-      .catch(() => { /* keep demo rows */ });
+      .catch(() => { setAuditError(true); });
     return () => { active = false; };
   }, []);
 
@@ -317,7 +318,10 @@ export default function ProductionHardeningPage() {
           </Card>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Immutable Security Audit Trail</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+              Immutable Security Audit Trail
+              {auditError && <Badge tone="warning">Load failed — check backend</Badge>}
+            </h3>
             <DataTable<AuditLogEntry>
               columns={auditColumns}
               data={logs}

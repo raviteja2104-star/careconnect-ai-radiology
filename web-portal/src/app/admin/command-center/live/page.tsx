@@ -19,15 +19,20 @@ export default function LiveOperationsWall() {
 
   const [eventStream, setEventStream] = useState<{ id: number; type: string; data: unknown; time: Date }[]>([]);
 
+  function authHeaders(): Record<string, string> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   // Fetch initial state
-  const { data: liveData } = useQuery({
+  const { data: liveData, isError: liveError } = useQuery({
     queryKey: ['command_live_stats'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/command/live`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/command/live`, { headers: authHeaders() }).then(res => res.json())
   });
 
-  const { data: flowData } = useQuery({
+  const { data: flowData, isError: flowError } = useQuery({
     queryKey: ['command_patient_flow'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/command/patient-flow`).then(res => res.json())
+    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/command/patient-flow`, { headers: authHeaders() }).then(res => res.json())
   });
 
   useEffect(() => {

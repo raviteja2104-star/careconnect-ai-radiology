@@ -75,6 +75,7 @@ export default function DeveloperPlatformPage() {
     staleTime: 30_000,
   });
   const apps: MarketplaceAppListing[] = (appsRes?.data ?? developerPlatformService.getMarketplaceApps()) as MarketplaceAppListing[];
+  const isUsingDemoApps = !appsRes?.data;
 
   const { data: sdksRes } = useQuery({
     queryKey: ['admin-ops-developer_sdk'],
@@ -273,7 +274,10 @@ export default function DeveloperPlatformPage() {
         {/* TAB 1: APP MARKETPLACE */}
         <TabsContent value="MARKETPLACE" className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">App & Extension Marketplace</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              App & Extension Marketplace
+              {isUsingDemoApps && <Badge tone="warning" dot>Demo data — backend offline</Badge>}
+            </h2>
             <p className="text-sm text-muted-foreground">Discover & 1-click install certified clinical packs, AI agents & health integrations.</p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

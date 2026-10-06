@@ -20,8 +20,7 @@ const SUGGESTIONS = [
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
 
-export default function aiassistantPage() {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+export default function AiAssistantPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 1,

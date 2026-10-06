@@ -149,11 +149,10 @@ export default function DoctorQueueWorkspace() {
     }
   });
 
-  const tokens = queueData?.data || [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const waitingTokens = tokens.filter((t: any) => t.status === 'WAITING');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeToken = tokens.find((t: any) => t.status === 'CALLED' || t.status === 'IN_PROGRESS');
+  type QueueToken = { _id: string; status: string; patientName?: string; patient?: string; calledAt?: string; updatedAt?: string; tokenNumber?: string; room?: string };
+  const tokens: QueueToken[] = queueData?.data || [];
+  const waitingTokens = tokens.filter(t => t.status === 'WAITING');
+  const activeToken = tokens.find(t => t.status === 'CALLED' || t.status === 'IN_PROGRESS');
 
   // Elapsed timer for the active consultation.
   // Uses calledAt/updatedAt from the token when available; falls back to client-side tracking.
@@ -237,7 +236,7 @@ export default function DoctorQueueWorkspace() {
               <Card className="rounded-3xl p-8">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <Avatar name={activeToken.patientName} size="lg" status="online" />
+                    <Avatar name={activeToken.patientName ?? ''} size="lg" status="online" />
                     <div>
                       <Badge tone="success" dot pulse className="mb-2">In Consultation</Badge>
                       <h3 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{activeToken.patientName}</h3>

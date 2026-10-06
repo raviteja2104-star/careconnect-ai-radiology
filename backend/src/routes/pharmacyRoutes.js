@@ -114,8 +114,8 @@ router.put(
 );
 
 // ── GET /stock-alerts ─────────────────────────────────────────────────────────
-router.get('/stock-alerts', permit('STAFF.PHARMACY'), async (req, res, next) => {
-    try { res.json({ success: true, data: [] }); } catch (err) { next(err); }
+router.get('/stock-alerts', permit('STAFF.PHARMACY'), (req, res) => {
+    res.status(501).json({ success: false, message: 'Stock alerts not yet implemented' });
 });
 
 // ── GET /prescriptions ────────────────────────────────────────────────────────

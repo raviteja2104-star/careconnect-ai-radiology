@@ -20,24 +20,24 @@ exports.getCommandCenter = async (req, res) => {
           waitingPatientsAvgMins: null,
           revenueTodayINR: null,
           outstandingInvoicesCount: null,
-          icuOccupancyPct: 82,
-          ipdOccupiedBeds: 34,
-          otUtilisationPct: 73,
-          availableBeds: 18,
-          labTurnaroundAvgMins: 38,
-          radiologyTurnaroundAvgMins: 52,
-          pharmacyStockHealthPct: 94,
-          pendingInsuranceClaimsINR: 4200000,
-          codeBlueCount: 0,
-          sepsisRiskAlerts: 3,
-          strokeAlerts: 1,
-          highNews2Count: 7,
-          criticalLabValues: 12,
-          aiConsultationsCount: 147,
-          acceptedRecommendationsPct: 84,
-          overrideCount: 23,
-          translationDispatches: 31,
-          apiLatencyMs: 186,
+          icuOccupancyPct: null,
+          ipdOccupiedBeds: null,
+          otUtilisationPct: null,
+          availableBeds: null,
+          labTurnaroundAvgMins: null,
+          radiologyTurnaroundAvgMins: null,
+          pharmacyStockHealthPct: null,
+          pendingInsuranceClaimsINR: null,
+          codeBlueCount: null,
+          sepsisRiskAlerts: null,
+          strokeAlerts: null,
+          highNews2Count: null,
+          criticalLabValues: null,
+          aiConsultationsCount: null,
+          acceptedRecommendationsPct: null,
+          overrideCount: null,
+          translationDispatches: null,
+          apiLatencyMs: null,
         },
       });
     }
@@ -85,26 +85,27 @@ exports.getCommandCenter = async (req, res) => {
         revenueTodayINR: revenueAgg[0]?.total ?? 0,
         outstandingInvoicesCount: outstandingInvoices,
 
-        // Demo seed values — real-time sources (bed mgmt, OT, lab, pharmacy, AI gateway)
-        // not yet wired; seeds give the dashboard a representative live look until they are.
-        icuOccupancyPct: 82,
-        ipdOccupiedBeds: 34,
-        otUtilisationPct: 73,
-        availableBeds: 18,
-        labTurnaroundAvgMins: 38,
-        radiologyTurnaroundAvgMins: 52,
-        pharmacyStockHealthPct: 94,
-        pendingInsuranceClaimsINR: 4200000,
-        codeBlueCount: 0,
-        sepsisRiskAlerts: 3,
-        strokeAlerts: 1,
-        highNews2Count: 7,
-        criticalLabValues: 12,
-        aiConsultationsCount: 147,
-        acceptedRecommendationsPct: 84,
-        overrideCount: 23,
-        translationDispatches: 31,
-        apiLatencyMs: 186,
+        // Operational metrics not yet wired to real-time sources — null so the
+        // dashboard shows "—" rather than fabricated clinical figures.
+        _partial: true,
+        icuOccupancyPct: null,
+        ipdOccupiedBeds: null,
+        otUtilisationPct: null,
+        availableBeds: null,
+        labTurnaroundAvgMins: null,
+        radiologyTurnaroundAvgMins: null,
+        pharmacyStockHealthPct: null,
+        pendingInsuranceClaimsINR: null,
+        codeBlueCount: null,
+        sepsisRiskAlerts: null,
+        strokeAlerts: null,
+        highNews2Count: null,
+        criticalLabValues: null,
+        aiConsultationsCount: null,
+        acceptedRecommendationsPct: null,
+        overrideCount: null,
+        translationDispatches: null,
+        apiLatencyMs: null,
       },
     });
   } catch (err) {
@@ -291,16 +292,14 @@ exports.getOrganizations = async (req, res) => {
     roles.forEach((role, i) => { roleBreakdown[role] = counts[i]; });
     const total = counts.reduce((sum, c) => sum + c, 0);
 
-    const data = [
-      {
-        name: 'CareConnect Platform',
-        region: 'APAC',
-        plan: 'Enterprise',
-        users: total,
-        status: 'Active',
-        roleBreakdown,
-      },
-    ];
+    const Tenant = require('../models/Tenant');
+    let tenantMeta = {};
+    try {
+      const t = await Tenant.findOne().lean();
+      if (t) tenantMeta = { _id: t._id, name: t.name, region: t.region, plan: t.plan };
+    } catch { /* Tenant model unavailable; omit metadata */ }
+
+    const data = [{ ...tenantMeta, users: total, status: 'Active', roleBreakdown }];
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

@@ -21,15 +21,15 @@ function authHeaders(): Record<string, string> {
 }
 
 export default function ProductionDashboard() {
-  const { data: healthRes } = useQuery({
+  const { data: healthRes, isError: healthError } = useQuery({
     queryKey: ['system_health'],
     queryFn: () => fetch(`${API}/api/system/health`).then(res => res.json()),
     refetchInterval: 5000
   });
 
-  const { data: perfRes } = useQuery({
+  const { data: perfRes, isError: perfError } = useQuery({
     queryKey: ['system_performance'],
-    queryFn: () => fetch(`${API}/api/system/performance`).then(res => res.json()),
+    queryFn: () => fetch(`${API}/api/system/performance`, { headers: authHeaders() }).then(res => res.json()),
     refetchInterval: 5000
   });
 

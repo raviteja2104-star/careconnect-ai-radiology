@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const ConsentDocument = require('../models/ConsentDocument');
 const User = require('../models/User');
 const EventPublisher = require('../services/EventPublisher');
@@ -76,8 +77,9 @@ exports.signConsent = async (req, res) => {
     });
 
     consent.status = 'SIGNED';
-    // Mock hash generation
-    consent.documentHash = 'sha256-' + Date.now().toString();
+    consent.documentHash = 'sha256-' + crypto.createHash('sha256')
+      .update(JSON.stringify({ title: consent.title, content: consent.content, patient: String(consent.patient), signedAt: consent.signatures[consent.signatures.length - 1].signedAt }))
+      .digest('hex');
     await consent.save();
 
     if (req.app.get('io')) {

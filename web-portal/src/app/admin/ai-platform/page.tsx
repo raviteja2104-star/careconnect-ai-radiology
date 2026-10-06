@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles, Bot, ShieldCheck, Cpu, Mic, FileText,
-  UserCheck, BookOpen, Database, FileSearch, Lock, Fingerprint, Gauge, Construction,
+  UserCheck, BookOpen, Database, FileSearch, Lock, Fingerprint, Gauge,
   Activity, Clock, CheckCircle2, AlertCircle, Server, ThumbsUp, ThumbsDown, Filter,
 } from 'lucide-react';
 import {
@@ -124,9 +124,7 @@ export default function EnterpriseAIPlatformPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('AGENTS');
 
   // Scribe tab — calls real backend endpoint: POST /api/admin/ai-scribe
-  const [dictationText, setDictationText] = useState(
-    'Patient is a 54yo male complaining of shortness of breath and fever for 2 days. History of hypertension. BP 138/86, HR 80. Chest reveals mild rhonchi.'
-  );
+  const [dictationText, setDictationText] = useState('');
   const [scribeOutput, setScribeOutput] = useState<ScribeOutput | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [scribeError, setScribeError] = useState<string | null>(null);

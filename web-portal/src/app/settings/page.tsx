@@ -67,13 +67,13 @@ export default function SettingsPage() {
 
   // Form states
   const [hospitalInfo, setHospitalInfo] = useState({
-    name: 'CareConnect Super Specialty Hospital',
-    tagline: 'Center for Advanced Cardiovascular & Medical Sciences',
-    regNo: 'NABH Accr. Reg No: HMC-2024-8849',
-    phone: '+91 (080) 4567-8900 / Emergency: 108',
-    email: 'contact@careconnect.health',
-    address: 'Plot 42, Health City, Electronic City Ph-1, Bangalore - 560100',
-    taxId: '29ABCDE1234F1Z5'
+    name: '',
+    tagline: '',
+    regNo: '',
+    phone: '',
+    email: '',
+    address: '',
+    taxId: ''
   });
 
   const [defaultRxLang, setDefaultRxLang] = useState('te');

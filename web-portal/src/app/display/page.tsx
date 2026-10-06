@@ -75,7 +75,7 @@ export default function PatientDisplayBoard() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">OPD Waiting Area</h1>
-            <p className="text-lg text-muted-foreground">CareConnect Main Hospital</p>
+            <p className="text-lg text-muted-foreground">{process.env.NEXT_PUBLIC_HOSPITAL_NAME ?? ''}</p>
           </div>
         </div>
         <div className="text-right">

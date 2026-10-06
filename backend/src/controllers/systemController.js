@@ -33,7 +33,11 @@ exports.getHealth = async (req, res) => {
 exports.getPerformance = async (req, res) => {
   try {
     const memoryUsage = process.memoryUsage();
-    
+    const eventLoopMs = await new Promise(resolve => {
+      const start = process.hrtime.bigint();
+      setImmediate(() => resolve(Number(process.hrtime.bigint() - start) / 1e6));
+    });
+
     res.json({
       success: true,
       data: {
@@ -52,7 +56,7 @@ exports.getPerformance = async (req, res) => {
           activeConnections: req.app.get('io') ? req.app.get('io').engine.clientsCount : 0
         },
         eventLoop: {
-          latency: '2.4ms' // Mocked telemetry
+          latency: `${eventLoopMs.toFixed(1)}ms`
         }
       }
     });

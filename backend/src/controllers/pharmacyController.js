@@ -102,20 +102,4 @@ const updateOrderStatus = async (req, res, next) => {
     }
 };
 
-// Mock endpoints for now
-const getStockAlerts = async (req, res, next) => {
-    res.json({ success: true, data: [
-        { _id: 'stk-1', medicine: 'Amoxicillin 500mg', stock: 12, threshold: 50, urgency: 'critical' },
-        { _id: 'stk-2', medicine: 'Pantoprazole 40mg', stock: 28, threshold: 40, urgency: 'warning' },
-        { _id: 'stk-3', medicine: 'Insulin Glargine', stock: 5, threshold: 20, urgency: 'critical' },
-    ] });
-};
-
-const getPrescriptions = async (req, res, next) => {
-    res.json({ success: true, data: [
-        { _id: 'rx-1', doctor: 'Dr. Ravi Teja', patient: 'Ravi Teja', items: 3, status: 'converted' },
-        { _id: 'rx-2', doctor: 'Dr. Ravi Teja', patient: 'Kabir Das', items: 2, status: 'pending' },
-    ] });
-};
-
-module.exports = { getOrders, createOrder, updateOrderStatus, getStockAlerts, getPrescriptions };
+module.exports = { getOrders, createOrder, updateOrderStatus };

@@ -178,6 +178,7 @@ export default function ObservabilityDashboard() {
   const [activeTrace, setActiveTrace] = useState<string>('');
   const [traces, setTraces] = useState<TraceShape[]>([]);
   const [tracesLoading, setTracesLoading] = useState(true);
+  const [tracesError, setTracesError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +198,7 @@ export default function ObservabilityDashboard() {
           setActiveTrace(list[0].id);
         }
       })
-      .catch(() => { clearTimeout(timer); })
+      .catch(() => { clearTimeout(timer); setTracesError(true); })
       .finally(() => { if (!cancelled) setTracesLoading(false); });
     return () => { cancelled = true; controller.abort(); };
   }, []);

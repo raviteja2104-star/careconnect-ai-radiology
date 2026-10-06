@@ -36,7 +36,7 @@ export const DEMO_USER_SESSION: AuthUserSession = {
   permissions: ['read:all', 'write:all', 'manage:workflow', 'manage:masterdata', 'manage:ai', 'manage:developer', 'manage:data'],
   workspaces: ['ADMINISTRATION', 'HOSPITAL_STAFF', 'DOCTOR', 'RADIOLOGY', 'PATIENT'],
   mfaVerified: true,
-  accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_production_jwt_token',
+  accessToken: 'DEMO_TOKEN_SUPER_ADMIN',
   tokenExpiresAt: '2027-12-31T23:59:59Z'
 };
 
@@ -58,7 +58,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
     permissions: ['read:clinical', 'write:clinical', 'sign:notes', 'order:all'],
     workspaces: ['DOCTOR'],
     mfaVerified: true,
-    accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_demo_physician',
+    accessToken: 'DEMO_TOKEN_PHYSICIAN',
     tokenExpiresAt: '2026-12-31T23:59:59Z',
   },
   RADIOLOGIST: {
@@ -71,7 +71,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
     permissions: ['read:imaging', 'write:reports', 'sign:reports'],
     workspaces: ['RADIOLOGY'],
     mfaVerified: true,
-    accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_demo_radiologist',
+    accessToken: 'DEMO_TOKEN_RADIOLOGIST',
     tokenExpiresAt: '2026-12-31T23:59:59Z',
   },
   PATIENT: {
@@ -84,7 +84,7 @@ export const PERSONAS: Record<string, AuthUserSession> = {
     permissions: ['read:self', 'book:appointments'],
     workspaces: ['PATIENT'],
     mfaVerified: true,
-    accessToken: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.careconnect_demo_patient',
+    accessToken: 'DEMO_TOKEN_PATIENT',
     tokenExpiresAt: '2026-12-31T23:59:59Z',
   },
 };

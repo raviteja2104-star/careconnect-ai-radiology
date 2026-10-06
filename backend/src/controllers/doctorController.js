@@ -15,15 +15,15 @@ const MOCK_STATS = {
 };
 
 const MOCK_PATIENTS = [
-    { _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja', email: 'ravi@careconnect.com', dateOfBirth: '1995-06-15', gender: 'male', bloodGroup: 'O+', allergies: ['Penicillin'], phone: '+91-9876543001' },
-    { _id: 'demo-patient-2', firstName: 'Priya', lastName: 'Sharma', email: 'priya@careconnect.com', dateOfBirth: '1990-03-22', gender: 'female', bloodGroup: 'A+', allergies: [], phone: '+91-9876543002' },
-    { _id: 'demo-patient-3', firstName: 'Amit', lastName: 'Kumar', email: 'amit@example.com', dateOfBirth: '1982-11-08', gender: 'male', bloodGroup: 'B+', allergies: [], phone: '+91-9876543003' },
+    { _id: 'demo-patient-1', firstName: 'Patient', lastName: 'A', email: 'patient.a@example.com', dateOfBirth: '1990-01-01', gender: 'male', bloodGroup: 'O+', allergies: ['Penicillin'], phone: '+91-9000000001' },
+    { _id: 'demo-patient-2', firstName: 'Patient', lastName: 'B', email: 'patient.b@example.com', dateOfBirth: '1990-01-01', gender: 'female', bloodGroup: 'A+', allergies: [], phone: '+91-9000000002' },
+    { _id: 'demo-patient-3', firstName: 'Patient', lastName: 'C', email: 'patient.c@example.com', dateOfBirth: '1990-01-01', gender: 'male', bloodGroup: 'B+', allergies: [], phone: '+91-9000000003' },
 ];
 
 const MOCK_CONSULTATIONS = [
-    { _id: 'cons-1', patientId: { _id: 'demo-patient-1', firstName: 'Ravi', lastName: 'Teja' }, type: 'chat', status: 'pending', symptoms: ['Headache', 'Fever'], createdAt: new Date(Date.now() - 3600000).toISOString() },
-    { _id: 'cons-2', patientId: { _id: 'demo-patient-2', firstName: 'Priya', lastName: 'Sharma' }, type: 'video', status: 'pending', symptoms: ['Back Pain', 'Dizziness'], createdAt: new Date(Date.now() - 7200000).toISOString() },
-    { _id: 'cons-3', patientId: { _id: 'demo-patient-3', firstName: 'Amit', lastName: 'Kumar' }, type: 'chat', status: 'active', symptoms: ['Chest Pain'], createdAt: new Date(Date.now() - 10800000).toISOString() },
+    { _id: 'cons-1', patientId: { _id: 'demo-patient-1', firstName: 'Patient', lastName: 'A' }, type: 'chat', status: 'pending', symptoms: ['Headache', 'Fever'], createdAt: new Date(Date.now() - 3600000).toISOString() },
+    { _id: 'cons-2', patientId: { _id: 'demo-patient-2', firstName: 'Patient', lastName: 'B' }, type: 'video', status: 'pending', symptoms: ['Back Pain', 'Dizziness'], createdAt: new Date(Date.now() - 7200000).toISOString() },
+    { _id: 'cons-3', patientId: { _id: 'demo-patient-3', firstName: 'Patient', lastName: 'C' }, type: 'chat', status: 'active', symptoms: ['Chest Pain'], createdAt: new Date(Date.now() - 10800000).toISOString() },
 ];
 
 // ─── Get Doctor Stats ─────────────────────────────────────────────────────────

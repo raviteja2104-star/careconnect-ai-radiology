@@ -22,16 +22,19 @@ type WeeklySchedule = Record<string, Shift[]>;
 type SelectedShift = { day: string; index: number; shift: Shift } | null;
 export const WeeklyPlanner = ({ doctorId }: { doctorId: string | null }) => {
   const queryClient = useQueryClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [localSchedule, setLocalSchedule] = useState<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [selectedShift, setSelectedShift] = useState<any>(null); // For the Side Drawer
+  const [localSchedule, setLocalSchedule] = useState<WeeklySchedule | null>(null);
+  const [selectedShift, setSelectedShift] = useState<SelectedShift>(null);
 
   // 1. Fetch Schedule from Backend
   const { data: scheduleData, isLoading } = useQuery({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     queryKey: ['schedule', doctorId],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/schedules/${doctorId}`).then(res => res.json()),
+    queryFn: () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/schedules/${doctorId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then(res => res.json());
+    },
     enabled: !!doctorId
   });
 
@@ -45,16 +48,16 @@ export const WeeklyPlanner = ({ doctorId }: { doctorId: string | null }) => {
 
   // 2. Mutation to Save Schedule
   const saveMutation = useMutation({
-    mutationFn: (newSchedule) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/schedules`, {
+    mutationFn: (newSchedule: WeeklySchedule) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/schedules`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          doctor: doctorId,
-          hospital: 'CareConnect Main Hospital',
-          weeklySchedule: newSchedule
-        })
-      }).then(res => res.json()),
+        headers,
+        body: JSON.stringify({ doctor: doctorId, weeklySchedule: newSchedule })
+      }).then(res => res.json());
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', doctorId] });
       // Show success toast here in production
@@ -130,7 +133,7 @@ export const WeeklyPlanner = ({ doctorId }: { doctorId: string | null }) => {
   };
 
   const saveToDatabase = () => {
-    saveMutation.mutate(localSchedule);
+    if (localSchedule) saveMutation.mutate(localSchedule);
   };
 
   const activeShift = selectedShift ? localSchedule[selectedShift.day]?.[selectedShift.index] : null;
