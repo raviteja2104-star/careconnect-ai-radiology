@@ -41,6 +41,7 @@ interface User { _id?: string; name: string; email: string; role: string; org?: 
 interface ComplianceControl { id: string; category: string; control: string; status: 'COMPLIANT' | 'AT_RISK' | 'NON_COMPLIANT' | 'PENDING'; lastAudit?: string; owner?: string; }
 interface Integration { id: string; name: string; type: string; status: 'CONNECTED' | 'DISCONNECTED' | 'ERROR'; lastSync?: string; endpoint?: string; }
 interface PlatformSetting { key: string; label: string; description: string; value: string | boolean; type: 'toggle' | 'text'; }
+interface PendingApproval { _id: string; firstName?: string; lastName?: string; email: string; role?: string; createdAt?: string; authProviders?: string[]; }
 
 const ROLES: { title: string; type: string; users: string | number; desc: string }[] = [
   { title: 'System Administrator', type: 'Global', users: '—', desc: 'Full access to all platform settings, infrastructure, and all tenant organizations.' },
@@ -54,6 +55,7 @@ const TAB_ITEMS = [
   { value: 'Dashboard', label: 'Dashboard' },
   { value: 'Organizations', label: 'Organizations' },
   { value: 'Users', label: 'Users & Teams' },
+  { value: 'Approvals', label: 'Pending Approvals' },
   { value: 'RBAC', label: 'RBAC & Roles' },
   { value: 'Audit', label: 'Audit Logs' },
   { value: 'Compliance', label: 'Compliance' },
@@ -243,6 +245,32 @@ export default function AdminDashboard() {
     }
   };
 
+  // Pending Approvals
+  const [approvalActionId, setApprovalActionId] = useState<string | null>(null);
+  const [approvalError, setApprovalError] = useState('');
+
+  const handleApprovalAction = async (id: string, action: 'approve' | 'reject') => {
+    setApprovalActionId(id);
+    setApprovalError('');
+    try {
+      const res = await fetch(`${API}/api/admin/users/${encodeURIComponent(id)}/${action}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        setApprovalError(json.message || `Failed to ${action} user.`);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin_pending_approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+    } catch {
+      setApprovalError('Cannot reach the server. Check your connection.');
+    } finally {
+      setApprovalActionId(null);
+    }
+  };
+
   const handleToggleSetting = async (key: string, value: boolean) => {
     try {
       await fetch(`${API}/api/admin/platform-settings/${encodeURIComponent(key)}`, {
@@ -287,6 +315,13 @@ export default function AdminDashboard() {
     staleTime: 30000,
   });
 
+  const { data: approvalsRes } = useQuery({
+    queryKey: ['admin_pending_approvals'],
+    queryFn: () => fetch(`${API}/api/admin/pending-approvals`, { headers: authHeaders() }).then(r => r.json()),
+    enabled: activeTab === 'Approvals',
+    staleTime: 30000,
+  });
+
   const { data: complianceRes } = useQuery({
     queryKey: ['admin_compliance'],
     queryFn: () => fetch(`${API}/api/admin/compliance`, { headers: authHeaders() }).then(r => r.json()),
@@ -309,6 +344,7 @@ export default function AdminDashboard() {
   const orgItems: Org[] = orgsRes?.data ?? [];
   const auditItems: { time: string; user: string; action: string; resource: string; ip: string }[] = auditRes?.data ?? [];
   const userItems: User[] = usersRes?.data ?? [];
+  const pendingApprovals: PendingApproval[] = approvalsRes?.data ?? [];
   const complianceItems: ComplianceControl[] = complianceRes?.data ?? [];
   const integrationItems: Integration[] = integrationsRes?.data ?? [];
   const platformSettingItems: PlatformSetting[] = settingsRes?.data ?? [];
@@ -354,6 +390,33 @@ export default function AdminDashboard() {
     {
       key: 'lastLogin', header: 'Last Login',
       cell: (row) => <span className="font-mono text-xs text-muted-foreground">{row.lastLogin ?? '—'}</span>,
+    },
+  ];
+
+  const approvalColumns: Column<PendingApproval>[] = [
+    {
+      key: 'firstName', header: 'User', sortable: true,
+      cell: (row) => (
+        <div className="min-w-0">
+          <p className="font-semibold text-foreground">
+            {[row.firstName, row.lastName].filter(Boolean).join(' ') || '—'}
+          </p>
+          <p className="text-xs text-muted-foreground">{row.email}</p>
+        </div>
+      ),
+    },
+    { key: 'role', header: 'Role', sortable: true, cell: (row) => <Badge tone="outline">{row.role ?? 'patient'}</Badge> },
+    {
+      key: 'authProviders', header: 'Sign-in Method',
+      cell: (row) => <Badge tone="info">{row.authProviders?.[0] ?? 'google'}</Badge>,
+    },
+    {
+      key: 'createdAt', header: 'Requested',
+      cell: (row) => (
+        <span className="font-mono text-xs text-muted-foreground">
+          {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—'}
+        </span>
+      ),
     },
   ];
 
@@ -655,6 +718,44 @@ export default function AdminDashboard() {
                   {row.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
                 </DropdownItem>
               </Dropdown>
+            )}
+          />
+        </TabsContent>
+
+        {/* ---------------- Pending Approvals ---------------- */}
+        <TabsContent value="Approvals" className="space-y-4">
+          {approvalError && (
+            <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{approvalError}</p>
+          )}
+          <DataTable<PendingApproval>
+            columns={approvalColumns}
+            data={pendingApprovals}
+            rowKey={(row) => row._id}
+            searchPlaceholder="Search pending users…"
+            exportName="pending-approvals"
+            emptyTitle="No pending approvals"
+            emptyDescription="Users who sign in via Google will appear here until approved."
+            rowActions={(row: PendingApproval) => (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-danger/40 text-danger hover:bg-danger-soft"
+                  loading={approvalActionId === row._id}
+                  disabled={approvalActionId !== null}
+                  onClick={() => handleApprovalAction(row._id, 'reject')}
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  loading={approvalActionId === row._id}
+                  disabled={approvalActionId !== null}
+                  onClick={() => handleApprovalAction(row._id, 'approve')}
+                >
+                  Approve
+                </Button>
+              </div>
             )}
           />
         </TabsContent>
