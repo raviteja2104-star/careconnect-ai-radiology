@@ -35,6 +35,9 @@ import LabCartScreen from '../screens/LabCartScreen';
 import LabCheckoutScreen from '../screens/LabCheckoutScreen';
 import DigitalPrescriptionScreen from '../screens/DigitalPrescriptionScreen';
 import PharmacyOrdersScreen from '../screens/PharmacyOrdersScreen';
+import ABHAScreen from '../screens/ABHAScreen';
+import AppointmentsScreen from '../screens/AppointmentsScreen';
+import BillingScreen from '../screens/BillingScreen';
 import { COLORS } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -50,19 +53,21 @@ const PatientTabs = () => (
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color }) => {
             const icons = {
                 Home: 'home',
-                Scanner: 'scan-circle',
-                Pharmacy: 'medical',
+                Appointments: 'calendar',
+                'Health ID': 'finger-print',
+                Lab: 'flask',
                 Profile: 'person',
             };
             return <Ionicons name={icons[route.name] || 'home'} size={22} color={color} />;
         },
     })}>
         <Tab.Screen name="Home" component={PatientHomeScreen} />
-        <Tab.Screen name="Scanner" component={SymptomCheckerScreen} />
-        <Tab.Screen name="Pharmacy" component={PharmacyScreen} />
+        <Tab.Screen name="Appointments" component={AppointmentsScreen} />
+        <Tab.Screen name="Health ID" component={ABHAScreen} />
+        <Tab.Screen name="Lab" component={LabHomeScreen} />
         <Tab.Screen name="Profile" component={HealthProfileScreen} />
     </Tab.Navigator>
 );
@@ -223,6 +228,11 @@ const AppNavigator = () => (
             <Stack.Screen name="Pharmacy" component={PharmacyScreen} />
             <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
             <Stack.Screen name="LabTechnician" component={LabTechnicianScreen} />
+
+            {/* New patient screens */}
+            <Stack.Screen name="ABHA" component={ABHAScreen} />
+            <Stack.Screen name="AppointmentsList" component={AppointmentsScreen} />
+            <Stack.Screen name="Billing" component={BillingScreen} />
 
             {/* Deep-link / detail screens */}
             <Stack.Screen name="ScanDetail" component={ScanViewerScreen} />

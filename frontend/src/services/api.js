@@ -114,4 +114,23 @@ export const emergencyAPI = {
     getHistory: () => api.get('/emergency/history'),
 };
 
+// ABHA / ABDM APIs
+export const abdmAPI = {
+    generateOtp: (data) => api.post('/abdm/generate-otp', data),
+    verifyOtp: (data) => api.post('/abdm/verify-otp', data),
+    getProfile: () => api.get('/abdm/profile'),
+    getConsents: () => api.get('/abdm/consents'),
+    approveConsent: (id) => api.post(`/abdm/consents/${id}/approve`),
+    denyConsent: (id) => api.post(`/abdm/consents/${id}/deny`),
+    revokeConsent: (id) => api.post(`/abdm/consents/${id}/revoke`),
+};
+
+// Appointments APIs
+export const appointmentsAPI = {
+    list: (scope) => api.get('/appointments', { params: { scope } }),
+    create: (data) => api.post('/appointments', data),
+    cancel: (id) => api.patch(`/appointments/${id}/cancel`),
+    reschedule: (id, data) => api.patch(`/appointments/${id}/reschedule`, data),
+};
+
 export default api;
