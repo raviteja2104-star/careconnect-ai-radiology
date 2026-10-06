@@ -21,7 +21,10 @@ function authHeaders(): Record<string, string> {
 }
 
 interface ApiTenant { _id: string; name: string; region: string; plan: string; currentUsers: number; status: string }
-interface ApiFinancials { totalRevenue: number; monthRevenue: number; pendingRevenue: number; invoiceCount: number }
+interface ApiFinancials {
+  totalRevenue: number; monthRevenue: number; pendingRevenue: number; invoiceCount: number;
+  ltvUsd?: number; cacUsd?: number; nrrPct?: number; grrPct?: number; churnRatePct?: number;
+}
 
 const TENANT_STATUS_TONE: Record<TenantAccountRecord['status'], 'success' | 'warning' | 'danger'> = {
   ACTIVE_PRODUCTION: 'success',
@@ -317,16 +320,16 @@ export default function EnterpriseCommercialPage() {
         />
         <StatCard
           label="CAC : LTV ratio"
-          value={`1 : ${(financials.ltvUsd / financials.cacUsd).toFixed(1)}`}
-          sub={`LTV $${financials.ltvUsd.toLocaleString()}`}
+          value={`1 : ${((apiFinancials?.ltvUsd ?? financials.ltvUsd) / (apiFinancials?.cacUsd ?? financials.cacUsd)).toFixed(1)}`}
+          sub={`LTV $${(apiFinancials?.ltvUsd ?? financials.ltvUsd).toLocaleString()}`}
           icon={TrendingUp}
           tone="violet"
           delay={0.1}
         />
         <StatCard
           label="Net Revenue Retention"
-          value={`${financials.nrrPct}%`}
-          sub={`GRR ${financials.grrPct}% · churn ${financials.churnRatePct}%`}
+          value={`${apiFinancials?.nrrPct ?? financials.nrrPct}%`}
+          sub={`GRR ${apiFinancials?.grrPct ?? financials.grrPct}% · churn ${apiFinancials?.churnRatePct ?? financials.churnRatePct}%`}
           icon={BarChart3}
           tone="teal"
           trend="up"
@@ -472,16 +475,16 @@ export default function EnterpriseCommercialPage() {
             />
             <StatCard
               label="CAC : LTV"
-              value={`1 : ${(financials.ltvUsd / financials.cacUsd).toFixed(1)}`}
-              sub={`CAC $${financials.cacUsd.toLocaleString()} · LTV $${financials.ltvUsd.toLocaleString()}`}
+              value={`1 : ${((apiFinancials?.ltvUsd ?? financials.ltvUsd) / (apiFinancials?.cacUsd ?? financials.cacUsd)).toFixed(1)}`}
+              sub={`CAC $${(apiFinancials?.cacUsd ?? financials.cacUsd).toLocaleString()} · LTV $${(apiFinancials?.ltvUsd ?? financials.ltvUsd).toLocaleString()}`}
               icon={TrendingUp}
               tone="violet"
               delay={0.1}
             />
             <StatCard
               label="NRR"
-              value={`${financials.nrrPct}%`}
-              sub={`GRR ${financials.grrPct}% · churn ${financials.churnRatePct}%`}
+              value={`${apiFinancials?.nrrPct ?? financials.nrrPct}%`}
+              sub={`GRR ${apiFinancials?.grrPct ?? financials.grrPct}% · churn ${apiFinancials?.churnRatePct ?? financials.churnRatePct}%`}
               icon={BarChart3}
               tone="teal"
               delay={0.15}
@@ -519,7 +522,7 @@ export default function EnterpriseCommercialPage() {
                   { label: 'Active multi-hospital tenants', value: String(apiTenants ? apiTenants.length : tenants.length), icon: Building2 },
                   { label: 'Active certified partners', value: String(partners.length), icon: Award },
                   { label: 'Annualized SaaS run rate', value: apiFinancials ? `$${apiFinancials.totalRevenue.toLocaleString()}` : `$${(financials.arrUsd / 1000000).toFixed(2)}M ARR`, icon: Globe2 },
-                  { label: 'Gross churn rate', value: `${financials.churnRatePct}%`, icon: Bot },
+                  { label: 'Gross churn rate', value: `${apiFinancials?.churnRatePct ?? financials.churnRatePct}%`, icon: Bot },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl border border-border bg-muted/40 p-4">
                     <item.icon className="h-4 w-4 text-muted-foreground" aria-hidden />
