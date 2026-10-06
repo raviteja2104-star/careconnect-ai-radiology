@@ -208,6 +208,43 @@ router.post('/consents/:id/revoke', protect, permitAny('PATIENT.VIEW_MEDICAL_REC
     } catch (err) { next(err); }
 });
 
+// ── HIP: Register care contexts for a patient ─────────────────────────────────
+// Called after a clinical event (discharge, lab result) to link records in ABDM
+router.post('/care-contexts/register', protect, permitAny('CLINICAL.MANAGE_TREATMENT_PLAN', 'ADMIN.VIEW_USERS', 'DOCTOR.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
+    try {
+        const { patientAbha, careContexts } = req.body;
+        // careContexts = [{ referenceNumber, display, hiType }]
+        if (!Array.isArray(careContexts) || careContexts.length === 0) {
+            return res.status(400).json({ success: false, message: 'careContexts must be a non-empty array' });
+        }
+        if (!isLive()) {
+            return res.json({
+                success: true, demo: true,
+                message: `${careContexts.length} care context(s) registered (demo)`,
+                data: { patientAbha, registered: careContexts.length, careContexts },
+            });
+        }
+        const crypto = require('crypto');
+        const token = await getABDMToken();
+        const gatewayBase = process.env.ABDM_GATEWAY_URL || 'https://dev.abdm.gov.in/gateway';
+        const resp = await axios.post(`${gatewayBase}/v0.5/links/link/add-contexts`, {
+            requestId: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            link: {
+                accessToken: req.headers['x-abha-token'],
+                patient: {
+                    referenceNumber: patientAbha,
+                    careContexts: careContexts.map(c => ({
+                        referenceNumber: c.referenceNumber,
+                        display: c.display,
+                    })),
+                },
+            },
+        }, { headers: { Authorization: `Bearer ${token}`, 'X-CM-ID': 'sbx', 'Content-Type': 'application/json' } });
+        res.json({ success: true, data: resp.data });
+    } catch (err) { next(err); }
+});
+
 // ── Share health records via ABDM ─────────────────────────────────────────────
 router.post('/share', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS', 'DOCTOR.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
     try {

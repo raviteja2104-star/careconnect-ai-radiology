@@ -114,8 +114,32 @@ router.put(
 );
 
 // ── GET /stock-alerts ─────────────────────────────────────────────────────────
-router.get('/stock-alerts', permit('STAFF.PHARMACY'), (req, res) => {
-    res.status(501).json({ success: false, message: 'Stock alerts not yet implemented' });
+router.get('/stock-alerts', permit('STAFF.PHARMACY'), async (req, res, next) => {
+    try {
+        if (!isDB()) return res.status(503).json({ success: false, message: 'Database unavailable' });
+        const MedicineInventory = require('../models/MedicineInventory');
+        const alerts = await MedicineInventory.find({
+            isActive: true,
+            $expr: { $lte: ['$stockQty', '$reorderLevel'] },
+        }).sort({ stockQty: 1 }).lean();
+
+        const classified = alerts.map(item => {
+            let severity;
+            if (item.stockQty === 0) severity = 'critical';
+            else if (item.stockQty < item.reorderLevel * 0.25) severity = 'high';
+            else severity = 'medium';
+            return { ...item, severity };
+        });
+
+        const summary = {
+            total: classified.length,
+            critical: classified.filter(a => a.severity === 'critical').length,
+            high: classified.filter(a => a.severity === 'high').length,
+            medium: classified.filter(a => a.severity === 'medium').length,
+        };
+
+        res.json({ success: true, data: classified, summary });
+    } catch (err) { next(err); }
 });
 
 // ── GET /prescriptions ────────────────────────────────────────────────────────

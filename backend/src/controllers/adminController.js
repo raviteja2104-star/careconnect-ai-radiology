@@ -46,21 +46,35 @@ exports.getCommandCenter = async (req, res) => {
     const Appointment = require('../models/Appointment');
     const QueueToken = require('../models/QueueToken');
     const Invoice = require('../models/Invoice');
+    const BedRecord = require('../models/BedRecord');
+    const MedicineInventory = require('../models/MedicineInventory');
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [userCount, todayAppts, waitingTokens, revenueAgg, outstandingInvoices] =
-      await Promise.all([
-        User.countDocuments({ isActive: true }),
-        Appointment.countDocuments({ date: { $gte: today } }),
-        QueueToken.find({ status: 'WAITING', createdAt: { $gte: today } }, { createdAt: 1 }).lean(),
-        Invoice.aggregate([
-          { $match: { issuedAt: { $gte: today }, status: { $in: ['PAID', 'PARTIALLY_PAID'] } } },
-          { $group: { _id: null, total: { $sum: '$amountPaid' } } },
-        ]).catch(() => []),
-        Invoice.countDocuments({ status: 'PENDING' }).catch(() => 0),
-      ]);
+    const [
+      userCount, todayAppts, waitingTokens, revenueAgg, outstandingInvoices,
+      totalIcuBeds, occupiedIcuBeds, totalOtBeds, occupiedOtBeds,
+      totalBeds, occupiedBeds,
+      totalMeds, healthyMeds,
+    ] = await Promise.all([
+      User.countDocuments({ isActive: true }),
+      Appointment.countDocuments({ date: { $gte: today } }),
+      QueueToken.find({ status: 'WAITING', createdAt: { $gte: today } }, { createdAt: 1 }).lean(),
+      Invoice.aggregate([
+        { $match: { issuedAt: { $gte: today }, status: { $in: ['PAID', 'PARTIALLY_PAID'] } } },
+        { $group: { _id: null, total: { $sum: '$amountPaid' } } },
+      ]).catch(() => []),
+      Invoice.countDocuments({ status: 'PENDING' }).catch(() => 0),
+      BedRecord.countDocuments({ bedType: 'ICU' }).catch(() => 0),
+      BedRecord.countDocuments({ bedType: 'ICU', status: 'Occupied' }).catch(() => 0),
+      BedRecord.countDocuments({ bedType: 'OT' }).catch(() => 0),
+      BedRecord.countDocuments({ bedType: 'OT', status: 'Occupied' }).catch(() => 0),
+      BedRecord.countDocuments({}).catch(() => 0),
+      BedRecord.countDocuments({ status: 'Occupied' }).catch(() => 0),
+      MedicineInventory.countDocuments({ isActive: true }).catch(() => 0),
+      MedicineInventory.countDocuments({ isActive: true, $expr: { $gt: ['$stockQty', '$reorderLevel'] } }).catch(() => 0),
+    ]);
 
     // Compute average waiting time in minutes from queue tokens created today
     let waitingPatientsAvgMins = null;
@@ -69,6 +83,10 @@ exports.getCommandCenter = async (req, res) => {
       const totalMs = waitingTokens.reduce((sum, t) => sum + (now - new Date(t.createdAt).getTime()), 0);
       waitingPatientsAvgMins = Math.round(totalMs / waitingTokens.length / 60000);
     }
+
+    const icuOccupancyPct = totalIcuBeds > 0 ? Math.round((occupiedIcuBeds / totalIcuBeds) * 100) : null;
+    const otUtilisationPct = totalOtBeds > 0 ? Math.round((occupiedOtBeds / totalOtBeds) * 100) : null;
+    const pharmacyStockHealthPct = totalMeds > 0 ? Math.round((healthyMeds / totalMeds) * 100) : null;
 
     res.json({
       success: true,
@@ -79,22 +97,24 @@ exports.getCommandCenter = async (req, res) => {
         uptime: process.uptime(),
         memUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
 
-        // Real operational metrics derived from existing data
         waitingPatientsCount: waitingTokens.length,
         waitingPatientsAvgMins,
         revenueTodayINR: revenueAgg[0]?.total ?? 0,
         outstandingInvoicesCount: outstandingInvoices,
 
-        // Operational metrics not yet wired to real-time sources — null so the
-        // dashboard shows "—" rather than fabricated clinical figures.
+        // Bed metrics — derived from BedRecord
+        icuOccupancyPct,
+        ipdOccupiedBeds: occupiedBeds,
+        otUtilisationPct,
+        availableBeds: totalBeds - occupiedBeds,
+
+        // Pharmacy — derived from MedicineInventory
+        pharmacyStockHealthPct,
+
+        // Clinical alerting not yet implemented — null; dashboard shows "—"
         _partial: true,
-        icuOccupancyPct: null,
-        ipdOccupiedBeds: null,
-        otUtilisationPct: null,
-        availableBeds: null,
         labTurnaroundAvgMins: null,
         radiologyTurnaroundAvgMins: null,
-        pharmacyStockHealthPct: null,
         pendingInsuranceClaimsINR: null,
         codeBlueCount: null,
         sepsisRiskAlerts: null,
