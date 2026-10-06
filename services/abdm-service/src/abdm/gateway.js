@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 
 class ABDMGateway {
   constructor() {
@@ -103,5 +104,4 @@ class ABDMGateway {
   }
 }
 
-const crypto = require('crypto'); // Built in node module for randomUUID
 module.exports = new ABDMGateway();

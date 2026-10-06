@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   QrCode, Users, IndianRupee, FileSignature,
   Video, CheckCircle2, AlertTriangle, Ticket, Wallet,
-  Clock, X, Loader2, ShieldCheck,
+  Clock, X, Loader2, ShieldCheck, Fingerprint, Phone, ArrowRight, ShieldAlert,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -70,6 +70,16 @@ export default function DigitalHealthWallet() {
   const [showQR, setShowQR] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
 
+  // ABHA enrollment OTP flow
+  type EnrollStep = 'idle' | 'method' | 'generating' | 'otp' | 'verifying' | 'done';
+  const [enrollStep, setEnrollStep] = useState<EnrollStep>('idle');
+  const [enrollMethod, setEnrollMethod] = useState<'aadhaar' | 'mobile'>('aadhaar');
+  const [enrollInput, setEnrollInput] = useState('');
+  const [enrollTxnId, setEnrollTxnId] = useState('');
+  const [enrollOtp, setEnrollOtp] = useState('');
+  const [enrollError, setEnrollError] = useState('');
+  const [enrolledAbha, setEnrolledAbha] = useState('');
+
   const { data: walletRes, refetch, isFetching } = useQuery({
     queryKey: ['patient_wallet', patientId],
     enabled: !!patientId,
@@ -119,6 +129,46 @@ export default function DigitalHealthWallet() {
     }
   }, [patientDisplayName, patientId, queryClient, refetch]);
 
+  const generateAbhaOtp = useCallback(async () => {
+    setEnrollStep('generating');
+    setEnrollError('');
+    try {
+      const res = await fetch(`${API}/api/abdm/generate-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ [enrollMethod]: enrollInput, method: enrollMethod }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? 'OTP request failed');
+      setEnrollTxnId(json.data.txnId);
+      setEnrollStep('otp');
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Failed to send OTP');
+      setEnrollStep('method');
+    }
+  }, [enrollMethod, enrollInput]);
+
+  const verifyAbhaOtp = useCallback(async () => {
+    setEnrollStep('verifying');
+    setEnrollError('');
+    try {
+      const res = await fetch(`${API}/api/abdm/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ txnId: enrollTxnId, otp: enrollOtp }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? 'OTP verification failed');
+      setEnrolledAbha(json.data.abhaAddress ?? json.data.abhaNumber ?? '');
+      setEnrollStep('done');
+      queryClient.invalidateQueries({ queryKey: ['patient_wallet', patientId] });
+      await refetch();
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'OTP incorrect or expired');
+      setEnrollStep('otp');
+    }
+  }, [enrollTxnId, enrollOtp, patientId, queryClient, refetch]);
+
   const abhaId = wallet.profile?.abhaId;
   const actionCount = wallet.pendingInvoices.length + wallet.pendingConsents.length;
 
@@ -162,13 +212,73 @@ export default function DigitalHealthWallet() {
                 <p className="text-xs font-bold uppercase tracking-widest opacity-80">ABHA Health ID</p>
                 {abhaId ? (
                   <h2 className="mt-1 text-xl font-extrabold tracking-[0.2em] tabular-nums sm:text-2xl">
-                    {abhaId}
+                    {enrollStep === 'done' ? enrolledAbha : abhaId}
                   </h2>
-                ) : (
-                  <p className="mt-1 text-sm font-semibold opacity-70 italic">
-                    Not enrolled — visit registration desk
-                  </p>
-                )}
+                ) : enrollStep === 'idle' ? (
+                  <button
+                    onClick={() => setEnrollStep('method')}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold backdrop-blur-sm hover:bg-white/30 transition-colors"
+                  >
+                    <Fingerprint className="h-3.5 w-3.5" aria-hidden /> Enroll ABHA <ArrowRight className="h-3 w-3" aria-hidden />
+                  </button>
+                ) : enrollStep === 'method' ? (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex gap-2">
+                      <button onClick={() => setEnrollMethod('aadhaar')} className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold transition-colors ${enrollMethod === 'aadhaar' ? 'bg-white/40' : 'bg-white/20 hover:bg-white/30'}`}>
+                        <Fingerprint className="h-3 w-3" aria-hidden /> Aadhaar
+                      </button>
+                      <button onClick={() => setEnrollMethod('mobile')} className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold transition-colors ${enrollMethod === 'mobile' ? 'bg-white/40' : 'bg-white/20 hover:bg-white/30'}`}>
+                        <Phone className="h-3 w-3" aria-hidden /> Mobile
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={enrollInput}
+                      onChange={e => setEnrollInput(e.target.value)}
+                      placeholder={enrollMethod === 'aadhaar' ? 'Aadhaar number' : 'Mobile number'}
+                      className="w-full rounded bg-white/20 px-2 py-1 text-xs placeholder-white/60 outline-none focus:bg-white/30"
+                    />
+                    {enrollError && <p className="text-xs text-red-200">{enrollError}</p>}
+                    <div className="flex gap-2">
+                      <button onClick={generateAbhaOtp} disabled={!enrollInput} className="rounded bg-white/30 px-2 py-1 text-xs font-semibold disabled:opacity-50 hover:bg-white/40">
+                        Send OTP
+                      </button>
+                      <button onClick={() => { setEnrollStep('idle'); setEnrollError(''); setEnrollInput(''); }} className="text-xs opacity-70 hover:opacity-100">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : enrollStep === 'generating' ? (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs opacity-80"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Sending OTP…</p>
+                ) : enrollStep === 'otp' ? (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs opacity-80">Enter the OTP sent to your {enrollMethod}</p>
+                    <input
+                      type="text"
+                      value={enrollOtp}
+                      onChange={e => setEnrollOtp(e.target.value)}
+                      maxLength={6}
+                      placeholder="6-digit OTP"
+                      className="w-32 rounded bg-white/20 px-2 py-1 text-xs placeholder-white/60 outline-none focus:bg-white/30 tabular-nums tracking-widest"
+                    />
+                    {enrollError && <p className="text-xs text-red-200">{enrollError}</p>}
+                    <div className="flex gap-2">
+                      <button onClick={verifyAbhaOtp} disabled={enrollOtp.length < 4} className="rounded bg-white/30 px-2 py-1 text-xs font-semibold disabled:opacity-50 hover:bg-white/40">
+                        Verify
+                      </button>
+                      <button onClick={() => { setEnrollStep('idle'); setEnrollError(''); setEnrollOtp(''); }} className="text-xs opacity-70 hover:opacity-100">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : enrollStep === 'verifying' ? (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs opacity-80"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Verifying…</p>
+                ) : enrollStep === 'done' ? (
+                  <div className="mt-1">
+                    <p className="flex items-center gap-1 text-xs text-green-200"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> ABHA created</p>
+                    <h2 className="mt-0.5 text-lg font-extrabold tracking-[0.2em] tabular-nums">{enrolledAbha}</h2>
+                  </div>
+                ) : null}
               </div>
               <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/30 bg-white/20 backdrop-blur-md">
                 {abhaId ? <QrCode className="h-6 w-6" aria-hidden /> : <Wallet className="h-6 w-6" aria-hidden />}
@@ -213,6 +323,23 @@ export default function DigitalHealthWallet() {
           delay={0.15}
         />
       </StatGrid>
+
+      {/* ABHA Consent Management link */}
+      <Link
+        href="/patient/consent"
+        className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 hover:bg-muted transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-soft">
+            <ShieldAlert className="h-4.5 w-4.5 text-brand" aria-hidden />
+          </span>
+          <div>
+            <p className="text-sm font-semibold">ABHA Data Consent</p>
+            <p className="text-xs text-muted-foreground">Manage health record sharing requests</p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+      </Link>
 
       {/* Sign error toast */}
       <AnimatePresence>

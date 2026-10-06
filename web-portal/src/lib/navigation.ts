@@ -46,6 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
             { name: 'Billing', path: '/billing', icon: CreditCard, keywords: 'invoice payments' },
             { name: 'Insurance', path: '/insurance', icon: ShieldCheck, keywords: 'claims policy' },
             { name: 'Health Wallet', path: '/patient/wallet', icon: Wallet, keywords: 'tokens cards' },
+            { name: 'ABHA Consent', path: '/patient/consent', icon: ShieldQuestion, keywords: 'abha abdm data sharing' },
             { name: 'Telemedicine', path: '/telemedicine', icon: Video, keywords: 'video consult virtual' },
             { name: 'AI Health Assistant', path: '/ai-assistant', icon: Bot, keywords: 'chat help' },
             { name: 'Family Members', path: '/family', icon: Users, keywords: 'profiles dependents' },

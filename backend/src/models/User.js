@@ -137,6 +137,8 @@ const userSchema = new mongoose.Schema(
         // Wallet
         credits: { type: Number, default: 0 },
         abhaId: { type: String, default: '' },
+        abhaNumber: { type: String, default: '' },
+        abhaAddress: { type: String, default: '' },
 
         // Multi-tenancy — optional, set on staff accounts
         organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', index: true },

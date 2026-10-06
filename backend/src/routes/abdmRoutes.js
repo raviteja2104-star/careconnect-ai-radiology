@@ -55,19 +55,24 @@ router.post('/generate-otp', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 
 router.post('/verify-otp', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS'), async (req, res, next) => {
     try {
         const { txnId, otp } = req.body;
+        const User = require('../models/User');
         if (!isLive()) {
-            const abhaId = `91-${Math.random().toString().slice(2,6)}-${Math.random().toString().slice(2,6)}-${Math.random().toString().slice(2,6)}`;
+            const num = `91-${Math.random().toString().slice(2,6)}-${Math.random().toString().slice(2,6)}-${Math.random().toString().slice(2,6)}`;
+            const addr = `${req.user.firstName.toLowerCase()}@abdm`;
+            await User.findByIdAndUpdate(req.user._id, { abhaNumber: num, abhaAddress: addr, abhaId: addr });
             return res.json({
                 success: true, demo: true,
                 message: 'ABHA ID created (demo)',
-                data: { abhaNumber: abhaId, abhaAddress: `${req.user.firstName.toLowerCase()}@abdm`, name: `${req.user.firstName} ${req.user.lastName}`, txnId },
+                data: { abhaNumber: num, abhaAddress: addr, name: `${req.user.firstName} ${req.user.lastName}`, txnId },
             });
         }
         const token = await getABDMToken();
         const resp = await axios.post(`${ABDM_BASE}/v2/registration/aadhaar/verifyOtp`, { txnId, otp }, { headers: { Authorization: `Bearer ${token}` } });
-        // Save ABHA to user profile
-        const User = require('../models/User');
-        await User.findByIdAndUpdate(req.user._id, { abhaNumber: resp.data.healthIdNumber, abhaAddress: resp.data.healthId });
+        await User.findByIdAndUpdate(req.user._id, {
+            abhaNumber: resp.data.healthIdNumber,
+            abhaAddress: resp.data.healthId,
+            abhaId: resp.data.healthId,
+        });
         res.json({ success: true, data: resp.data });
     } catch (err) { next(err); }
 });
@@ -123,6 +128,83 @@ router.post('/consent/request', protect, permitAny('CLINICAL.MANAGE_TREATMENT_PL
             permission: { dateRange: { from: dateFrom, to: dateTo }, dataEraseAt: new Date(Date.now() + 30 * 86400000).toISOString() },
         }, { headers: { Authorization: `Bearer ${token}` } });
         res.json({ success: true, data: resp.data });
+    } catch (err) { next(err); }
+});
+
+// ── Patient: list ABHA consent requests ───────────────────────────────────────
+router.get('/consents', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS', 'ADMIN.VIEW_USERS'), async (req, res, next) => {
+    try {
+        const ABHAConsentRequest = require('../models/ABHAConsentRequest');
+        const patientAbha = req.user.abhaAddress || req.user.abhaId || '';
+        const filter = patientAbha ? { patientAbha } : { patientId: req.user._id };
+        const requests = await ABHAConsentRequest.find(filter).sort({ createdAt: -1 }).lean();
+        if (!requests.length && !isLive()) {
+            return res.json({
+                success: true, demo: true,
+                data: [{
+                    _id: 'demo-cr-1',
+                    consentRequestId: 'cr_demo_001',
+                    requesterName: 'City Diagnostics Centre',
+                    purpose: 'CAREMGT',
+                    purposeText: 'Care Management',
+                    hiTypes: ['DiagnosticReport', 'ImagingStudy'],
+                    dateFrom: new Date(Date.now() - 90 * 86400000),
+                    dateTo: new Date(),
+                    status: 'REQUESTED',
+                    createdAt: new Date(Date.now() - 2 * 3600000),
+                }],
+            });
+        }
+        res.json({ success: true, data: requests });
+    } catch (err) { next(err); }
+});
+
+// ── Patient: approve an ABHA consent request ──────────────────────────────────
+router.post('/consents/:id/approve', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
+    try {
+        const ABHAConsentRequest = require('../models/ABHAConsentRequest');
+        const cr = await ABHAConsentRequest.findByIdAndUpdate(
+            req.params.id,
+            { status: 'GRANTED', grantedAt: new Date() },
+            { new: true }
+        );
+        if (!cr) return res.status(404).json({ success: false, message: 'Consent request not found' });
+        if (isLive()) {
+            const token = await getABDMToken();
+            await axios.post(`${ABDM_BASE}/v0.5/consent-requests/on-init`, {
+                consentRequestId: cr.consentRequestId,
+                status: 'GRANTED',
+            }, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+        }
+        res.json({ success: true, data: cr });
+    } catch (err) { next(err); }
+});
+
+// ── Patient: deny an ABHA consent request ────────────────────────────────────
+router.post('/consents/:id/deny', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
+    try {
+        const ABHAConsentRequest = require('../models/ABHAConsentRequest');
+        const cr = await ABHAConsentRequest.findByIdAndUpdate(
+            req.params.id,
+            { status: 'DENIED', deniedAt: new Date() },
+            { new: true }
+        );
+        if (!cr) return res.status(404).json({ success: false, message: 'Consent request not found' });
+        res.json({ success: true, data: cr });
+    } catch (err) { next(err); }
+});
+
+// ── Patient: revoke a granted ABHA consent ────────────────────────────────────
+router.post('/consents/:id/revoke', protect, permitAny('PATIENT.VIEW_MEDICAL_RECORDS'), async (req, res, next) => {
+    try {
+        const ABHAConsentRequest = require('../models/ABHAConsentRequest');
+        const cr = await ABHAConsentRequest.findOneAndUpdate(
+            { _id: req.params.id, status: 'GRANTED' },
+            { status: 'REVOKED', revokedAt: new Date() },
+            { new: true }
+        );
+        if (!cr) return res.status(404).json({ success: false, message: 'Consent not found or not in GRANTED state' });
+        res.json({ success: true, data: cr });
     } catch (err) { next(err); }
 });
 
