@@ -13,6 +13,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
     PageHeader, Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent,
     Avatar, StatCard, Timeline, TimelineItem, EmptyState, ErrorState, Dialog, Input,
+    Label, Textarea,
     Skeleton, SkeletonCard,
 } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
@@ -78,6 +79,14 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
     const [uploading, setUploading] = React.useState(false);
 
+    // New encounter dialog
+    const [newEncOpen, setNewEncOpen] = React.useState(false);
+    const [pendingPanel, setPendingPanel] = React.useState<'note' | 'medication' | 'lab' | 'radiology' | null>(null);
+    const [encType, setEncType] = React.useState('opd');
+    const [encSpecialty, setEncSpecialty] = React.useState('');
+    const [encChiefComplaint, setEncChiefComplaint] = React.useState('');
+    const [encSubmitting, setEncSubmitting] = React.useState(false);
+
     const demo = Boolean(q360.data?.demo);
     const data = q360.data?.data;
     const patient = data?.patient;
@@ -86,9 +95,17 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
 
     const isDemoPatient = patientId === DEMO_PATIENT_ID || patientId.startsWith('demo-');
 
-    /** Reuse the latest still-open encounter, else create one; degrade to the demo encounter offline. */
+    const closeNewEncDialog = () => {
+        setNewEncOpen(false);
+        setPendingPanel(null);
+        setEncType('opd');
+        setEncSpecialty('');
+        setEncChiefComplaint('');
+    };
+
+    /** Reuse the latest still-open encounter, else open the creation dialog; degrade to demo offline. */
     const openWorkspace = React.useCallback(
-        async (panel: 'note' | 'medication' | 'lab' | 'radiology', forceNew = false) => {
+        (panel: 'note' | 'medication' | 'lab' | 'radiology', forceNew = false) => {
             setStarting(panel);
             const suffix = panel === 'note' ? '' : `?panel=${panel}`;
 
@@ -100,38 +117,53 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                 return;
             }
 
-            try {
-                if (!forceNew) {
-                    const existing = (qEncounters.data?.data || []).find(
-                        (e: EncounterRecord) => !['closed', 'cancelled', 'signed'].includes(String(e.status))
-                    );
-                    if (existing) {
-                        router.push(`/emr/encounter/${existing._id}${suffix}`);
-                        return;
-                    }
+            // Reuse existing open encounter unless forcing a new one.
+            if (!forceNew) {
+                const existing = (qEncounters.data?.data || []).find(
+                    (e: EncounterRecord) => !['closed', 'cancelled', 'signed'].includes(String(e.status))
+                );
+                if (existing) {
+                    setStarting(null);
+                    router.push(`/emr/encounter/${existing._id}${suffix}`);
+                    return;
                 }
-                const enc = await createEncounter({
-                    patientId,
-                    type: 'opd',
-                    specialty: 'General Medicine',
-                    chiefComplaint: '',
-                });
-                queryClient.invalidateQueries({ queryKey: ['emr', 'encounters', patientId] });
-                router.push(`/emr/encounter/${enc._id}${suffix}`);
-            } catch (err) {
-                if (err instanceof ApiOfflineError) {
-                    toast('info', 'Backend offline', 'Opening the demo encounter workspace instead.');
-                    const pid = suffix ? `${suffix}&patientId=${patientId}` : `?patientId=${patientId}`;
-                    router.push(`/emr/encounter/${DEMO_ENCOUNTER_ID}${pid}`);
-                } else {
-                    toast('error', 'Could not start encounter', err instanceof Error ? err.message : undefined);
-                }
-            } finally {
-                setStarting(null);
             }
+
+            // No existing encounter — open the creation dialog.
+            setStarting(null);
+            setPendingPanel(panel);
+            setNewEncOpen(true);
         },
-        [patientId, isDemoPatient, qEncounters.data, queryClient, router, toast]
+        [patientId, isDemoPatient, qEncounters.data, router]
     );
+
+    const handleCreateEncounter = async () => {
+        if (!pendingPanel) return;
+        setEncSubmitting(true);
+        const suffix = pendingPanel === 'note' ? '' : `?panel=${pendingPanel}`;
+        try {
+            const enc = await createEncounter({
+                patientId,
+                type: encType,
+                specialty: encSpecialty.trim() || 'General Medicine',
+                chiefComplaint: encChiefComplaint.trim() || undefined,
+            });
+            queryClient.invalidateQueries({ queryKey: ['emr', 'encounters', patientId] });
+            closeNewEncDialog();
+            router.push(`/emr/encounter/${enc._id}${suffix}`);
+        } catch (err) {
+            if (err instanceof ApiOfflineError) {
+                toast('info', 'Backend offline', 'Opening the demo encounter workspace instead.');
+                const pid = suffix ? `${suffix}&patientId=${patientId}` : `?patientId=${patientId}`;
+                closeNewEncDialog();
+                router.push(`/emr/encounter/${DEMO_ENCOUNTER_ID}${pid}`);
+            } else {
+                toast('error', 'Could not start encounter', err instanceof Error ? err.message : undefined);
+            }
+        } finally {
+            setEncSubmitting(false);
+        }
+    };
 
     const handleUpload = async () => {
         if (!selectedFile) return;
@@ -288,7 +320,7 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                         <Button variant="outline" onClick={() => setUploadOpen(true)}>
                             <UploadCloud className="h-4 w-4" aria-hidden /> Upload Document
                         </Button>
-                        <Link href="/billing">
+                        <Link href={`/billing?patientId=${patientId}`}>
                             <Button variant="ghost">
                                 <ReceiptText className="h-4 w-4" aria-hidden /> View Billing
                             </Button>
@@ -439,6 +471,81 @@ export default function Patient360Page({ params }: { params: Promise<{ patientId
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ── New encounter ── */}
+            <Dialog
+                open={newEncOpen}
+                onClose={closeNewEncDialog}
+                title="Start New Encounter"
+                description="Set the encounter type, specialty, and optionally the chief complaint before opening the workspace."
+                footer={
+                    <>
+                        <Button variant="outline" onClick={closeNewEncDialog}>Cancel</Button>
+                        <Button loading={encSubmitting} onClick={handleCreateEncounter}>
+                            <Stethoscope className="h-4 w-4" aria-hidden /> Start Encounter
+                        </Button>
+                    </>
+                }
+            >
+                <div className="space-y-5">
+                    {/* Encounter type */}
+                    <div className="space-y-2">
+                        <Label>Encounter type</Label>
+                        <div className="flex flex-wrap gap-2" role="group" aria-label="Select encounter type">
+                            {([
+                                { value: 'opd', label: 'OPD' },
+                                { value: 'ipd', label: 'IPD' },
+                                { value: 'emergency', label: 'Emergency' },
+                                { value: 'telemedicine', label: 'Telemedicine' },
+                            ] as const).map(({ value, label }) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    aria-pressed={encType === value}
+                                    onClick={() => setEncType(value)}
+                                    className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                                        encType === value
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Specialty */}
+                    <div className="space-y-2">
+                        <Label htmlFor="enc-specialty">Specialty</Label>
+                        <Input
+                            id="enc-specialty"
+                            list="enc-specialty-list"
+                            value={encSpecialty}
+                            onChange={(e) => setEncSpecialty(e.target.value)}
+                            placeholder="General Medicine"
+                        />
+                        <datalist id="enc-specialty-list">
+                            {['General Medicine', 'Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics',
+                              'Gynecology', 'Dermatology', 'ENT', 'Ophthalmology', 'Psychiatry',
+                              'Oncology', 'Nephrology', 'Gastroenterology', 'Pulmonology', 'Urology',
+                            ].map((s) => <option key={s} value={s} />)}
+                        </datalist>
+                    </div>
+
+                    {/* Chief complaint */}
+                    <div className="space-y-2">
+                        <Label htmlFor="enc-cc">Chief complaint <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        <Textarea
+                            id="enc-cc"
+                            rows={2}
+                            value={encChiefComplaint}
+                            onChange={(e) => setEncChiefComplaint(e.target.value)}
+                            placeholder="e.g. Chest pain for 2 days"
+                        />
+                    </div>
+                </div>
+            </Dialog>
 
             {/* ── Upload document ── */}
             <Dialog
