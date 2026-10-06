@@ -26,6 +26,12 @@
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f572236c-ac63-4ca4-9afe-96fd9b589939"
+      }
+    },
+    "owner": "raviteja.2104"
   }
 }
