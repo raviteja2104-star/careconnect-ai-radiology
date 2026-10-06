@@ -14,17 +14,29 @@ import {
   CardContent, Badge, Progress, Skeleton, EmptyState,
 } from '@/components/ui';
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care';
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function ProductionDashboard() {
   const { data: healthRes } = useQuery({
     queryKey: ['system_health'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/system/health`).then(res => res.json()),
+    queryFn: () => fetch(`${API}/api/system/health`).then(res => res.json()),
     refetchInterval: 5000
   });
 
   const { data: perfRes } = useQuery({
     queryKey: ['system_performance'],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'https://api.careconnect.care'}/api/system/performance`).then(res => res.json()),
+    queryFn: () => fetch(`${API}/api/system/performance`).then(res => res.json()),
     refetchInterval: 5000
+  });
+
+  const { data: complianceRes } = useQuery({
+    queryKey: ['system_compliance'],
+    queryFn: () => fetch(`${API}/api/system/compliance`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 30_000,
   });
 
   const health = healthRes?.data || { status: 'loading', services: {} };
@@ -53,9 +65,29 @@ export default function ProductionDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perfRes]);
 
+  const compliance = complianceRes?.data?.compliance;
+  const complianceLoading = !complianceRes;
   const complianceRows = [
-    { label: 'HIPAA Readiness', badge: <Badge tone="info">Audited</Badge>, icon: ShieldCheck },
-    { label: 'ABDM Gateway', badge: <Badge tone="success" dot pulse>Active</Badge>, icon: Radio },
+    {
+      label: 'HIPAA Readiness',
+      badge: !compliance
+        ? <Badge tone="neutral">—</Badge>
+        : (compliance.hipaa === 'audited' || compliance.hipaa === 'compliant')
+          ? <Badge tone="info">Audited</Badge>
+          : <Badge tone="success" dot>Active</Badge>,
+      icon: ShieldCheck,
+    },
+    {
+      label: 'ABDM Gateway',
+      badge: !compliance
+        ? <Badge tone="neutral">—</Badge>
+        : compliance.abdm === 'active'
+          ? <Badge tone="success" dot pulse>Active</Badge>
+          : compliance.abdm === 'ready'
+            ? <Badge tone="info">Configured</Badge>
+            : <Badge tone="neutral">Not configured</Badge>,
+      icon: Radio,
+    },
     { label: 'XSS / CSP Mitigation', badge: <Badge tone="success">Enabled</Badge>, icon: ShieldCheck },
   ];
 
@@ -234,6 +266,13 @@ export default function ProductionDashboard() {
             <CardDescription>Security posture and regulatory gateways.</CardDescription>
           </CardHeader>
           <CardContent>
+            {complianceLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+            ) : (
             <ul className="space-y-2.5">
               {complianceRows.map((row, i) => (
                 <motion.li
@@ -251,6 +290,7 @@ export default function ProductionDashboard() {
                 </motion.li>
               ))}
             </ul>
+            )}
           </CardContent>
         </Card>
       </div>

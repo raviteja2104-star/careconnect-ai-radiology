@@ -64,20 +64,33 @@ exports.getPerformance = async (req, res) => {
 // @desc    Get security and compliance status
 // @route   GET /api/system/security
 exports.getSecurityStatus = async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      waf: 'active',
-      rateLimiter: 'active',
-      encryptionAtRest: 'AES-256',
-      encryptionInTransit: 'TLS 1.3',
-      vulnerabilities: 0,
-      compliance: {
-        hipaa: 'compliant',
-        abdm: 'ready',
-        soc2: 'audited'
+  try {
+    const AuditLog = require('../models/AuditLog');
+    const AdminOpsRecord = require('../models/AdminOpsRecord');
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const [recentAuditCount, abdmRecord] = await Promise.all([
+      AuditLog.countDocuments({ at: { $gte: sevenDaysAgo } }),
+      AdminOpsRecord.findOne({ recordType: 'workflow_integration', 'data.protocol': 'ABDM_ABHA' }).lean(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        waf: 'active',
+        rateLimiter: 'active',
+        encryptionAtRest: 'AES-256',
+        encryptionInTransit: 'TLS 1.3',
+        vulnerabilities: 0,
+        compliance: {
+          hipaa: recentAuditCount > 0 ? 'audited' : 'active',
+          abdm: abdmRecord ? 'active' : 'not_configured',
+          csp: 'enabled',
+        },
+        recentAlerts: [],
       },
-      recentAlerts: []
-    }
-  });
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 };

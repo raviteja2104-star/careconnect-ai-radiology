@@ -12,7 +12,7 @@ import {
 import {
   PageHeader, StatCard, StatGrid, Badge, Button, Card, CardHeader, CardTitle,
   CardDescription, CardContent, Tabs, TabsList, TabsTrigger, TabsContent,
-  Input, Label, Progress,
+  Input, Label, Progress, EmptyState,
 } from '@/components/ui';
 import {
   integrationHubService, FHIRResourceRecord, HL7MessageRecord,
@@ -63,6 +63,22 @@ export default function EnterpriseIntegrationHubPage() {
     staleTime: 30000,
   });
   const health = integrationHealthRes?.data ?? null;
+
+  const { data: wfIntegrationRes } = useQuery({
+    queryKey: ['admin-ops-workflow_integration'],
+    queryFn: () => fetch(`${API}/api/admin/ops/workflow_integration`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60_000,
+  });
+  const abdmRecord = (wfIntegrationRes?.data ?? []).find(
+    (r: { protocol?: string }) => r.protocol === 'ABDM_ABHA'
+  );
+
+  const { data: apiKeysRes } = useQuery({
+    queryKey: ['admin-ops-enterprise_apikeys'],
+    queryFn: () => fetch(`${API}/api/admin/ops/enterprise_apikeys`, { headers: authHeaders() }).then(r => r.json()),
+    staleTime: 60_000,
+  });
+  const apiKeys: Array<{ id: string; name: string; scope?: string }> = apiKeysRes?.data ?? [];
 
   const [testEndpoint, setTestEndpoint] = useState('https://fhir.careconnect.hospital/r4/Patient');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -302,7 +318,9 @@ export default function EnterpriseIntegrationHubPage() {
                     </span>
                     <h3 className="font-semibold text-foreground">{m.title}</h3>
                     <p className="text-sm text-muted-foreground">{m.description}</p>
-                    <Badge tone="success" dot>CERTIFIED & ACTIVE</Badge>
+                    <Badge tone={abdmRecord ? 'success' : 'neutral'} dot={!!abdmRecord}>
+                      {abdmRecord ? 'CONFIGURED' : 'Not configured'}
+                    </Badge>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -323,13 +341,25 @@ export default function EnterpriseIntegrationHubPage() {
                 <CardDescription>Production OAuth 2.1 client keys issued for this tenant.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
-                  <div className="min-w-0">
-                    <p className="font-mono text-sm font-semibold text-foreground">careconnect_prod_v1</p>
-                    <p className="mt-0.5 font-mono text-xs text-subtle-foreground">Scope: read:fhir write:fhir read:prescriptions</p>
+                {apiKeys.length === 0 ? (
+                  <EmptyState
+                    icon={Key}
+                    title="No API credentials configured"
+                    description="API keys are provisioned through the system administrator."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {apiKeys.map((key) => (
+                      <div key={key.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4">
+                        <div className="min-w-0">
+                          <p className="font-mono text-sm font-semibold text-foreground">{key.name}</p>
+                          {key.scope && <p className="mt-0.5 font-mono text-xs text-subtle-foreground">Scope: {key.scope}</p>}
+                        </div>
+                        <Badge tone="brand" dot>ACTIVE KEY</Badge>
+                      </div>
+                    ))}
                   </div>
-                  <Badge tone="brand" dot>ACTIVE KEY</Badge>
-                </div>
+                )}
               </CardContent>
             </Card>
             <Card>
