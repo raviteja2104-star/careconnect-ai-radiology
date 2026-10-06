@@ -6,14 +6,14 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
-      "cwd": "C:\\Users\\Ravi Teja\\careconnect\\web-portal"
+      "cwd": "web-portal"
     },
     {
       "name": "CareConnect Backend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5000,
-      "cwd": "C:\\Users\\Ravi Teja\\careconnect\\backend"
+      "cwd": "backend"
     }
   ]
 }
