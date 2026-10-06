@@ -17,7 +17,7 @@ import {
 import { useToast } from '@/components/ui/toast';
 import { usePermissions } from '@/contexts/PermissionContext';
 import {
-    fetchEncounterBundle, fetchPatient360, putNote, signNote, amendNote, postDiagnosis,
+    fetchEncounterBundle, fetchPatient360, fetchCurrentUser, putNote, signNote, amendNote, postDiagnosis,
     postVitals, patchEncounter, patientDisplayName, ApiOfflineError,
     type NoteFormat, type NoteSections, type ClinicalNoteRecord, type DiagnosisEntry,
     type VitalsEntry, type PatientRecord,
@@ -60,6 +60,28 @@ const FORMAT_SECTIONS: Record<Exclude<NoteFormat, 'CUSTOM'>, [keyof NoteSections
 };
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'local' | 'error';
+
+interface RxSettings {
+    hospitalName?: string;
+    doctorName?: string;
+    doctorTitle?: string;
+    footerTerms?: string;
+}
+
+function getActiveRxSettings(): RxSettings {
+    if (typeof window === 'undefined') return {};
+    try {
+        const raw = localStorage.getItem('cc-rx-templates');
+        if (!raw) return {};
+        const store = JSON.parse(raw) as { version: number; activeId: string | null; templates: Array<{ id: string; isDefault: boolean; settings: RxSettings }> };
+        const active = store.activeId
+            ? store.templates.find((t) => t.id === store.activeId)
+            : store.templates.find((t) => t.isDefault) ?? store.templates[0];
+        return active?.settings ?? {};
+    } catch {
+        return {};
+    }
+}
 
 async function sha256Hex(text: string): Promise<string> {
     try {
@@ -107,6 +129,13 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
         enabled: Boolean(patientId),
     });
     const p360 = q360.data?.data;
+
+    const qMe = useQuery({
+        queryKey: ['currentUser'],
+        queryFn: fetchCurrentUser,
+        staleTime: 5 * 60 * 1000,
+    });
+    const currentUser = qMe.data;
     const encPatient = typeof encounter?.patientId === 'object' && encounter.patientId._id !== 'demo' ? encounter.patientId as PatientRecord : null;
     const encPatientName = encPatient
         ? `${encPatient.firstName || ''} ${encPatient.lastName || ''}`.trim() || encPatient.name || undefined
@@ -393,16 +422,20 @@ function EncounterWorkspace({ params }: { params: Promise<{ encounterId: string 
             ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / 31557600000)
             : undefined;
         const pid = (p360 as unknown as Record<string, unknown>)?.patientId;
+        const rxCfg = getActiveRxSettings();
+        const authDoctorName = currentUser
+            ? `Dr. ${[currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ')}`.trim()
+            : undefined;
         return {
             settings: {
-                hospitalName: 'CareConnect Medical Centre',
-                doctorName: 'Dr. Raj Kumar',
-                doctorTitle: 'MBBS, MD — General Medicine',
+                hospitalName: rxCfg.hospitalName || 'CareConnect Medical Centre',
+                doctorName: rxCfg.doctorName || authDoctorName || 'Your Doctor',
+                doctorTitle: rxCfg.doctorTitle || '',
                 primaryColor: 'indigo' as const,
                 showDiagnosis: true,
                 showVitals: true,
                 showFooter: true,
-                footerTerms: 'This prescription is valid for 30 days from the date of issue.',
+                footerTerms: rxCfg.footerTerms || 'This prescription is valid for 30 days from the date of issue.',
             },
             patient: {
                 name: patientDisplayName(patient) || 'Patient',

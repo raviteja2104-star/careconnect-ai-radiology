@@ -453,6 +453,24 @@ export interface WithDemo<T> {
     demo: boolean;
 }
 
+export interface CurrentUser {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+    specialty?: string;
+}
+
+export async function fetchCurrentUser(): Promise<CurrentUser | null> {
+    try {
+        const data = await request<{ success: boolean; data: CurrentUser }>('/api/auth/me');
+        return data.success ? data.data : null;
+    } catch {
+        return null;
+    }
+}
+
 export async function fetchPatient360(patientId: string): Promise<WithDemo<Patient360>> {
     if (patientId === DEMO_PATIENT_ID) return { data: DEMO_360, demo: true };
     try {
