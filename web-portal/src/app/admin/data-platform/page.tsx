@@ -1,17 +1,18 @@
 ﻿'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Database, Activity, Layers, Heart, RefreshCw, Users, FileText,
   Sparkles, AlertTriangle, ArrowRight, Stethoscope, FlaskConical, Pill,
-  BedDouble, ClipboardList, Lightbulb, HardDrive,
+  BedDouble, ClipboardList, Lightbulb, HardDrive, Search, CheckCircle2,
 } from 'lucide-react';
 import {
   PageHeader, StatCard, StatGrid, Tabs, TabsList, TabsTrigger, TabsContent,
   Card, CardHeader, CardTitle, CardDescription, CardContent,
   Badge, Button, Input, Label, DataTable, EmptyState, Progress,
+  Textarea,
   type Column,
 } from '@/components/ui';
 import {
@@ -53,7 +54,34 @@ export default function EnterpriseDataPlatformPage() {
   const twin: DigitalTwinHospitalState | null = twinRes?.data ?? null;
 
   // Research Query Form
-  const [cohortName, setCohortName] = useState('Cardiovascular & Type 2 Diabetes High-Risk Cohort');
+  const [cohortName, setCohortName] = useState('');
+  const [researchTerms, setResearchTerms] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  interface ResearchResult {
+    cohortName: string;
+    patientCount: number;
+    encounterCount: number;
+    genderBreakdown: Record<string, number>;
+    ageGroups: Record<string, number>;
+    topDiagnoses: { term: string; count: number }[];
+    queryMs: number;
+  }
+
+  const researchMutation = useMutation<ResearchResult, Error>({
+    mutationFn: async () => {
+      const terms = researchTerms.split(',').map((t) => t.trim()).filter(Boolean);
+      const res = await fetch(`${API}/api/admin/ops/research/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ cohortName, terms, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message ?? 'Query failed');
+      return json.data as ResearchResult;
+    },
+  });
 
   const handleRefreshTwin = () => {
     void refetchTwin();
@@ -395,40 +423,155 @@ export default function EnterpriseDataPlatformPage() {
             <p className="text-sm text-muted-foreground">Build HIPAA-compliant research cohorts & query ML time-series features.</p>
           </div>
 
+          {/* Cohort query form */}
           <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <Label htmlFor="cohort-definition">Cohort definition</Label>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Search className="h-4 w-4 text-primary" aria-hidden /> Cohort Query
+              </CardTitle>
+              <CardDescription>Filter by diagnosis keywords and encounter date range. Results are aggregated — no individual patient records are returned.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label htmlFor="cohort-name">Cohort label <span className="text-muted-foreground font-normal">(optional)</span></Label>
                   <Input
-                    id="cohort-definition"
-                    type="text"
-                    placeholder="Cohort Definition (e.g. Cardiovascular & Diabetes Dual Cohort)"
+                    id="cohort-name"
+                    placeholder="e.g. Cardiovascular & Diabetes High-Risk Cohort"
                     value={cohortName}
                     onChange={(e) => setCohortName(e.target.value)}
-                    className="mt-1.5"
                   />
                 </div>
-                <Badge tone="info" dot>Data Lakehouse backend required</Badge>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label htmlFor="research-terms">Condition keywords <span className="text-muted-foreground font-normal">(comma-separated)</span></Label>
+                  <Textarea
+                    id="research-terms"
+                    rows={2}
+                    placeholder="e.g. diabetes, hypertension, coronary artery disease"
+                    value={researchTerms}
+                    onChange={(e) => setResearchTerms(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="date-from">Encounters from</Label>
+                  <Input id="date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="date-to">Encounters to</Label>
+                  <Input id="date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                </div>
               </div>
+              {researchMutation.isError && (
+                <p className="text-sm text-danger">{researchMutation.error.message}</p>
+              )}
+              <Button
+                loading={researchMutation.isPending}
+                onClick={() => researchMutation.mutate()}
+              >
+                <Search className="h-4 w-4" aria-hidden /> Run Cohort Query
+              </Button>
             </CardContent>
           </Card>
 
+          {/* Results */}
+          {researchMutation.data && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-success" aria-hidden />
+                <span className="text-sm font-medium text-foreground">
+                  {researchMutation.data.cohortName
+                    ? `"${researchMutation.data.cohortName}" — `
+                    : ''}
+                  {researchMutation.data.patientCount} patients · {researchMutation.data.encounterCount} encounters
+                </span>
+                <span className="ml-auto text-xs text-muted-foreground">{researchMutation.data.queryMs} ms</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {/* Gender breakdown */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Gender breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {Object.entries(researchMutation.data.genderBreakdown).map(([g, n]) => {
+                      const pct = Math.round((n / researchMutation.data!.patientCount) * 100);
+                      return (
+                        <div key={g}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="capitalize text-foreground font-medium">{g}</span>
+                            <span className="text-muted-foreground">{n} ({pct}%)</span>
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
+                        </div>
+                      );
+                    })}
+                    {Object.keys(researchMutation.data.genderBreakdown).length === 0 && (
+                      <p className="text-xs text-muted-foreground">No demographic data</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Age groups */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Age distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {Object.entries(researchMutation.data.ageGroups).map(([range, n]) => {
+                      const pct = researchMutation.data!.patientCount > 0
+                        ? Math.round((n / researchMutation.data!.patientCount) * 100)
+                        : 0;
+                      return (
+                        <div key={range}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-foreground font-medium">{range} yrs</span>
+                            <span className="text-muted-foreground">{n} ({pct}%)</span>
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                {/* Top diagnoses */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Top diagnoses</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1.5">
+                    {researchMutation.data.topDiagnoses.map(({ term, count }) => (
+                      <div key={term} className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-foreground truncate">{term}</span>
+                        <Badge tone="neutral" className="text-[10px] shrink-0">{count}</Badge>
+                      </div>
+                    ))}
+                    {researchMutation.data.topDiagnoses.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No diagnoses found</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Setup guide */}
           <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 space-y-4">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-info/10 text-info">
                 <Database className="h-5 w-5" aria-hidden />
               </span>
               <div>
-                <p className="font-semibold text-foreground">Data Lakehouse connection required</p>
-                <p className="text-sm text-muted-foreground mt-0.5">Cohort extraction runs against the de-identified Iceberg + ClickHouse lakehouse. Complete setup to enable research queries and ML feature exports.</p>
+                <p className="font-semibold text-foreground">Scale to a Data Lakehouse for large cohorts</p>
+                <p className="text-sm text-muted-foreground mt-0.5">The query above runs against the live EMR database. For population-scale analytics (&gt;100k patients) and ML feature exports, connect a de-identified Iceberg + ClickHouse lakehouse.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {[
                 { step: '1', label: 'Provision Lakehouse', detail: 'Deploy ClickHouse cluster and configure Apache Iceberg storage in Admin › Data Platform › Lakehouse.' },
                 { step: '2', label: 'Configure de-identification', detail: 'Apply HIPAA Safe Harbour or Expert Determination ruleset to PHI fields before research access.' },
-                { step: '3', label: 'Run cohort query', detail: 'Define ICD-10 / SNOMED inclusion/exclusion criteria, set date window and export to ML feature store.' },
+                { step: '3', label: 'Export to ML feature store', detail: 'Define ICD-10 / SNOMED inclusion/exclusion criteria, set date window and export to ML feature store.' },
               ].map((item) => (
                 <div key={item.step} className="flex gap-3 rounded-lg border border-border bg-card p-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">{item.step}</span>

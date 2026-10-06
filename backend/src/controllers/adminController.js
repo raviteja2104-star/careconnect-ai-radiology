@@ -649,3 +649,91 @@ exports.reactivateUser = async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 };
+
+// ─── Research Cohort Query ────────────────────────────────────────────────────
+
+exports.researchCohortQuery = async (req, res) => {
+    try {
+        const Encounter = require('../models/Encounter');
+        const { cohortName = '', terms = [], dateFrom, dateTo } = req.body;
+
+        const matchStage = {};
+
+        if (dateFrom || dateTo) {
+            matchStage.createdAt = {};
+            if (dateFrom) matchStage.createdAt.$gte = new Date(dateFrom);
+            if (dateTo) matchStage.createdAt.$lte = new Date(dateTo + 'T23:59:59');
+        }
+
+        const cleanTerms = (Array.isArray(terms) ? terms : [terms])
+            .map((t) => String(t).trim())
+            .filter(Boolean);
+
+        if (cleanTerms.length > 0) {
+            matchStage['diagnoses.0'] = { $exists: true };
+            matchStage['$or'] = cleanTerms.map((t) => ({
+                'diagnoses.term': { $regex: t, $options: 'i' },
+            }));
+        } else {
+            matchStage['diagnoses.0'] = { $exists: true };
+        }
+
+        const t0 = Date.now();
+        const encounters = await Encounter.find(matchStage)
+            .select('patientId diagnoses createdAt')
+            .lean();
+
+        const patientIdSet = new Set(
+            encounters.map((e) => e.patientId?.toString()).filter(Boolean)
+        );
+        const patientIds = Array.from(patientIdSet);
+
+        const termCounts = {};
+        for (const enc of encounters) {
+            for (const dx of enc.diagnoses ?? []) {
+                if (!dx.term) continue;
+                termCounts[dx.term] = (termCounts[dx.term] || 0) + 1;
+            }
+        }
+        const topDiagnoses = Object.entries(termCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([term, count]) => ({ term, count }));
+
+        const patients = await User.find({ _id: { $in: patientIds } })
+            .select('gender dateOfBirth')
+            .lean();
+
+        const genderBreakdown = {};
+        const ageGroups = { '0-18': 0, '19-40': 0, '41-60': 0, '61+': 0 };
+
+        for (const p of patients) {
+            const g = p.gender || 'unknown';
+            genderBreakdown[g] = (genderBreakdown[g] || 0) + 1;
+            if (p.dateOfBirth) {
+                const age = Math.floor(
+                    (Date.now() - new Date(p.dateOfBirth).getTime()) / 31_557_600_000
+                );
+                if (age <= 18) ageGroups['0-18']++;
+                else if (age <= 40) ageGroups['19-40']++;
+                else if (age <= 60) ageGroups['41-60']++;
+                else ageGroups['61+']++;
+            }
+        }
+
+        res.json({
+            success: true,
+            data: {
+                cohortName,
+                patientCount: patientIds.length,
+                encounterCount: encounters.length,
+                genderBreakdown,
+                ageGroups,
+                topDiagnoses,
+                queryMs: Date.now() - t0,
+            },
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};

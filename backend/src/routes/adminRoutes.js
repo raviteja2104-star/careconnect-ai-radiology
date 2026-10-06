@@ -31,6 +31,10 @@ const {
   listOpsRecords, createOpsRecord, updateOpsRecord, deleteOpsRecord,
 } = require('../controllers/adminOpsController');
 
+const {
+  researchCohortQuery,
+} = require('../controllers/adminController');
+
 router.get('/command-center', protect, permit('ADMIN.VIEW_DASHBOARD'), getCommandCenter);
 router.get('/platform-stats', protect, permit('ADMIN.VIEW_ANALYTICS'), getPlatformStats);
 router.post('/ai-scribe', protect, permitAny('ADMIN.VIEW_ANALYTICS', 'DOCTOR.EDIT_CLINICAL_NOTES'), generateScribe);
@@ -48,6 +52,9 @@ router.get('/form-templates',         protect, permit('ADMIN.MANAGE_SYSTEM_SETTI
 router.post('/form-templates',        protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), createTemplate);
 router.patch('/form-templates/:id',   protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), updateTemplate);
 router.patch('/form-templates/:id/publish', protect, permit('ADMIN.MANAGE_SYSTEM_SETTINGS'), publishTemplate);
+
+// Research cohort query (must come before the /:type wildcard)
+router.post('/ops/research/query', protect, permitAny('ADMIN.VIEW_ANALYTICS', 'ADMIN.MANAGE_SYSTEM_SETTINGS'), researchCohortQuery);
 
 // Enterprise ops records (projects, devices, lms_course, releases)
 router.get('/ops/:type',          protect, permit('ADMIN.VIEW_ANALYTICS'),          listOpsRecords);
