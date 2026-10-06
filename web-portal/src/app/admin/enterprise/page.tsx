@@ -368,7 +368,7 @@ export default function EnterpriseIntegrationHubPage() {
                 <CardDescription>Gateway-routed platform services.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(integrationHealthRes?.data ?? health.services).map((svc: { name: string; status: string; latencyMs?: number; description?: string }) => (
+                {(integrationHealthRes?.data ?? health?.services ?? []).map((svc: { name: string; status: string; latencyMs?: number; description?: string }) => (
                   <div key={svc.name} className="flex items-center justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate text-muted-foreground">{svc.name}</span>
                     <span className="flex shrink-0 items-center gap-2">

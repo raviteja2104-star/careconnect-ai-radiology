@@ -43,7 +43,7 @@ export default function FormBuilder() {
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
 
   const [templateId, setTemplateId]   = useState<string | null>(null);
-  const [templateName, setTemplateName] = useState('General Surgery Consent');
+  const [templateName, setTemplateName] = useState('');
   const [status, setStatus]           = useState<'draft' | 'published'>('draft');
   const [version, setVersion]         = useState(1);
   const [formFields, setFormFields]   = useState<FormField[]>(DEFAULT_FIELDS);
