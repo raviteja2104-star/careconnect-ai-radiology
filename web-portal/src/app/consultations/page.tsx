@@ -103,6 +103,12 @@ interface MedOrder {
   orderingDoctorId?: { firstName?: string; lastName?: string } | null;
 }
 interface SafetyFlag { drug?: string; type?: string; severity: 'info' | 'warning' | 'critical'; message: string; }
+interface LabTest { name: string; code?: string; }
+interface LabOrder {
+  _id: string; orderCode?: string; status: string; priority?: string; createdAt: string;
+  details: { tests: LabTest[] };
+  orderingDoctorId?: { firstName?: string; lastName?: string } | null;
+}
 
 function VitalsStrip({ vitals }: { vitals: NonNullable<Consultation['vitals']> }) {
   const items = [
@@ -206,6 +212,15 @@ export default function ConsultationsPage() {
   const [safetyFlags, setSafetyFlags] = useState<SafetyFlag[]>([]);
   const [pendingAck, setPendingAck] = useState(false);
 
+  // Labs tab state
+  const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
+  const [labLoading, setLabLoading] = useState(false);
+  const [labError, setLabError] = useState('');
+  const [addLabOpen, setAddLabOpen] = useState(false);
+  const [labDraft, setLabDraft] = useState({ testName: '', priority: 'routine' });
+  const [labSubmitting, setLabSubmitting] = useState(false);
+  const [labSubmitError, setLabSubmitError] = useState('');
+
   // Dictate + AI Assist
   const [dictating, setDictating] = useState(false);
   const recognitionRef = useRef<SRInstance | null>(null);
@@ -236,6 +251,61 @@ export default function ConsultationsPage() {
       setMedOrders([]);
     }
   }, [activeTab, selected?.encounterId, fetchMedOrders]);
+
+  const fetchLabOrders = React.useCallback(async (encounterId: string) => {
+    setLabLoading(true);
+    setLabError('');
+    try {
+      const r = await fetch(`${API}/api/emr/orders?encounterId=${encounterId}&category=lab`, { headers: authHeaders() });
+      if (r.ok) {
+        const data = await r.json();
+        setLabOrders(Array.isArray(data) ? data : []);
+      } else {
+        setLabError('Failed to load lab orders.');
+      }
+    } catch {
+      setLabError('Network error loading lab orders.');
+    } finally {
+      setLabLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'labs' && selected?.encounterId) {
+      fetchLabOrders(selected.encounterId);
+    } else if (activeTab === 'labs') {
+      setLabOrders([]);
+    }
+  }, [activeTab, selected?.encounterId, fetchLabOrders]);
+
+  async function handleOrderLab() {
+    if (!labDraft.testName.trim() || !selected?.encounterId) return;
+    setLabSubmitting(true);
+    setLabSubmitError('');
+    try {
+      const r = await fetch(`${API}/api/emr/encounters/${selected.encounterId}/orders`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          category: 'lab',
+          priority: labDraft.priority,
+          details: { tests: [{ name: labDraft.testName.trim() }] },
+        }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        setAddLabOpen(false);
+        setLabDraft({ testName: '', priority: 'routine' });
+        await fetchLabOrders(selected.encounterId);
+      } else {
+        setLabSubmitError(data.message || 'Failed to place lab order.');
+      }
+    } catch {
+      setLabSubmitError('Network error.');
+    } finally {
+      setLabSubmitting(false);
+    }
+  }
 
   async function handleAddMed(acknowledge = false) {
     if (!drugDraft.name.trim() || !selected?.encounterId) return;
@@ -303,6 +373,8 @@ export default function ConsultationsPage() {
     setSaveMessage(null);
     setMedOrders([]);
     setMedError('');
+    setLabOrders([]);
+    setLabError('');
   }
 
   function handleSoapChange(field: keyof SoapFields, value: string) {
@@ -613,14 +685,62 @@ export default function ConsultationsPage() {
                       <CardContent className="space-y-4 p-6">
                         <div className="flex items-center justify-between">
                           <h3 className="font-bold text-foreground">Lab Orders</h3>
-                          <Link href="/lab-orders">
-                            <Button size="sm"><Plus className="h-3.5 w-3.5" aria-hidden /> Order Labs</Button>
-                          </Link>
+                          {selected.encounterId && (
+                            <Button size="sm" onClick={() => { setAddLabOpen(true); setLabDraft({ testName: '', priority: 'routine' }); setLabSubmitError(''); }}>
+                              <Plus className="h-3.5 w-3.5" aria-hidden /> Order Labs
+                            </Button>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 rounded-xl bg-info-soft p-4 text-sm text-info">
-                          <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
-                          No lab orders linked to this consultation.
-                        </div>
+
+                        {!selected.encounterId && (
+                          <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft p-4 text-sm text-warning">
+                            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                            Save a SOAP draft first to enable lab orders for this encounter.
+                          </div>
+                        )}
+
+                        {selected.encounterId && labLoading && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading lab orders…
+                          </div>
+                        )}
+
+                        {selected.encounterId && labError && (
+                          <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{labError}</p>
+                        )}
+
+                        {selected.encounterId && !labLoading && !labError && labOrders.length === 0 && (
+                          <div className="flex items-center gap-2 rounded-xl bg-info-soft p-4 text-sm text-info">
+                            <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
+                            No lab orders placed for this encounter yet.
+                          </div>
+                        )}
+
+                        {labOrders.length > 0 && (
+                          <div className="divide-y divide-border rounded-xl border border-border">
+                            {labOrders.map(order => (
+                              <div key={order._id} className="px-4 py-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="space-y-0.5">
+                                    {order.details.tests.map((t, i) => (
+                                      <p key={i} className="text-sm font-medium text-foreground">{t.name}{t.code ? ` (${t.code})` : ''}</p>
+                                    ))}
+                                  </div>
+                                  <div className="flex shrink-0 items-center gap-1.5">
+                                    {order.priority && order.priority !== 'routine' && (
+                                      <Badge tone="warning" className="text-[10px]">{order.priority}</Badge>
+                                    )}
+                                    <Badge tone="brand" className="text-[10px]">{order.status || 'ordered'}</Badge>
+                                  </div>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  {order.orderCode ? ` · ${order.orderCode}` : ''}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -630,6 +750,50 @@ export default function ConsultationsPage() {
           })()}
         </div>
       )}
+
+      <Dialog
+        open={addLabOpen}
+        onClose={() => setAddLabOpen(false)}
+        title="Order Lab Test"
+        description="This order will be routed to the lab worklist for this encounter."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setAddLabOpen(false)}>Cancel</Button>
+            <Button onClick={handleOrderLab} loading={labSubmitting} disabled={!labDraft.testName.trim()}>Place Order</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {labSubmitError && (
+            <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{labSubmitError}</p>
+          )}
+          <div>
+            <Label htmlFor="lab-name">Test name <span aria-hidden>*</span></Label>
+            <Input
+              id="lab-name"
+              value={labDraft.testName}
+              onChange={e => setLabDraft(d => ({ ...d, testName: e.target.value }))}
+              placeholder="e.g. Complete Blood Count"
+            />
+          </div>
+          <div>
+            <Label htmlFor="lab-priority">Priority</Label>
+            <div className="mt-1 flex gap-2">
+              {(['routine', 'urgent', 'stat'] as const).map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setLabDraft(d => ({ ...d, priority: p }))}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${labDraft.priority === p ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground hover:bg-muted'}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={addMedOpen}
