@@ -10,7 +10,8 @@
       "bundleIdentifier": "com.careconnect.app"
     },
     "android": {
-      "package": "com.careconnect.app"
+      "package": "com.careconnect.app",
+      "kotlinVersion": "1.9.25"
     },
     "web": {
       "bundler": "metro",
