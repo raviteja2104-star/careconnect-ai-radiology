@@ -10,8 +10,7 @@
       "bundleIdentifier": "com.careconnect.app"
     },
     "android": {
-      "package": "com.careconnect.app",
-      "kotlinVersion": "1.9.25"
+      "package": "com.careconnect.app"
     },
     "web": {
       "bundler": "metro",
@@ -26,7 +25,12 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      ["expo-build-properties", {
+        "android": {
+          "kotlinVersion": "1.9.25"
+        }
+      }]
     ],
     "extra": {
       "eas": {
